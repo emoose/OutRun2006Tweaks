@@ -1,0 +1,54 @@
+#pragma once
+
+typedef void (*fn_0args)();
+typedef void (*fn_1arg)(int);
+typedef int (*fn_1arg_int)(int);
+
+enum GameState
+{
+	STATE_SYSTEM = 0x0,
+	STATE_WARNING = 0x1,
+	STATE_INFO = 0x2,
+	STATE_ADVERTISE = 0x3,
+	STATE_TITLE = 0x4,
+	STATE_RATING = 0x5,
+	STATE_ENTRY = 0x6,
+	STATE_ADVEXIT = 0x7,
+	STATE_ERROR = 0x8,
+	STATE_MENU = 0x9,
+	STATE_SELECTOR = 0xA,
+	STATE_SELEXIT = 0xB,
+	STATE_SELRESET = 0xC,
+	STATE_START = 0xD,
+	STATE_WARP = 0xE,
+	STATE_RESTART = 0xF,
+	STATE_GAME = 0x10,
+	STATE_GIVEUP = 0x11,
+	STATE_SMPAUSEMENU = 0x12,
+	STATE_GOAL = 0x13,
+	STATE_TIMEUP = 0x14,
+	STATE_LINK_TIMEUP = 0x15,
+	STATE_RESULT = 0x16,
+	STATE_CONTINUE = 0x17,
+	STATE_ENDING = 0x18,
+	STATE_ROUTEMAP = 0x19,
+	STATE_T_RANKING = 0x1A,
+	STATE_GAMEOVER = 0x1B,
+	STATE_GAMEEXIT = 0x1C,
+	STATE_GAMERESET = 0x1D,
+	STATE_SUMOGAMERESET = 0x1E,
+	STATE_G_NAMEENTRY = 0x1F,
+	STATE_SUMO_FE = 0x20,
+	STATE_LIVEUPDATE = 0x21,
+	STATE_OUTRUNMILES = 0x22,
+	STATE_TRYAGAIN = 0x23,
+	STATE_SUMOREWARD = 0x24,
+};
+
+typedef struct tagSphere
+{
+	float f0;
+	float f1;
+	float f2;
+	float f3;
+} Sphere;

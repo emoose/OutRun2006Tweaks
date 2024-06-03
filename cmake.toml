@@ -1,0 +1,66 @@
+# Reference: https://build-cpp.github.io/cmkr/cmake-toml
+# to build:
+# > cmake -B build
+# > cmake --build build --config Release
+[project]
+name = "outrun2006tweaks-proj"
+cmake-after = """
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /MP")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MP")
+
+set(ASMJIT_STATIC ON CACHE BOOL "" FORCE)
+
+option(ZYDIS_BUILD_TOOLS "" OFF)
+option(ZYDIS_BUILD_EXAMPLES "" OFF)
+
+if ("${CMAKE_BUILD_TYPE}" MATCHES "Release")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /MT")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MT")
+
+    # Statically compile runtime
+    string(REGEX REPLACE "/MD" "/MT" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+    string(REGEX REPLACE "/MD" "/MT" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
+    string(REGEX REPLACE "/MD" "/MT" CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE}")
+    string(REGEX REPLACE "/MD" "/MT" CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE}")
+
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded")
+    message(NOTICE "Building in Release mode")
+endif()
+"""
+
+[target.spdlog]
+type = "static"
+sources = ["external/spdlog/src/*.cpp"]
+include-directories = ["external/spdlog/include"]
+compile-definitions = ["SPDLOG_COMPILED_LIB"]
+compile-options = []
+
+[fetch-content]
+zydis = { git = "https://github.com/zyantific/zydis", tag = "v4.0.0" }
+safetyhook = { git = "https://github.com/cursey/safetyhook", tag = "629558c64009a7291ba6ed5cfb49187086a27a47" }
+
+[target.outrun2006tweaks]
+type = "shared"
+sources = ["src/**.cpp", "src/**.c", "src/**.def", "src/Resource.rc", "external/ModUtils/Patterns.cpp"]
+headers = ["src/**.hpp", "src/**.h", "external/ModUtils/Patterns.h", "external/ModUtils/MemoryMgr.h"]
+include-directories = ["shared/", "src/", "include/", "external/ModUtils/", "external/ini-cpp/ini/"]
+compile-options = ["/GR-", "/GS-", "/bigobj", "/EHa", "/MP"]
+link-options = ["/DEBUG", "/OPT:REF", "/OPT:ICF"]
+compile-features = ["cxx_std_20"]
+compile-definitions = ["_SILENCE_STDEXT_ARR_ITERS_DEPRECATION_WARNING"]
+link-libraries = [
+    "spdlog",
+    "safetyhook",
+    "version.lib"
+]
+
+[target.outrun2006tweaks.properties]
+OUTPUT_NAME = "dinput8"
+SUFFIX = ".dll"
+RUNTIME_OUTPUT_DIRECTORY_RELEASE = "${CMAKE_BINARY_DIR}/bin/${CMKR_TARGET}"
+RUNTIME_OUTPUT_DIRECTORY_RELWITHDEBINFO = "${CMAKE_BINARY_DIR}/bin/${CMKR_TARGET}"
+LIBRARY_OUTPUT_DIRECTORY_RELEASE = "${CMAKE_BINARY_DIR}/lib/${CMKR_TARGET}"
+LIBRARY_OUTPUT_DIRECTORY_RELWITHDEBINFO = "${CMAKE_BINARY_DIR}/lib/${CMKR_TARGET}"
+ARCHIVE_OUTPUT_DIRECTORY_RELEASE = "${CMAKE_BINARY_DIR}/lib/${CMKR_TARGET}"
+ARCHIVE_OUTPUT_DIRECTORY_RELWITHDEBINFO = "${CMAKE_BINARY_DIR}/lib/${CMKR_TARGET}"
+
