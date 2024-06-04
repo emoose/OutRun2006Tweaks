@@ -350,7 +350,7 @@ public:
 };
 AnisotropicFiltering AnisotropicFiltering::instance;
 
-class D3DPresentParamOverrides : public Hook
+class VSyncOverride : public Hook
 {
 	const static int D3DInit_HookAddr = 0xEB66;
 
@@ -360,12 +360,15 @@ class D3DPresentParamOverrides : public Hook
 		Game::D3DPresentParams->PresentationInterval = Settings::VSync;
 		if (!Settings::VSync)
 			Game::D3DPresentParams->PresentationInterval = D3DPRESENT_INTERVAL_IMMEDIATE;
+
+		// TODO: add MultiSampleType / MultiSampleQuality overrides here?
+		//  (doesn't seem any of them are improvement over vanilla "DX/ANTIALIASING = 2" though...)
 	}
 
 public:
 	std::string_view description() override
 	{
-		return "D3DPresentParamOverrides";
+		return "VSync";
 	}
 
 	bool validate() override
@@ -380,6 +383,6 @@ public:
 		return true;
 	}
 
-	static D3DPresentParamOverrides instance;
+	static VSyncOverride instance;
 };
-D3DPresentParamOverrides D3DPresentParamOverrides::instance;
+VSyncOverride VSyncOverride::instance;

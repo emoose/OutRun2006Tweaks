@@ -37,6 +37,10 @@ class ReplaceGameUpdateLoop : public Hook
 			{
 				isLoadScreen = *Game::game_start_progress_code != 65;
 			}
+			else if (CurGameState == STATE_GAMEEXIT || CurGameState == STATE_SUMO_FE || CurGameState == STATE_SELECTOR)
+			{
+				isLoadScreen = (*Game::sumo_load_sprani_67F614 != -1 || *Game::adv_loading_logo != -1);
+			}
 
 			skipFrameLimiter = isLoadScreen;
 
@@ -45,24 +49,21 @@ class ReplaceGameUpdateLoop : public Hook
 				// Toggle vsync if load screen state changed
 				if (!isLoadScreenStarted && isLoadScreen)
 				{
-					IDirect3DDevice9* device = *Module::exe_ptr<IDirect3DDevice9*>(0x49BD60);
 					auto NewParams = *Game::D3DPresentParams;
 					NewParams.PresentationInterval = D3DPRESENT_INTERVAL_IMMEDIATE;
 
-					Game::Sumo_D3DReleaseResources();
-					device->Reset(&NewParams);
-					Game::Sumo_D3DCreateResources();
+					Game::Sumo_D3DResourcesRelease();
+					Game::D3DDevice()->Reset(&NewParams);
+					Game::Sumo_D3DResourcesCreate();
 
 					isLoadScreenStarted = true;
 				}
 
 				if (isLoadScreenStarted && !isLoadScreen)
 				{
-					IDirect3DDevice9* device = *Module::exe_ptr<IDirect3DDevice9*>(0x49BD60);
-
-					Game::Sumo_D3DReleaseResources();
-					device->Reset(Game::D3DPresentParams);
-					Game::Sumo_D3DCreateResources();
+					Game::Sumo_D3DResourcesRelease();
+					Game::D3DDevice()->Reset(Game::D3DPresentParams);
+					Game::Sumo_D3DResourcesCreate();
 
 					isLoadScreenStarted = false;
 				}

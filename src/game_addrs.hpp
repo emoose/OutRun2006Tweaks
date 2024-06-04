@@ -5,6 +5,9 @@ namespace Game
 {
 	inline GameState* current_mode = nullptr;
 	inline int* game_start_progress_code = nullptr;
+	inline int* file_load_progress_code = nullptr;
+	inline int* sumo_load_sprani_67F614 = nullptr;
+	inline int* adv_loading_logo = nullptr;
 
 	inline float* screen_width = nullptr;
 	inline float* screen_height = nullptr;
@@ -19,8 +22,8 @@ namespace Game
 	inline fn_0args SetFrameStartCpuTime = nullptr;
 	inline fn_1arg_int CalcNumUpdatesToRun = nullptr;
 
-	inline fn_0args Sumo_D3DReleaseResources = nullptr;
-	inline fn_0args Sumo_D3DCreateResources = nullptr;
+	inline fn_0args Sumo_D3DResourcesRelease = nullptr;
+	inline fn_0args Sumo_D3DResourcesCreate = nullptr;
 
 	inline fn_1arg fn43FA10 = nullptr;
 
@@ -36,6 +39,9 @@ namespace Game
 	{
 		current_mode = Module::exe_ptr<GameState>(0x38026C);
 		game_start_progress_code = Module::exe_ptr<int>(0x4367A8);
+		file_load_progress_code = Module::exe_ptr<int>(0x436718);
+		sumo_load_sprani_67F614 = Module::exe_ptr<int>(0x27F614);
+		adv_loading_logo = Module::exe_ptr<int>(0x287778);
 
 		screen_width = Module::exe_ptr<float>(0x340C8C);
 		screen_height = Module::exe_ptr<float>(0x340C90);
@@ -46,8 +52,8 @@ namespace Game
 		SetFrameStartCpuTime = Module::fn_ptr<fn_0args>(0x49430);
 		CalcNumUpdatesToRun = Module::fn_ptr<fn_1arg_int>(0x17890);
 
-		Sumo_D3DReleaseResources = Module::fn_ptr<fn_0args>(0x17970);
-		Sumo_D3DCreateResources = Module::fn_ptr<fn_0args>(0x17A20);
+		Sumo_D3DResourcesRelease = Module::fn_ptr<fn_0args>(0x17970);
+		Sumo_D3DResourcesCreate = Module::fn_ptr<fn_0args>(0x17A20);
 
 		fn43FA10 = Module::fn_ptr<fn_1arg>(0x3FA10);
 
