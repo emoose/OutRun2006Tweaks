@@ -350,3 +350,36 @@ public:
 };
 AnisotropicFiltering AnisotropicFiltering::instance;
 
+class D3DPresentParamOverrides : public Hook
+{
+	const static int D3DInit_HookAddr = 0xEB66;
+
+	inline static SafetyHookMid dest_hook = {};
+	static void destination(safetyhook::Context& ctx)
+	{
+		Game::D3DPresentParams->PresentationInterval = Settings::VSync;
+		if (!Settings::VSync)
+			Game::D3DPresentParams->PresentationInterval = D3DPRESENT_INTERVAL_IMMEDIATE;
+	}
+
+public:
+	std::string_view description() override
+	{
+		return "D3DPresentParamOverrides";
+	}
+
+	bool validate() override
+	{
+		return Settings::VSync != 1;
+	}
+
+	bool apply() override
+	{
+		dest_hook = safetyhook::create_mid(Module::exe_ptr(D3DInit_HookAddr), destination);
+
+		return true;
+	}
+
+	static D3DPresentParamOverrides instance;
+};
+D3DPresentParamOverrides D3DPresentParamOverrides::instance;

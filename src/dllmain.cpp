@@ -53,6 +53,7 @@ namespace Settings
 		spdlog::info(" - FramerateLimit: {}", FramerateLimit);
 		spdlog::info(" - FramerateFastLoad: {}", FramerateFastLoad);
 		spdlog::info(" - FramerateUnlockExperimental: {}", FramerateUnlockExperimental);
+		spdlog::info(" - VSync: {}", VSync);
 
 		spdlog::info(" - WindowedBorderless: {}", WindowedBorderless);
 		spdlog::info(" - WindowedHideMouseCursor: {}", WindowedHideMouseCursor);
@@ -85,6 +86,7 @@ namespace Settings
 		FramerateLimit = ini.Get("Performance", "FramerateLimit", std::move(FramerateLimit));
 		FramerateFastLoad = ini.Get("Performance", "FramerateFastLoad", std::move(FramerateFastLoad));
 		FramerateUnlockExperimental = ini.Get("Performance", "FramerateUnlockExperimental", std::move(FramerateUnlockExperimental));
+		VSync = ini.Get("Performance", "VSync", std::move(VSync));
 
 		WindowedBorderless = ini.Get("Window", "WindowedBorderless", std::move(WindowedBorderless));
 		WindowPositionX = ini.Get("Window", "WindowPositionX", std::move(WindowPositionX));

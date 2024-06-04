@@ -27,10 +27,46 @@ class ReplaceGameUpdateLoop : public Hook
 		//   (need to find a way to check the sumo menu state?)
 
 		bool skipFrameLimiter = Settings::FramerateLimit == 0;
-		if (!skipFrameLimiter && Settings::FramerateFastLoad && CurGameState == STATE_START)
+		if (Settings::FramerateFastLoad && !skipFrameLimiter)
 		{
-			auto game_start_progress_code = *Module::exe_ptr<int>(0x4367A8);
-			skipFrameLimiter = game_start_progress_code != 65;
+			static bool isLoadScreenStarted = false;
+			bool isLoadScreen = false;
+
+			// Check if we're on load screen, if we are then disable framelimiter while game hasn't started (progress_code 65)
+			if (CurGameState == STATE_START)
+			{
+				isLoadScreen = *Game::game_start_progress_code != 65;
+			}
+
+			skipFrameLimiter = isLoadScreen;
+
+			if (Game::D3DPresentParams->PresentationInterval != 0 && Game::D3DPresentParams->PresentationInterval != D3DPRESENT_INTERVAL_IMMEDIATE)
+			{
+				// Toggle vsync if load screen state changed
+				if (!isLoadScreenStarted && isLoadScreen)
+				{
+					IDirect3DDevice9* device = *Module::exe_ptr<IDirect3DDevice9*>(0x49BD60);
+					auto NewParams = *Game::D3DPresentParams;
+					NewParams.PresentationInterval = D3DPRESENT_INTERVAL_IMMEDIATE;
+
+					Game::Sumo_D3DReleaseResources();
+					device->Reset(&NewParams);
+					Game::Sumo_D3DCreateResources();
+
+					isLoadScreenStarted = true;
+				}
+
+				if (isLoadScreenStarted && !isLoadScreen)
+				{
+					IDirect3DDevice9* device = *Module::exe_ptr<IDirect3DDevice9*>(0x49BD60);
+
+					Game::Sumo_D3DReleaseResources();
+					device->Reset(Game::D3DPresentParams);
+					Game::Sumo_D3DCreateResources();
+
+					isLoadScreenStarted = false;
+				}
+			}
 		}
 
 		// Framelimiter
