@@ -6,6 +6,7 @@
 class ReplaceGameUpdateLoop : public Hook
 {
 	const static int HookAddr = 0x17C7B;
+	const static int GameLoopFrameLimiterAddr = 0x17DD3;
 
 	inline static double FramelimiterFrequency = 0;
 	inline static double FramelimiterPrevCounter = 0;
@@ -18,10 +19,14 @@ class ReplaceGameUpdateLoop : public Hook
 	inline static SafetyHookMid dest_hook = {};
 	static void destination(safetyhook::Context& ctx)
 	{
-		auto SetFrameStartCpuTime = (fn_0args)0x449430;
-		auto CalcNumUpdatesToRun = (fn_1arg_int)0x417890;
+		auto SetFrameStartCpuTime = Module::fn_ptr<fn_0args>(0x49430);
+		auto CalcNumUpdatesToRun = Module::fn_ptr<fn_1arg_int>(0x17890);
 
 		auto CurGameState = *Module::exe_ptr<GameState>(0x38026C);
+
+		// Skip framelimiter during load screens to help reduce load times
+		// TODO: currently only detects loading into a stage, loading back to main menu isn't detected
+		//   (need to find a way to check the sumo menu state?)
 
 		bool skipFrameLimiter = Settings::FramerateLimit == 0;
 		if (!skipFrameLimiter && Settings::FramerateFastLoad && CurGameState == STATE_START)
@@ -58,7 +63,7 @@ class ReplaceGameUpdateLoop : public Hook
 			timeCurrent = double(counter.QuadPart) / FramelimiterFrequency;
 			timeElapsed = timeCurrent - FramelimiterPrevCounter;
 
-			// Compensate for the deviation in the next frame
+			// Compensate for the deviation in the next frame (based on dxvk util_fps_limiter)
 			double deviation = timeElapsed - FramelimiterTargetFrametime;
 			FramelimiterDeviation += deviation;
 			// Limit the cumulative deviation
@@ -81,16 +86,16 @@ class ReplaceGameUpdateLoop : public Hook
 			numUpdates = minUpdates;
 
 		// need to call 43FA10 in order for "extend time" gfx to disappear
-		auto fn43FA10 = (fn_1arg)0x43FA10;
+		auto fn43FA10 = Module::fn_ptr<fn_1arg>(0x3FA10);
 		fn43FA10(numUpdates);
 
-		auto ReadIO = (fn_0args)0x453BB0; // ReadIO
-		auto SoundControl_mb = (fn_0args)0x42F330; // SoundControl_mb
-		auto LinkControlReceive = (fn_0args)0x455130; // LinkControlReceive
-		auto ModeControl = (fn_0args)0x43FA20; // ModeControl
-		auto EventControl = (fn_0args)0x43FAB0; // EventControl
-		auto GhostCarExecServer = (fn_0args)0x480F80; // GhostCarExecServer
-		auto fn4666A0 = (fn_0args)0x4666A0;
+		auto ReadIO = Module::fn_ptr<fn_0args>(0x53BB0); // ReadIO
+		auto SoundControl_mb = Module::fn_ptr<fn_0args>(0x2F330); // SoundControl_mb
+		auto LinkControlReceive = Module::fn_ptr<fn_0args>(0x55130); // LinkControlReceive
+		auto ModeControl = Module::fn_ptr<fn_0args>(0x3FA20); // ModeControl
+		auto EventControl = Module::fn_ptr<fn_0args>(0x3FAB0); // EventControl
+		auto GhostCarExecServer = Module::fn_ptr<fn_0args>(0x80F80); // GhostCarExecServer
+		auto fn4666A0 = Module::fn_ptr<fn_0args>(0x666A0);
 
 		for (int curUpdateIdx = 0; curUpdateIdx < numUpdates; curUpdateIdx++)
 		{
@@ -117,21 +122,28 @@ public:
 
 	bool apply() override
 	{
-		LARGE_INTEGER frequency;
-		LARGE_INTEGER counter;
+		// framelimiter init
+		{
+			LARGE_INTEGER frequency;
+			LARGE_INTEGER counter;
 
-		typedef int(__stdcall* timeBeginPeriod_Fn) (int Period);
-		timeBeginPeriod_Fn timeBeginPeriod_actual = (timeBeginPeriod_Fn)GetProcAddress(LoadLibraryA("winmm.dll"), "timeBeginPeriod");
-		timeBeginPeriod_actual(1);
+			typedef int(__stdcall* timeBeginPeriod_Fn) (int Period);
+			auto timeBeginPeriod = (timeBeginPeriod_Fn)GetProcAddress(LoadLibraryA("winmm.dll"), "timeBeginPeriod");
+			timeBeginPeriod(1);
 
-		QueryPerformanceFrequency(&frequency);
-		FramelimiterFrequency = double(frequency.QuadPart) / double(1000.f);
-		QueryPerformanceCounter(&counter);
-		FramelimiterPrevCounter = double(counter.QuadPart) / FramelimiterFrequency;
+			QueryPerformanceFrequency(&frequency);
+			FramelimiterFrequency = double(frequency.QuadPart) / double(1000.f);
+			QueryPerformanceCounter(&counter);
+			FramelimiterPrevCounter = double(counter.QuadPart) / FramelimiterFrequency;
 
-		FramelimiterTargetFrametime = double(1000.f) / double(Settings::FramerateLimit);
-		FramelimiterMaxDeviation = FramelimiterTargetFrametime / 160.f;
+			FramelimiterTargetFrametime = double(1000.f) / double(Settings::FramerateLimit);
+			FramelimiterMaxDeviation = FramelimiterTargetFrametime / 160.f;
+		}
 
+		// disable broken framelimiter
+		Memory::VP::Nop(Module::exe_ptr(GameLoopFrameLimiterAddr), 2);
+
+		// replace game update loop with custom version
 		Memory::VP::Nop(Module::exe_ptr<uint8_t>(HookAddr), 0xA3);
 		dest_hook = safetyhook::create_mid(Module::exe_ptr<uint8_t>(HookAddr), destination);
 		return true;

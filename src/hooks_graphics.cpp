@@ -165,7 +165,7 @@ DisableVehicleLODs DisableVehicleLODs::instance;
 class TransparencySupersampling : public Hook
 {
 	const static int DeviceInitHookAddr = 0xEC2F;
-	const static int DeviceResetHookAddr = 0x17C5E;
+	const static int DeviceResetHookAddr = 0x17A20;
 
 	inline static SafetyHookMid dest_hook = {};
 	inline static SafetyHookMid deviceReset_hook = {};
@@ -216,6 +216,16 @@ class WindowedHideMouseCursor : public Hook
 		{
 			ShowCursor(false);
 		}
+		else if (msg == WM_ERASEBKGND) // erase window to white during device reset
+		{
+			RECT rect;
+			GetClientRect(hwnd, &rect);
+			HBRUSH brush = CreateSolidBrush(RGB(0xFF, 0xFF, 0xFF));
+			FillRect((HDC)wParam, &rect, brush);
+			DeleteObject(brush);
+			return 1;
+		}
+		// Other message handling
 		return dest_orig.stdcall<LRESULT>(hwnd, msg, wParam, lParam);
 	}
 
@@ -246,6 +256,7 @@ class WindowedBorderless : public Hook
 	const static int WinMain_BorderlessWindow_WndStyleAddr = 0x1817A;
 	const static int Win32_Init_DisableWindowResize_Addr1 = 0xE9E3;
 	const static int Win32_Init_DisableWindowResize_Addr2 = 0xEA30;
+	const static int Win32_Init_SetWindowPos_Addr = 0xEAA7;
 
 	inline static SafetyHookMid dest_hook = {};
 	static void destination(safetyhook::Context& ctx)
@@ -280,11 +291,9 @@ public:
 		patch_addr = Module::exe_ptr(Win32_Init_DisableWindowResize_Addr2);
 		Memory::VP::Nop(patch_addr, 6);
 
-		// TODO: this shit...
-		Memory::VP::Nop(Module::exe_ptr(0xEAA7), 0xEACA - 0xEAA7);
-		dest_hook = safetyhook::create_mid(Module::exe_ptr(0xEAC4), destination);
-
-		Memory::VP::Nop(Module::exe_ptr(0x17DD3), 2);
+		// replace original SetWindowPos call
+		Memory::VP::Nop(Module::exe_ptr(Win32_Init_SetWindowPos_Addr), 0x23);
+		dest_hook = safetyhook::create_mid(Module::exe_ptr(Win32_Init_SetWindowPos_Addr), destination);
 
 		return true;
 	}

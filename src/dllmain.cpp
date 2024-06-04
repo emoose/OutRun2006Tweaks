@@ -11,8 +11,8 @@ namespace Module
 {
 	constexpr std::string_view TargetFilename = "OR2006C2C.exe";
 
-	constexpr std::string_view IniFileName = "outrun2006tweaks.ini";
-	constexpr std::string_view LogFileName = "outrun2006tweaks.log";
+	constexpr std::string_view IniFileName = "OutRun2006Tweaks.ini";
+	constexpr std::string_view LogFileName = "OutRun2006Tweaks.log";
 
 	void init()
 	{
@@ -88,6 +88,7 @@ namespace Settings
 		DisableDPIScaling = ini.Get("Window", "DisableDPIScaling", std::move(DisableDPIScaling));
 
 		AnisotropicFiltering = ini.Get("Graphics", "AnisotropicFiltering", std::move(AnisotropicFiltering));
+		AnisotropicFiltering = std::clamp(AnisotropicFiltering, 0, 16);
 		TransparencySupersampling = ini.Get("Graphics", "TransparencySupersampling", std::move(TransparencySupersampling));
 		ScreenEdgeCullFix = ini.Get("Graphics", "ScreenEdgeCullFix", std::move(ScreenEdgeCullFix));
 		DisableVehicleLODs = ini.Get("Graphics", "DisableVehicleLODs", std::move(DisableVehicleLODs));
@@ -127,7 +128,7 @@ void Plugin_Init()
 
 	}
 
-	spdlog::info("Outrun2006Tweaks v{} - by emoose", MODULE_VERSION_STR);
+	spdlog::info("OutRun2006Tweaks v{} - github.com/emoose/OutRun2006Tweaks", MODULE_VERSION_STR);
 	Module::to_log();
 
 	Settings::read(Module::IniPath);
