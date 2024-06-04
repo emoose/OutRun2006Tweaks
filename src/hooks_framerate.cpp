@@ -23,11 +23,8 @@ class ReplaceGameUpdateLoop : public Hook
 		auto CurGameState = *Game::current_mode;
 
 		// Skip framelimiter during load screens to help reduce load times
-		// TODO: currently only detects loading into a stage, loading back to main menu isn't detected
-		//   (need to find a way to check the sumo menu state?)
-
 		bool skipFrameLimiter = Settings::FramerateLimit == 0;
-		if (Settings::FramerateFastLoad && !skipFrameLimiter)
+		if (Settings::FramerateFastLoad > 0 && !skipFrameLimiter)
 		{
 			static bool isLoadScreenStarted = false;
 			bool isLoadScreen = false;
@@ -44,28 +41,31 @@ class ReplaceGameUpdateLoop : public Hook
 
 			skipFrameLimiter = isLoadScreen;
 
-			if (Game::D3DPresentParams->PresentationInterval != 0 && Game::D3DPresentParams->PresentationInterval != D3DPRESENT_INTERVAL_IMMEDIATE)
+			// Toggle vsync if load screen state changed
+			if (Settings::FramerateFastLoad > 1)
 			{
-				// Toggle vsync if load screen state changed
-				if (!isLoadScreenStarted && isLoadScreen)
+				if (Game::D3DPresentParams->PresentationInterval != 0 && Game::D3DPresentParams->PresentationInterval != D3DPRESENT_INTERVAL_IMMEDIATE)
 				{
-					auto NewParams = *Game::D3DPresentParams;
-					NewParams.PresentationInterval = D3DPRESENT_INTERVAL_IMMEDIATE;
+					if (!isLoadScreenStarted && isLoadScreen)
+					{
+						auto NewParams = *Game::D3DPresentParams;
+						NewParams.PresentationInterval = D3DPRESENT_INTERVAL_IMMEDIATE;
 
-					Game::Sumo_D3DResourcesRelease();
-					Game::D3DDevice()->Reset(&NewParams);
-					Game::Sumo_D3DResourcesCreate();
+						Game::Sumo_D3DResourcesRelease();
+						Game::D3DDevice()->Reset(&NewParams);
+						Game::Sumo_D3DResourcesCreate();
 
-					isLoadScreenStarted = true;
-				}
+						isLoadScreenStarted = true;
+					}
 
-				if (isLoadScreenStarted && !isLoadScreen)
-				{
-					Game::Sumo_D3DResourcesRelease();
-					Game::D3DDevice()->Reset(Game::D3DPresentParams);
-					Game::Sumo_D3DResourcesCreate();
+					if (isLoadScreenStarted && !isLoadScreen)
+					{
+						Game::Sumo_D3DResourcesRelease();
+						Game::D3DDevice()->Reset(Game::D3DPresentParams);
+						Game::Sumo_D3DResourcesCreate();
 
-					isLoadScreenStarted = false;
+						isLoadScreenStarted = false;
+					}
 				}
 			}
 		}

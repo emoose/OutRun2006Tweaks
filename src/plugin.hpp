@@ -35,7 +35,7 @@ namespace Game
 namespace Settings
 {
 	inline int FramerateLimit = 60;
-	inline bool FramerateFastLoad = true;
+	inline int FramerateFastLoad = 1;
 	inline bool FramerateUnlockExperimental = true;
 	inline int VSync = 1;
 
