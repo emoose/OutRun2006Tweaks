@@ -84,6 +84,7 @@ namespace Settings
 		fclose(iniFile);
 
 		FramerateLimit = ini.Get("Performance", "FramerateLimit", std::move(FramerateLimit));
+		FramerateLimitMode = ini.Get("Performance", "FramerateLimitMode", std::move(FramerateLimitMode));
 		FramerateFastLoad = ini.Get("Performance", "FramerateFastLoad", std::move(FramerateFastLoad));
 		FramerateUnlockExperimental = ini.Get("Performance", "FramerateUnlockExperimental", std::move(FramerateUnlockExperimental));
 		VSync = ini.Get("Performance", "VSync", std::move(VSync));

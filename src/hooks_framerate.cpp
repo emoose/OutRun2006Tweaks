@@ -83,26 +83,31 @@ class ReplaceGameUpdateLoop : public Hook
 				timeCurrent = double(counter.QuadPart) / FramelimiterFrequency;
 				timeElapsed = timeCurrent - FramelimiterPrevCounter;
 
-				if (FramelimiterTargetFrametime + FramelimiterDeviation <= timeElapsed)
+				if (Settings::FramerateLimitMode == 0) // "efficient" mode
 				{
-					FramelimiterDeviation = 0;
-					break;
+					if (FramelimiterTargetFrametime + FramelimiterDeviation <= timeElapsed)
+					{
+						FramelimiterDeviation = 0;
+						break;
+					}
+					else if ((FramelimiterTargetFrametime + FramelimiterDeviation) - timeElapsed > 2.0)
+						Sleep(1); // Sleep for ~1ms
+					else
+						Sleep(0); // Yield thread's time-slice (does not actually sleep)
 				}
-				else if ((FramelimiterTargetFrametime + FramelimiterDeviation) - timeElapsed > 2.0)
-					Sleep(1); // Sleep for ~1ms
-				else
-					Sleep(0); // Yield thread's time-slice (does not actually sleep)
 			} while (FramelimiterTargetFrametime + FramelimiterDeviation > timeElapsed);
 
 			QueryPerformanceCounter(&counter);
 			timeCurrent = double(counter.QuadPart) / FramelimiterFrequency;
 			timeElapsed = timeCurrent - FramelimiterPrevCounter;
 
+#if 0
 			// Compensate for the deviation in the next frame (based on dxvk util_fps_limiter)
 			double deviation = timeElapsed - FramelimiterTargetFrametime;
 			FramelimiterDeviation += deviation;
 			// Limit the cumulative deviation
 			FramelimiterDeviation = std::clamp(FramelimiterDeviation, -FramelimiterMaxDeviation, FramelimiterMaxDeviation);
+#endif
 
 			FramelimiterPrevCounter = timeCurrent;
 		}
