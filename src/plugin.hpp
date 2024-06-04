@@ -39,6 +39,8 @@ namespace Settings
 	inline bool FramerateUnlockExperimental = true;
 
 	inline bool WindowedBorderless = true;
+	inline int WindowPositionX = 0;
+	inline int WindowPositionY = 0;
 	inline bool WindowedHideMouseCursor = true;
 	inline bool DisableDPIScaling = true;
 

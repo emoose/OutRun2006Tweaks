@@ -1,5 +1,6 @@
 #include "hook_mgr.hpp"
 #include "plugin.hpp"
+#include "game_addrs.hpp"
 
 #include <d3d9.h>
 
@@ -19,10 +20,7 @@ class ReplaceGameUpdateLoop : public Hook
 	inline static SafetyHookMid dest_hook = {};
 	static void destination(safetyhook::Context& ctx)
 	{
-		auto SetFrameStartCpuTime = Module::fn_ptr<fn_0args>(0x49430);
-		auto CalcNumUpdatesToRun = Module::fn_ptr<fn_1arg_int>(0x17890);
-
-		auto CurGameState = *Module::exe_ptr<GameState>(0x38026C);
+		auto CurGameState = *Game::current_mode;
 
 		// Skip framelimiter during load screens to help reduce load times
 		// TODO: currently only detects loading into a stage, loading back to main menu isn't detected
@@ -72,9 +70,9 @@ class ReplaceGameUpdateLoop : public Hook
 			FramelimiterPrevCounter = timeCurrent;
 		}
 
-		SetFrameStartCpuTime();
+		Game::SetFrameStartCpuTime();
 
-		int numUpdates = CalcNumUpdatesToRun(60);
+		int numUpdates = Game::CalcNumUpdatesToRun(60);
 
 		// Vanilla game would always reset numUpdates to 1 if it was 0
 		// when running above 60FPS CalcNumUpdatesToRun would return 0 since game was running fast, for it to skip the current update, but game would still force it to update
@@ -86,26 +84,17 @@ class ReplaceGameUpdateLoop : public Hook
 			numUpdates = minUpdates;
 
 		// need to call 43FA10 in order for "extend time" gfx to disappear
-		auto fn43FA10 = Module::fn_ptr<fn_1arg>(0x3FA10);
-		fn43FA10(numUpdates);
-
-		auto ReadIO = Module::fn_ptr<fn_0args>(0x53BB0); // ReadIO
-		auto SoundControl_mb = Module::fn_ptr<fn_0args>(0x2F330); // SoundControl_mb
-		auto LinkControlReceive = Module::fn_ptr<fn_0args>(0x55130); // LinkControlReceive
-		auto ModeControl = Module::fn_ptr<fn_0args>(0x3FA20); // ModeControl
-		auto EventControl = Module::fn_ptr<fn_0args>(0x3FAB0); // EventControl
-		auto GhostCarExecServer = Module::fn_ptr<fn_0args>(0x80F80); // GhostCarExecServer
-		auto fn4666A0 = Module::fn_ptr<fn_0args>(0x666A0);
+		Game::fn43FA10(numUpdates);
 
 		for (int curUpdateIdx = 0; curUpdateIdx < numUpdates; curUpdateIdx++)
 		{
-			ReadIO();
-			SoundControl_mb();
-			LinkControlReceive();
-			ModeControl();
-			EventControl();
-			GhostCarExecServer();
-			fn4666A0();
+			Game::ReadIO();
+			Game::SoundControl_mb();
+			Game::LinkControlReceive();
+			Game::ModeControl();
+			Game::EventControl();
+			Game::GhostCarExecServer();
+			Game::fn4666A0();
 		}
 	}
 
@@ -146,7 +135,7 @@ public:
 		// replace game update loop with custom version
 		Memory::VP::Nop(Module::exe_ptr<uint8_t>(HookAddr), 0xA3);
 		dest_hook = safetyhook::create_mid(Module::exe_ptr<uint8_t>(HookAddr), destination);
-		return true;
+		return !!dest_hook;
 	}
 
 	static ReplaceGameUpdateLoop instance;

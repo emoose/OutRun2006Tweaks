@@ -1,5 +1,6 @@
 #include "hook_mgr.hpp"
 #include "plugin.hpp"
+#include "game_addrs.hpp"
 
 #include "d3d9.h"
 
@@ -79,10 +80,7 @@ class ScreenEdgeCullFix : public Hook
 
 		constexpr float ratio_4_3 = 4.f / 3.f;
 
-		float screen_width = *Module::exe_ptr<float>(0x340C8C);
-		float screen_height = *Module::exe_ptr<float>(0x340C90);
-
-		float ratio_screen = screen_width / screen_height;
+		float ratio_screen = *Game::screen_width / *Game::screen_height;
 
 		a3->f0 = (a3->f0 / ratio_screen) * ratio_4_3;
 		a3->f1 = (a3->f1 * ratio_screen) / ratio_4_3;
@@ -171,7 +169,7 @@ class TransparencySupersampling : public Hook
 	inline static SafetyHookMid deviceReset_hook = {};
 	static void destination(safetyhook::Context& ctx)
 	{
-		IDirect3DDevice9* device = *Module::exe_ptr<IDirect3DDevice9*>(0x49BD60);
+		auto* device = Game::D3DDevice();
 		device->SetRenderState(D3DRS_MULTISAMPLEANTIALIAS, TRUE);
 		device->SetRenderState(D3DRS_ANTIALIASEDLINEENABLE, TRUE);
 		device->SetRenderState(D3DRS_ALPHABLENDENABLE, TRUE);
@@ -261,9 +259,10 @@ class WindowedBorderless : public Hook
 	inline static SafetyHookMid dest_hook = {};
 	static void destination(safetyhook::Context& ctx)
 	{
-		float DxWidth = *Module::exe_ptr<float>(0x340C8C);
-		float DxHeight = *Module::exe_ptr<float>(0x340C90);
-		SetWindowPos((HWND)ctx.ebp, 0, 0, 0, DxWidth, DxHeight, 0x40);
+		SetWindowPos(HWND(ctx.ebp), 0, 
+			Settings::WindowPositionX, Settings::WindowPositionY, 
+			*Game::screen_width, *Game::screen_height,
+			0x40);
 	}
 
 public:
@@ -312,8 +311,7 @@ class AnisotropicFiltering : public Hook
 	{
 		int Sampler = ctx.ebp;
 
-		IDirect3DDevice9* device = *Module::exe_ptr<IDirect3DDevice9*>(0x49BD60);
-		device->SetSamplerState(Sampler, D3DSAMP_MAXANISOTROPY, 16);
+		Game::D3DDevice()->SetSamplerState(Sampler, D3DSAMP_MAXANISOTROPY, 16);
 	}
 
 	inline static SafetyHookMid dest_hook2 = {};
@@ -325,8 +323,7 @@ class AnisotropicFiltering : public Hook
 		{
 			ctx.esi = D3DTEXF_ANISOTROPIC;
 
-			IDirect3DDevice9* device = *Module::exe_ptr<IDirect3DDevice9*>(0x49BD60);
-			device->SetSamplerState(Sampler, D3DSAMP_MAXANISOTROPY, 16);
+			Game::D3DDevice()->SetSamplerState(Sampler, D3DSAMP_MAXANISOTROPY, 16);
 		}
 	}
 
@@ -352,3 +349,4 @@ public:
 	static AnisotropicFiltering instance;
 };
 AnisotropicFiltering AnisotropicFiltering::instance;
+

@@ -6,6 +6,7 @@
 #include "hook_mgr.hpp"
 #include "resource.h"
 #include "plugin.hpp"
+#include "game_addrs.hpp"
 
 namespace Module
 {
@@ -29,6 +30,8 @@ namespace Module
 		auto dllParent = DllPath.parent_path();
 		LogPath = dllParent / LogFileName;
 		IniPath = dllParent / IniFileName;
+
+		Game::init();
 	}
 
 	void to_log()
@@ -84,6 +87,8 @@ namespace Settings
 		FramerateUnlockExperimental = ini.Get("Performance", "FramerateUnlockExperimental", std::move(FramerateUnlockExperimental));
 
 		WindowedBorderless = ini.Get("Window", "WindowedBorderless", std::move(WindowedBorderless));
+		WindowPositionX = ini.Get("Window", "WindowPositionX", std::move(WindowPositionX));
+		WindowPositionY = ini.Get("Window", "WindowPositionY", std::move(WindowPositionY));
 		WindowedHideMouseCursor = ini.Get("Window", "WindowedHideMouseCursor", std::move(WindowedHideMouseCursor));
 		DisableDPIScaling = ini.Get("Window", "DisableDPIScaling", std::move(DisableDPIScaling));
 
