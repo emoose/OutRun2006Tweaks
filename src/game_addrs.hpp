@@ -9,8 +9,13 @@ namespace Game
 	inline int* sumo_load_sprani_67F614 = nullptr;
 	inline int* adv_loading_logo = nullptr;
 
+	// ini cfg
 	inline float* screen_width = nullptr;
 	inline float* screen_height = nullptr;
+	inline int* D3DFogEnabled = nullptr;
+	inline int* D3DAdapterNum = nullptr;
+	inline int* D3DAntialiasing = nullptr;
+	inline uint8_t* D3DWindowed = nullptr;
 
 	inline D3DPRESENT_PARAMETERS* D3DPresentParams = nullptr;
 	inline IDirect3DDevice9** D3DDevice_ptr = nullptr;
@@ -45,6 +50,11 @@ namespace Game
 
 		screen_width = Module::exe_ptr<float>(0x340C8C);
 		screen_height = Module::exe_ptr<float>(0x340C90);
+
+		D3DFogEnabled = Module::exe_ptr<int>(0x340C88);
+		D3DAdapterNum = Module::exe_ptr<int>(0x55AF00);
+		D3DAntialiasing = Module::exe_ptr<int>(0x55AF04);
+		D3DWindowed = Module::exe_ptr<uint8_t>(0x55AF08);
 
 		D3DPresentParams = Module::exe_ptr<D3DPRESENT_PARAMETERS>(0x49BD64);
 		D3DDevice_ptr = Module::exe_ptr<IDirect3DDevice9*>(0x49BD60);
