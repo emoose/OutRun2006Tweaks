@@ -160,6 +160,47 @@ public:
 };
 DisableVehicleLODs DisableVehicleLODs::instance;
 
+class FixZBufferPrecision : public Hook
+{
+	const static int CalcCameraMatrix_Addr = 0x84BD0;
+
+	inline static SafetyHookInline hook_orig = {};
+
+	static void destination(EvWorkCamera* camera)
+	{
+		// improve z-buffer precision by increasing znear
+		// game default is 0.1, which reduces precision of far objects massively, causing z-fighting and objects not drawing properly
+		
+		if (camera->camera_mode_34A == 2) // only set znear to 1 if we're in the third-person cam mode
+			camera->perspective_znear_BC = 1.0f;
+		else
+			camera->perspective_znear_BC = 0.3f; // 0.3 seems fine for in-car view, doesn't improve as much as 1.0f but still better than 0.1f
+
+		hook_orig.call(camera);
+	}
+
+public:
+	std::string_view description() override
+	{
+		return "FixZBufferPrecision";
+	}
+
+	bool validate() override
+	{
+		return Settings::FixZBufferPrecision;
+	}
+
+	bool apply() override
+	{
+		hook_orig = safetyhook::create_inline(Module::exe_ptr(CalcCameraMatrix_Addr), destination);
+
+		return !!hook_orig;
+	}
+
+	static FixZBufferPrecision instance;
+};
+FixZBufferPrecision FixZBufferPrecision::instance;
+
 class TransparencySupersampling : public Hook
 {
 	const static int DeviceInitHookAddr = 0xEC2F;

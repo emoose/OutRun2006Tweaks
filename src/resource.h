@@ -14,8 +14,8 @@
 #endif
 
 #define MODULE_VERSION_MAJOR 0
-#define MODULE_VERSION_MINOR 1
-#define MODULE_VERSION_BUILD 1
+#define MODULE_VERSION_MINOR 2
+#define MODULE_VERSION_BUILD 0
 #define MODULE_VERSION_REVISION 0
 
 #define STR(value) #value

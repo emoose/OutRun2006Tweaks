@@ -3,13 +3,15 @@ A wrapper DLL that can patch in some minor fixes & tweaks into Outrun 2006: Coas
 
 ### Features
 - Game can now run in borderless windowed mode; mouse cursor will now be hidden while game is active
-- Adds a built-in framelimiter to prevent game from speeding up (along with an optional fix to allow higher FPS without speedup)
+- Adds a built-in framelimiter to prevent game from speeding up (along with an optional fix that can allow higher FPS without speedup)
 - Fixes objects being culled out before reaching edge of screen
 - Allows disabling vehicle LODs to reduce the ugly pop-in of them
 - Disables culling of certain stage objects
-- Can force anisotropic filtering level & enable transparency supersampling, greatly reducing aliasing around the edges of track. (set `DX/ANTIALIASING = 2` in outrun2006.ini for best results)
+- Fixes Z-buffer precision issues, greatly reducing z-fighting & distant object pop-in
+- Can force anisotropic filtering level & enable transparency supersampling, greatly reducing aliasing around the edges of the track. (set `DX/ANTIALIASING = 2` in outrun2006.ini for best results)
 - Automatically disables DPI scaling on the game window, fixing scaling issues with certain setups
-- Allows game to load in lens flare data from correct path when needed, fixing lens flare issues.
+- Fixes broken lens flare effect by making game load it from correct path
+- Heavily reduced load times by disabling framelimiter/vsync during load screens
 
 All the above can be toggled/customized via the Outrun2006Tweaks.ini file.
 
@@ -18,9 +20,9 @@ Since the game will still internally update at 60FPS this won't give as much ben
 (some things like animated textures & UI text also unfortunately have speed issues with it...)
 
 ### Setup
-Since the Steam/DVD releases are packed with ancient DRM that doesn't play well with DLL wrappers, a replacement game EXE is included with this tweaks pack.
+Since Steam/DVD releases are packed with ancient DRM that doesn't play well with DLL wrappers, this pack includes a replacement game EXE to run the game with.
 
-This EXE should be compatible with both the Steam release and the original DVD version.
+This EXE should be compatible with both the Steam release & the original DVD version, along with most OR2006 mods.
 
 To set it up just extract the files from the release ZIP into your `Outrun2006 Coast 2 Coast` folder, where `OR2006C2C.EXE` is located, replacing the original EXE.
 

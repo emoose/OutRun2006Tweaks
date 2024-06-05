@@ -52,3 +52,15 @@ typedef struct tagSphere
 	float f2;
 	float f3;
 } Sphere;
+
+typedef struct tgaEvWorkCamera // [sic]
+{
+	uint8_t unk_0[0xBC];
+	float perspective_znear_BC;
+	float perspective_zfar_C0;
+	uint8_t unk_C4[0xC];
+	uint8_t unk_D0[0x34A - 0xD0];
+	char camera_mode_34A;
+	uint8_t unk_34B[0x5];
+	uint8_t unk_350[0x64];
+} EvWorkCamera;

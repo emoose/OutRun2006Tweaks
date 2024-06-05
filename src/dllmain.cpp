@@ -101,6 +101,7 @@ namespace Settings
 		ScreenEdgeCullFix = ini.Get("Graphics", "ScreenEdgeCullFix", std::move(ScreenEdgeCullFix));
 		DisableVehicleLODs = ini.Get("Graphics", "DisableVehicleLODs", std::move(DisableVehicleLODs));
 		DisableStageCulling = ini.Get("Graphics", "DisableStageCulling", std::move(DisableStageCulling));
+		FixZBufferPrecision = ini.Get("Graphics", "FixZBufferPrecision", std::move(FixZBufferPrecision));
 
 		return true;
 	}
