@@ -170,12 +170,21 @@ class FixZBufferPrecision : public Hook
 	{
 		// improve z-buffer precision by increasing znear
 		// game default is 0.1, which reduces precision of far objects massively, causing z-fighting and objects not drawing properly
-		
-		if (camera->camera_mode_34A == 2) // only set znear to 1 if we're in the third-person cam mode
-			camera->perspective_znear_BC = 1.0f;
-		else
-			camera->perspective_znear_BC = 0.3f; // 0.3 seems fine for in-car view, doesn't improve as much as 1.0f but still better than 0.1f
 
+		// only set znear to 1 if...
+		if ((camera->camera_mode_34A == 2 || camera->camera_mode_34A == 0) // ... in third-person or FPV
+			&& camera->camera_mode_timer_364 == 0 // ... not switching cameras
+			&& *Game::current_mode == STATE_GAME) // ... we're in main game state (not in STATE_START cutscene etc)
+		{
+			camera->perspective_znear_BC = 1.0f;
+		}
+		else
+		{
+			if (camera->camera_mode_timer_364 != 0 || *Game::current_mode != STATE_GAME)
+				camera->perspective_znear_BC = 0.1f; // set znear to 0.1 during camera switch / cutscene
+			else
+				camera->perspective_znear_BC = 0.3f; // 0.3 seems fine for in-car view, doesn't improve as much as 1.0f but still better than 0.1f
+		}
 		hook_orig.call(camera);
 	}
 

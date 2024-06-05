@@ -62,5 +62,8 @@ typedef struct tgaEvWorkCamera // [sic]
 	uint8_t unk_D0[0x34A - 0xD0];
 	char camera_mode_34A;
 	uint8_t unk_34B[0x5];
-	uint8_t unk_350[0x64];
+	uint8_t unk_350[0x14];
+	float camera_mode_timer_364;
+	uint8_t unk_368[0x4C];
 } EvWorkCamera;
+static_assert(sizeof(EvWorkCamera) == 0x3B4);
