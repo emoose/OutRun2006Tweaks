@@ -176,7 +176,7 @@ class FixZBufferPrecision : public Hook
 			&& camera->camera_mode_timer_364 == 0 // ... not switching cameras
 			&& *Game::current_mode == STATE_GAME) // ... we're in main game state (not in STATE_START cutscene etc)
 		{
-			camera->perspective_znear_BC = 1.0f;
+			camera->perspective_znear_BC = 0.99f; // 1.0 seems to cause sun flickering, but seems fine with 0.99
 		}
 		else
 		{
