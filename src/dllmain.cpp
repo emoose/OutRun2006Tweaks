@@ -94,6 +94,7 @@ namespace Settings
 		WindowPositionY = ini.Get("Window", "WindowPositionY", std::move(WindowPositionY));
 		WindowedHideMouseCursor = ini.Get("Window", "WindowedHideMouseCursor", std::move(WindowedHideMouseCursor));
 		DisableDPIScaling = ini.Get("Window", "DisableDPIScaling", std::move(DisableDPIScaling));
+		AutoDetectResolution = ini.Get("Window", "AutoDetectResolution", std::move(AutoDetectResolution));
 
 		AnisotropicFiltering = ini.Get("Graphics", "AnisotropicFiltering", std::move(AnisotropicFiltering));
 		AnisotropicFiltering = std::clamp(AnisotropicFiltering, 0, 16);

@@ -5,6 +5,46 @@
 #include "plugin.hpp"
 #include "game_addrs.hpp"
 
+class AutoDetectResolution : public Hook
+{
+public:
+	std::string_view description() override
+	{
+		return "AutoDetectResolution";
+	}
+
+	bool validate() override
+	{
+		return Settings::AutoDetectResolution;
+	}
+
+	bool apply() override
+	{
+		// Override the default settings used when game INI doesn't exist/is empty
+		// (these can still be overridden via INI if needed)
+
+		// Use the width/height of the primary screen
+		int width = GetSystemMetrics(SM_CXSCREEN);
+		int height = GetSystemMetrics(SM_CYSCREEN);
+		if (width < 640 || height < 480)
+			return false; // bail out if resolution is less than the default
+
+		*Game::screen_width = width;
+		*Game::screen_height = height;
+
+		*Game::D3DFogEnabled = true;
+		*Game::D3DWindowed = true;
+		*Game::D3DAntialiasing = 2;
+
+		spdlog::info("AutoDetectResolution: default resolution set to {}x{}, windowed enabled, fog enabled, antialiasing 2", width, height);
+
+		return true;
+	}
+
+	static AutoDetectResolution instance;
+};
+AutoDetectResolution AutoDetectResolution::instance;
+
 class CommandLineArguments : public Hook
 {
 	const static int Win32_CfgRead_Addr = 0xE4D0;

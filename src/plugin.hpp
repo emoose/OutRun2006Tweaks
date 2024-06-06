@@ -45,6 +45,7 @@ namespace Settings
 	inline int WindowPositionY = 0;
 	inline bool WindowedHideMouseCursor = true;
 	inline bool DisableDPIScaling = true;
+	inline bool AutoDetectResolution = true;
 
 	inline int AnisotropicFiltering = 16;
 	inline bool TransparencySupersampling = true;
