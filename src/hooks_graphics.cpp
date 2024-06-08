@@ -163,29 +163,57 @@ DisableVehicleLODs DisableVehicleLODs::instance;
 class FixZBufferPrecision : public Hook
 {
 	const static int CalcCameraMatrix_Addr = 0x84BD0;
+	const static int Clr_SceneEffect_Addr = 0xBE70;
 
-	inline static SafetyHookInline hook_orig = {};
+	inline static SafetyHookInline CalcCameraMatrix = {};
 
-	static void destination(EvWorkCamera* camera)
+	static inline bool allow_znear_override = true;
+	static void CalcCameraMatrix_dest(EvWorkCamera* camera)
 	{
 		// improve z-buffer precision by increasing znear
-		// game default is 0.1, which reduces precision of far objects massively, causing z-fighting and objects not drawing properly
+		// game default is 0.1 which reduces precision of far objects massively, causing z-fighting and objects not drawing properly
 
-		// only set znear to 1 if...
-		if ((camera->camera_mode_34A == 2 || camera->camera_mode_34A == 0) // ... in third-person or FPV
-			&& camera->camera_mode_timer_364 == 0 // ... not switching cameras
-			&& *Game::current_mode == STATE_GAME) // ... we're in main game state (not in STATE_START cutscene etc)
+		if (allow_znear_override)
 		{
-			camera->perspective_znear_BC = 0.99f; // 1.0 seems to cause sun flickering, but seems fine with 0.99
-		}
-		else
-		{
-			if (camera->camera_mode_timer_364 != 0 || *Game::current_mode != STATE_GAME)
-				camera->perspective_znear_BC = 0.1f; // set znear to 0.1 during camera switch / cutscene
+			// only set znear to 1 if...
+			if ((camera->camera_mode_34A == 2 || camera->camera_mode_34A == 0) // ... in third-person or FPV
+				&& camera->camera_mode_timer_364 == 0 // ... not switching cameras
+				&& *Game::current_mode == STATE_GAME) // ... we're in main game state (not in STATE_START cutscene etc)
+			{
+				camera->perspective_znear_BC = 1.0f;
+			}
 			else
-				camera->perspective_znear_BC = 0.3f; // 0.3 seems fine for in-car view, doesn't improve as much as 1.0f but still better than 0.1f
+			{
+				if (camera->camera_mode_timer_364 != 0 || *Game::current_mode != STATE_GAME)
+					camera->perspective_znear_BC = 0.1f; // set znear to 0.1 during camera switch / cutscene
+				else
+					camera->perspective_znear_BC = 0.3f; // 0.3 seems fine for in-car view, doesn't improve as much as 1.0f but still better than 0.1f
+			}
 		}
-		hook_orig.call(camera);
+		CalcCameraMatrix.call(camera);
+	}
+
+	// hook Clr_SceneEffect so we can reset camera z-near before screen effects are draw
+	inline static SafetyHookInline Clr_SceneEffect = {};
+	static void Clr_SceneEffect_dest(int a1)
+	{
+		FixZBufferPrecision::allow_znear_override = false;
+
+		EvWorkCamera* camera = Module::exe_ptr<EvWorkCamera>(0x39FE10);
+
+		float prev = camera->perspective_znear_BC;
+
+		// apply vanilla znear
+		camera->perspective_znear_BC = 0.05f; // game default = 0.1, but that causes lens flare to slightly clip, 0.05 allows it to fade properly
+		CalcCameraMatrix_dest(camera);
+
+		Clr_SceneEffect.call(a1);
+
+		// restore orig znear
+		camera->perspective_znear_BC = prev;
+		CalcCameraMatrix_dest(camera);
+
+		FixZBufferPrecision::allow_znear_override = true;
 	}
 
 public:
@@ -201,9 +229,12 @@ public:
 
 	bool apply() override
 	{
-		hook_orig = safetyhook::create_inline(Module::exe_ptr(CalcCameraMatrix_Addr), destination);
+		CalcCameraMatrix = safetyhook::create_inline(Module::exe_ptr(CalcCameraMatrix_Addr), CalcCameraMatrix_dest);
+		if (!CalcCameraMatrix)
+			return false;
 
-		return !!hook_orig;
+		Clr_SceneEffect = safetyhook::create_inline(Module::exe_ptr(Clr_SceneEffect_Addr), Clr_SceneEffect_dest);
+		return !!Clr_SceneEffect;
 	}
 
 	static FixZBufferPrecision instance;

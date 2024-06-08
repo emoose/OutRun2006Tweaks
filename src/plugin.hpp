@@ -52,7 +52,7 @@ namespace Settings
 	inline bool ScreenEdgeCullFix = true;
 	inline bool DisableVehicleLODs = true;
 	inline bool DisableStageCulling = true;
-	inline bool FixZBufferPrecision = false;
+	inline bool FixZBufferPrecision = true;
 }
 
 namespace Util
