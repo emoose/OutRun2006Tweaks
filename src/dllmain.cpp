@@ -51,19 +51,26 @@ namespace Settings
 	{
 		spdlog::info("Settings values:");
 		spdlog::info(" - FramerateLimit: {}", FramerateLimit);
+		spdlog::info(" - FramerateLimitMode: {}", FramerateLimitMode);
 		spdlog::info(" - FramerateFastLoad: {}", FramerateFastLoad);
 		spdlog::info(" - FramerateUnlockExperimental: {}", FramerateUnlockExperimental);
 		spdlog::info(" - VSync: {}", VSync);
 
 		spdlog::info(" - WindowedBorderless: {}", WindowedBorderless);
+		spdlog::info(" - WindowPosition: {}x{}", WindowPositionX, WindowPositionY);
 		spdlog::info(" - WindowedHideMouseCursor: {}", WindowedHideMouseCursor);
 		spdlog::info(" - DisableDPIScaling: {}", DisableDPIScaling);
+		spdlog::info(" - AutoDetectResolution: {}", AutoDetectResolution);
 
 		spdlog::info(" - AnisotropicFiltering: {}", AnisotropicFiltering);
 		spdlog::info(" - TransparencySupersampling: {}", TransparencySupersampling);
 		spdlog::info(" - ScreenEdgeCullFix: {}", ScreenEdgeCullFix);
 		spdlog::info(" - DisableVehicleLODs: {}", DisableVehicleLODs);
 		spdlog::info(" - DisableStageCulling: {}", DisableStageCulling);
+		spdlog::info(" - FixZBufferPrecision: {}", FixZBufferPrecision);
+
+		spdlog::info(" - SkipIntroLogos: {}", SkipIntroLogos);
+		spdlog::info(" - CountdownTimerDisable: {}", CountdownTimerDisable);
 	}
 
 	bool read(std::filesystem::path& iniPath)
@@ -103,6 +110,9 @@ namespace Settings
 		DisableVehicleLODs = ini.Get("Graphics", "DisableVehicleLODs", std::move(DisableVehicleLODs));
 		DisableStageCulling = ini.Get("Graphics", "DisableStageCulling", std::move(DisableStageCulling));
 		FixZBufferPrecision = ini.Get("Graphics", "FixZBufferPrecision", std::move(FixZBufferPrecision));
+
+		SkipIntroLogos = ini.Get("Misc", "SkipIntroLogos", std::move(SkipIntroLogos));
+		CountdownTimerDisable = ini.Get("Misc", "CountdownTimerDisable", std::move(CountdownTimerDisable));
 
 		return true;
 	}

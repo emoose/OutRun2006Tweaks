@@ -53,6 +53,9 @@ namespace Settings
 	inline bool DisableVehicleLODs = true;
 	inline bool DisableStageCulling = true;
 	inline bool FixZBufferPrecision = true;
+
+	inline bool SkipIntroLogos = false;
+	inline bool CountdownTimerDisable = false;
 }
 
 namespace Util

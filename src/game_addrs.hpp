@@ -9,6 +9,16 @@ namespace Game
 	inline int* sumo_load_sprani_67F614 = nullptr;
 	inline int* adv_loading_logo = nullptr;
 
+	inline uint8_t* Sumo_CountdownTimerEnable = nullptr;
+	inline uint8_t* Sumo_IntroLogosEnable = nullptr;
+
+	inline D3DPRESENT_PARAMETERS* D3DPresentParams = nullptr;
+	inline IDirect3DDevice9** D3DDevice_ptr = nullptr;
+
+	inline IDirect3DDevice9* D3DDevice() {
+		return *D3DDevice_ptr;
+	}
+
 	// ini cfg
 	inline float* screen_width = nullptr;
 	inline float* screen_height = nullptr;
@@ -18,13 +28,7 @@ namespace Game
 	inline uint8_t* D3DWindowed = nullptr;
 	inline int* CfgLanguage = nullptr;
 
-	inline D3DPRESENT_PARAMETERS* D3DPresentParams = nullptr;
-	inline IDirect3DDevice9** D3DDevice_ptr = nullptr;
-
-	inline IDirect3DDevice9* D3DDevice() {
-		return *D3DDevice_ptr;
-	}
-
+	// game functions
 	inline fn_0args SetFrameStartCpuTime = nullptr;
 	inline fn_1arg_int CalcNumUpdatesToRun = nullptr;
 
@@ -48,6 +52,11 @@ namespace Game
 		file_load_progress_code = Module::exe_ptr<int>(0x436718);
 		sumo_load_sprani_67F614 = Module::exe_ptr<int>(0x27F614);
 		adv_loading_logo = Module::exe_ptr<int>(0x287778);
+		Sumo_CountdownTimerEnable = Module::exe_ptr<uint8_t>(0x237911);
+		Sumo_IntroLogosEnable = Module::exe_ptr<uint8_t>(0x2319A1);
+
+		D3DPresentParams = Module::exe_ptr<D3DPRESENT_PARAMETERS>(0x49BD64);
+		D3DDevice_ptr = Module::exe_ptr<IDirect3DDevice9*>(0x49BD60);
 
 		screen_width = Module::exe_ptr<float>(0x340C8C);
 		screen_height = Module::exe_ptr<float>(0x340C90);
@@ -57,9 +66,6 @@ namespace Game
 		D3DAntialiasing = Module::exe_ptr<int>(0x55AF04);
 		D3DWindowed = Module::exe_ptr<uint8_t>(0x55AF08);
 		CfgLanguage = Module::exe_ptr<int>(0x340CA0);
-
-		D3DPresentParams = Module::exe_ptr<D3DPRESENT_PARAMETERS>(0x49BD64);
-		D3DDevice_ptr = Module::exe_ptr<IDirect3DDevice9*>(0x49BD60);
 
 		SetFrameStartCpuTime = Module::fn_ptr<fn_0args>(0x49430);
 		CalcNumUpdatesToRun = Module::fn_ptr<fn_1arg_int>(0x17890);
