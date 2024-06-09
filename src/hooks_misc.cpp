@@ -5,41 +5,6 @@
 #include "plugin.hpp"
 #include "game_addrs.hpp"
 
-class FixC2CRankings : public Hook
-{
-	// A lot of the C2C ranking code has a strange check that tries to OpenEventA an existing named event based on current process ID
-	// However no code is included in the game to actually create this event first, so the OpenEventA call fails, and game skips the ranking code body
-	// 
-	// The only hit for that 0x19EA3FD3 magic number on google is a semi-decompiled Razor1911 crack, which contains code that creates this event
-	// 
-	// Guess it's probably something that gets created by the SecuROM stub code, and then game devs can add some kind of "if(SECUROM_CHECK) { do stuff }" which inserts the OpenEventA stuff
-	// For the Steam release it seems they repacked the original pre-securom-wrapper 2006 game EXE without any changes, guess they forgot these checks were included?
-public:
-	std::string_view description() override
-	{
-		return "FixC2CRankings";
-	}
-
-	bool validate() override
-	{
-		return true;
-	}
-
-	bool apply() override
-	{
-		char Buffer[52];
-
-		DWORD CurrentProcessId = GetProcessId(GetCurrentProcess());
-		sprintf(Buffer, "v7_%04d", CurrentProcessId ^ 0x19EA3FD3);
-		CreateEventA(0, 1, 1, Buffer);
-
-		return true;
-	}
-
-	static FixC2CRankings instance;
-};
-FixC2CRankings FixC2CRankings::instance;
-
 class AutoDetectResolution : public Hook
 {
 public:

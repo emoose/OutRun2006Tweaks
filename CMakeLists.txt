@@ -98,6 +98,7 @@ set(outrun2006tweaks_SOURCES
 	"src/Proxy.cpp"
 	"src/dllmain.cpp"
 	"src/hook_mgr.cpp"
+	"src/hooks_bugfixes.cpp"
 	"src/hooks_framerate.cpp"
 	"src/hooks_graphics.cpp"
 	"src/hooks_misc.cpp"
