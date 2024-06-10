@@ -71,6 +71,11 @@ namespace Settings
 
 		spdlog::info(" - SkipIntroLogos: {}", SkipIntroLogos);
 		spdlog::info(" - CountdownTimerDisable: {}", CountdownTimerDisable);
+
+		spdlog::info(" - FixPegasusClopping: {}", FixPegasusClopping);
+		spdlog::info(" - FixC2CRankings: {}", FixC2CRankings);
+		spdlog::info(" - PreventDESTSaveCorruption: {}", PreventDESTSaveCorruption);
+		spdlog::info(" - FixLensFlarePath: {}", FixLensFlarePath);
 	}
 
 	bool read(std::filesystem::path& iniPath)
@@ -113,6 +118,11 @@ namespace Settings
 
 		SkipIntroLogos = ini.Get("Misc", "SkipIntroLogos", std::move(SkipIntroLogos));
 		CountdownTimerDisable = ini.Get("Misc", "CountdownTimerDisable", std::move(CountdownTimerDisable));
+
+		FixPegasusClopping = ini.Get("Bugfixes", "FixPegasusClopping", std::move(FixPegasusClopping));
+		FixC2CRankings = ini.Get("Bugfixes", "FixC2CRankings", std::move(FixC2CRankings));
+		PreventDESTSaveCorruption = ini.Get("Bugfixes", "PreventDESTSaveCorruption", std::move(PreventDESTSaveCorruption));
+		FixLensFlarePath = ini.Get("Bugfixes", "FixLensFlarePath", std::move(FixLensFlarePath));
 
 		return true;
 	}

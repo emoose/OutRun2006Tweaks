@@ -45,6 +45,8 @@ namespace Game
 	inline fn_0args GhostCarExecServer = nullptr;
 	inline fn_0args fn4666A0 = nullptr;
 
+	inline fn_1arg PrjSndRequest = nullptr;
+
 	inline void init()
 	{
 		current_mode = Module::exe_ptr<GameState>(0x38026C);
@@ -82,5 +84,7 @@ namespace Game
 		EventControl = Module::fn_ptr<fn_0args>(0x3FAB0); // EventControl
 		GhostCarExecServer = Module::fn_ptr<fn_0args>(0x80F80); // GhostCarExecServer
 		fn4666A0 = Module::fn_ptr<fn_0args>(0x666A0);
+
+		PrjSndRequest = Module::fn_ptr<fn_1arg>(0x249F0);
 	}
 };

@@ -27,46 +27,6 @@ public:
 };
 DisableDPIScaling DisableDPIScaling::instance;
 
-class LensFlarePathFix : public Hook
-{
-	const static int LoadLensFlareOffset_StringAddr = 0x1A29F8;
-
-public:
-	std::string_view description() override
-	{
-		return "LensFlarePathFix";
-	}
-
-	bool validate() override
-	{
-		return true;
-	}
-
-	bool apply() override
-	{
-		// Game code tries to load lens_flare_offset.bin from the wrong path
-		// Code tries loading from common/, but game files have it inside media/
-		// We'll just patch code to load from media/ instead
-		// (only patch it if file actually exists inside media/ though, some fix guides already told people to move it to common/)
-
-		std::string NewPath = "\\media\\lens_flare_offset.bin";
-		if (std::filesystem::exists("." + NewPath))
-		{
-			auto* patch_addr = Module::exe_ptr<char>(LoadLensFlareOffset_StringAddr);
-
-			DWORD dwProtect;
-			VirtualProtect((void*)patch_addr, NewPath.length(), PAGE_EXECUTE_READWRITE, &dwProtect);
-			strcpy(patch_addr, NewPath.c_str());
-			VirtualProtect((void*)patch_addr, NewPath.length(), dwProtect, &dwProtect);
-		}
-
-		return true;
-	}
-
-	static LensFlarePathFix instance;
-};
-LensFlarePathFix LensFlarePathFix::instance;
-
 class ScreenEdgeCullFix : public Hook
 {
 	const static int CalcBall3D2D_Addr = 0x49E70;

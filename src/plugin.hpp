@@ -56,6 +56,11 @@ namespace Settings
 
 	inline bool SkipIntroLogos = false;
 	inline bool CountdownTimerDisable = false;
+
+	inline bool FixPegasusClopping = true;
+	inline bool FixC2CRankings = true;
+	inline bool PreventDESTSaveCorruption = true;
+	inline bool FixLensFlarePath = true;
 }
 
 namespace Util

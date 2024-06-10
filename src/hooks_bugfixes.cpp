@@ -5,6 +5,40 @@
 #include "plugin.hpp"
 #include "game_addrs.hpp"
 
+class FixPegasusClopping : public Hook
+{
+	const static int SndOff_PEGA_Addr = 0x4BCC0;
+
+	inline static SafetyHookInline SndOff_PEGA = {};
+	static void destination()
+	{
+		SndOff_PEGA.call();
+
+		const int SND_STOP = 0x8000;
+		Game::PrjSndRequest(SND_STOP | 0x8D); // 0x8D = clop
+	}
+
+public:
+	std::string_view description() override
+	{
+		return "FixPegasusClopping";
+	}
+
+	bool validate() override
+	{
+		return Settings::FixPegasusClopping;
+	}
+
+	bool apply() override
+	{
+		SndOff_PEGA = safetyhook::create_inline(Module::exe_ptr(SndOff_PEGA_Addr), destination);
+		return !!SndOff_PEGA;
+	}
+
+	static FixPegasusClopping instance;
+};
+FixPegasusClopping FixPegasusClopping::instance;
+
 class FixC2CRankings : public Hook
 {
 	// A lot of the C2C ranking code has a strange check that tries to OpenEventA an existing named event based on current process ID
@@ -23,7 +57,7 @@ public:
 
 	bool validate() override
 	{
-		return true;
+		return Settings::FixC2CRankings;
 	}
 
 	bool apply() override
@@ -67,7 +101,7 @@ public:
 
 	bool validate() override
 	{
-		return true;
+		return Settings::PreventDESTSaveCorruption;
 	}
 
 	bool apply() override
@@ -79,3 +113,42 @@ public:
 	static PreventDESTSaveCorruption instance;
 };
 PreventDESTSaveCorruption PreventDESTSaveCorruption::instance;
+
+class FixLensFlarePath : public Hook
+{
+	// Game tries to load in lens flare data from common/, but the game files have it inside media/, causing lens flare not to be drawn.
+	// We'll just patch code to load from media/ instead
+	// (only patch it if file actually exists inside media/ though, some may have already moved it to common/)
+
+	const static int LoadLensFlareOffset_StringAddr = 0x1A29F8;
+
+public:
+	std::string_view description() override
+	{
+		return "FixLensFlarePath";
+	}
+
+	bool validate() override
+	{
+		return Settings::FixLensFlarePath;
+	}
+
+	bool apply() override
+	{
+		std::string NewPath = "\\media\\lens_flare_offset.bin";
+		if (std::filesystem::exists("." + NewPath))
+		{
+			auto* patch_addr = Module::exe_ptr<char>(LoadLensFlareOffset_StringAddr);
+
+			DWORD dwProtect;
+			VirtualProtect((void*)patch_addr, NewPath.length(), PAGE_EXECUTE_READWRITE, &dwProtect);
+			strcpy(patch_addr, NewPath.c_str());
+			VirtualProtect((void*)patch_addr, NewPath.length(), dwProtect, &dwProtect);
+		}
+
+		return true;
+	}
+
+	static FixLensFlarePath instance;
+};
+FixLensFlarePath FixLensFlarePath::instance;
