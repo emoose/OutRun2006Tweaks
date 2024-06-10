@@ -87,6 +87,7 @@ source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${spdlog_SOURCES})
 
 target_compile_definitions(spdlog PUBLIC
 	SPDLOG_COMPILED_LIB
+	_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR
 )
 
 target_include_directories(spdlog PUBLIC
@@ -123,6 +124,7 @@ source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${outrun2006tweaks_SOURCES})
 
 target_compile_definitions(outrun2006tweaks PUBLIC
 	_SILENCE_STDEXT_ARR_ITERS_DEPRECATION_WARNING
+	_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR
 )
 
 target_compile_features(outrun2006tweaks PUBLIC

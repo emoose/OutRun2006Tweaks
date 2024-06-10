@@ -32,7 +32,7 @@ endif()
 type = "static"
 sources = ["external/spdlog/src/*.cpp"]
 include-directories = ["external/spdlog/include"]
-compile-definitions = ["SPDLOG_COMPILED_LIB"]
+compile-definitions = ["SPDLOG_COMPILED_LIB", "_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR"]
 compile-options = []
 
 [fetch-content]
@@ -47,7 +47,7 @@ include-directories = ["shared/", "src/", "include/", "external/ModUtils/", "ext
 compile-options = ["/GR-", "/GS-", "/bigobj", "/EHa", "/MP"]
 link-options = ["/DEBUG", "/OPT:REF", "/OPT:ICF"]
 compile-features = ["cxx_std_20"]
-compile-definitions = ["_SILENCE_STDEXT_ARR_ITERS_DEPRECATION_WARNING"]
+compile-definitions = ["_SILENCE_STDEXT_ARR_ITERS_DEPRECATION_WARNING", "_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR"]
 link-libraries = [
     "spdlog",
     "safetyhook",
