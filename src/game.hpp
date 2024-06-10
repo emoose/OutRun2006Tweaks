@@ -45,6 +45,15 @@ enum GameState
 	STATE_SUMOREWARD = 0x24,
 };
 
+enum SOUND_CMD
+{
+	/* 0x0800 */ SND_LOOP = (1 << 11),
+	/* 0x1000 */ SND_PAN_LEFT = (1 << 12), 
+	/* 0x2000 */ SND_PAN_RIGHT = (1 << 13),
+	/* 0x4000 */ SND_PAN_LEFTRIGHT = (1 << 14),
+	/* 0x8000 */ SND_STOP = (1 << 15),
+};
+
 typedef struct tagSphere
 {
 	float f0;

@@ -70,7 +70,7 @@ namespace Settings
 		spdlog::info(" - FixZBufferPrecision: {}", FixZBufferPrecision);
 
 		spdlog::info(" - SkipIntroLogos: {}", SkipIntroLogos);
-		spdlog::info(" - CountdownTimerDisable: {}", CountdownTimerDisable);
+		spdlog::info(" - DisableCountdownTimer: {}", DisableCountdownTimer);
 
 		spdlog::info(" - FixPegasusClopping: {}", FixPegasusClopping);
 		spdlog::info(" - FixC2CRankings: {}", FixC2CRankings);
@@ -117,7 +117,7 @@ namespace Settings
 		FixZBufferPrecision = ini.Get("Graphics", "FixZBufferPrecision", std::move(FixZBufferPrecision));
 
 		SkipIntroLogos = ini.Get("Misc", "SkipIntroLogos", std::move(SkipIntroLogos));
-		CountdownTimerDisable = ini.Get("Misc", "CountdownTimerDisable", std::move(CountdownTimerDisable));
+		DisableCountdownTimer = ini.Get("Misc", "DisableCountdownTimer", std::move(DisableCountdownTimer));
 
 		FixPegasusClopping = ini.Get("Bugfixes", "FixPegasusClopping", std::move(FixPegasusClopping));
 		FixC2CRankings = ini.Get("Bugfixes", "FixC2CRankings", std::move(FixC2CRankings));

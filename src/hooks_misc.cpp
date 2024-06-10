@@ -77,8 +77,8 @@ public:
 				}
 				else if (!wcsicmp(argv[i], L"-OuttaTime")) // same arg as FXT wrapper
 				{
-					spdlog::info("CommandLineArguments: CountdownTimerDisable = true");
-					Settings::CountdownTimerDisable = true;
+					spdlog::info("CommandLineArguments: DisableCountdownTimer = true");
+					Settings::DisableCountdownTimer = true;
 				}
 			}
 			catch (...) {}
@@ -113,7 +113,7 @@ public:
 
 		if (Settings::SkipIntroLogos)
 			*Game::Sumo_IntroLogosEnable = false;
-		if (Settings::CountdownTimerDisable)
+		if (Settings::DisableCountdownTimer)
 			*Game::Sumo_CountdownTimerEnable = false;
 
 		if (Settings::AutoDetectResolution)

@@ -14,8 +14,8 @@ class FixPegasusClopping : public Hook
 	{
 		SndOff_PEGA.call();
 
-		const int SND_STOP = 0x8000;
-		Game::PrjSndRequest(SND_STOP | 0x8D); // 0x8D = clop
+		constexpr int SfxClop = 0x8D;
+		Game::PrjSndRequest(SND_STOP | SfxClop);
 	}
 
 public:

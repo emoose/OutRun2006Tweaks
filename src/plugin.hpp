@@ -55,7 +55,7 @@ namespace Settings
 	inline bool FixZBufferPrecision = true;
 
 	inline bool SkipIntroLogos = false;
-	inline bool CountdownTimerDisable = false;
+	inline bool DisableCountdownTimer = false;
 
 	inline bool FixPegasusClopping = true;
 	inline bool FixC2CRankings = true;
