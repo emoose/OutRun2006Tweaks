@@ -5,7 +5,7 @@ Hook::Hook()
 	HookManager::RegisterHook(this);
 }
 
-void HookManager::ApplyHooks(bool insideDelayedThread)
+void HookManager::ApplyHooks()
 {
     for (const auto& hook : s_hooks)
     {

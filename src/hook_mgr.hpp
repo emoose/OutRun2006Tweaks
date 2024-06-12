@@ -51,7 +51,7 @@ private:
 class HookManager
 {
 private:
-    inline static std::vector<std::unique_ptr<Hook>> s_hooks;
+    inline static std::vector<Hook*> s_hooks;
 	
 public:
     static void RegisterHook(Hook* hook)
@@ -59,5 +59,5 @@ public:
         s_hooks.emplace_back(hook);
     }
 
-    static void ApplyHooks(bool insideDelayedThread = false);
+    static void ApplyHooks();
 };
