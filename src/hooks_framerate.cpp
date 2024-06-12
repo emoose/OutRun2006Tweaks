@@ -34,10 +34,6 @@ class ReplaceGameUpdateLoop : public Hook
 			{
 				isLoadScreen = *Game::game_start_progress_code != 65;
 			}
-			else if (CurGameState == STATE_GAMEEXIT || CurGameState == STATE_SUMO_FE || CurGameState == STATE_SELECTOR)
-			{
-				isLoadScreen = (*Game::sumo_load_sprani_67F614 != -1 || *Game::adv_loading_logo != -1);
-			}
 
 			skipFrameLimiter = isLoadScreen;
 

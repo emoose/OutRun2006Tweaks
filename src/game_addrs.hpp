@@ -6,8 +6,6 @@ namespace Game
 	inline GameState* current_mode = nullptr;
 	inline int* game_start_progress_code = nullptr;
 	inline int* file_load_progress_code = nullptr;
-	inline int* sumo_load_sprani_67F614 = nullptr;
-	inline int* adv_loading_logo = nullptr;
 
 	inline uint8_t* Sumo_CountdownTimerEnable = nullptr;
 	inline uint8_t* Sumo_IntroLogosEnable = nullptr;
@@ -52,8 +50,6 @@ namespace Game
 		current_mode = Module::exe_ptr<GameState>(0x38026C);
 		game_start_progress_code = Module::exe_ptr<int>(0x4367A8);
 		file_load_progress_code = Module::exe_ptr<int>(0x436718);
-		sumo_load_sprani_67F614 = Module::exe_ptr<int>(0x27F614);
-		adv_loading_logo = Module::exe_ptr<int>(0x287778);
 		Sumo_CountdownTimerEnable = Module::exe_ptr<uint8_t>(0x237911);
 		Sumo_IntroLogosEnable = Module::exe_ptr<uint8_t>(0x2319A1);
 
