@@ -352,7 +352,7 @@ class AnisotropicFiltering : public Hook
 	{
 		int Sampler = ctx.ebp;
 
-		Game::D3DDevice()->SetSamplerState(Sampler, D3DSAMP_MAXANISOTROPY, 16);
+		Game::D3DDevice()->SetSamplerState(Sampler, D3DSAMP_MAXANISOTROPY, Settings::AnisotropicFiltering);
 	}
 
 	inline static SafetyHookMid dest_hook2 = {};
@@ -364,7 +364,7 @@ class AnisotropicFiltering : public Hook
 		{
 			ctx.esi = D3DTEXF_ANISOTROPIC;
 
-			Game::D3DDevice()->SetSamplerState(Sampler, D3DSAMP_MAXANISOTROPY, 16);
+			Game::D3DDevice()->SetSamplerState(Sampler, D3DSAMP_MAXANISOTROPY, Settings::AnisotropicFiltering);
 		}
 	}
 
