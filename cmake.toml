@@ -51,7 +51,8 @@ compile-definitions = ["_SILENCE_STDEXT_ARR_ITERS_DEPRECATION_WARNING", "_DISABL
 link-libraries = [
     "spdlog",
     "safetyhook",
-    "version.lib"
+    "version.lib",
+	"xinput.lib"
 ]
 
 [target.outrun2006tweaks.properties]

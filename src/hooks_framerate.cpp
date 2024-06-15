@@ -4,6 +4,9 @@
 
 #include <d3d9.h>
 
+// hooks_forcefeedback.cpp
+extern void SetVibration(int userId, float leftMotor, float rightMotor);
+
 class ReplaceGameUpdateLoop : public Hook
 {
 	const static int HookAddr = 0x17C7B;
@@ -123,6 +126,10 @@ class ReplaceGameUpdateLoop : public Hook
 
 		// need to call 43FA10 in order for "extend time" gfx to disappear
 		Game::fn43FA10(numUpdates);
+
+		// Reset vibration if we're not in main game state
+		if (Settings::VibrationMode != 0 && numUpdates > 0 && CurGameState != GameState::STATE_GAME)
+			SetVibration(Settings::VibrationControllerId, 0.0f, 0.0f);
 
 		for (int curUpdateIdx = 0; curUpdateIdx < numUpdates; curUpdateIdx++)
 		{

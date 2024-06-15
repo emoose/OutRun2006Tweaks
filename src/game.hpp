@@ -76,3 +76,23 @@ typedef struct tgaEvWorkCamera // [sic]
 	uint8_t unk_368[0x4C];
 } EvWorkCamera;
 static_assert(sizeof(EvWorkCamera) == 0x3B4);
+
+struct OnRoadPlace
+{
+	DWORD loadColiType_0;
+	uint32_t field_4;
+	__int16 roadSectionNum_8;
+	uint8_t field_A;
+	uint8_t unk_B;
+	DWORD curStageIdx_C;
+};
+static_assert(sizeof(OnRoadPlace) == 0x10);
+
+typedef struct tagEVWORK_CAR
+{
+	uint8_t unk_0[0x5C];
+	OnRoadPlace OnRoadPlace_5C;
+	uint8_t unk_6C[0x10F0 - 0x6C];
+} EVWORK_CAR;
+static_assert(sizeof(EVWORK_CAR) == 0x10F0);
+// car0 = 0x7804B0

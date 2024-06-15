@@ -32,63 +32,6 @@ PLUGIN_API DWORD WINAPI X3DAudioCalculate(void* Instance, void* pListener, void*
     return X3DAudioCalculate_orig(Instance, pListener, pEmitter, Flags, pDSPSettings);
 }
 
-// XInput1_3 and XInput9_1_0
-typedef DWORD(WINAPI* XInputGetState_ptr)(DWORD dwUserIndex, void* pState);
-typedef DWORD(WINAPI* XInputSetState_ptr)(DWORD dwUserIndex, void* pVibration);
-typedef DWORD(WINAPI* XInputGetCapabilities_ptr)(DWORD dwUserIndex, DWORD dwFlags, void* pCapabilities);
-typedef void(WINAPI* XInputEnable_ptr)(BOOL enable);
-typedef DWORD(WINAPI* XInputGetDSoundAudioDeviceGuids_ptr)(DWORD dwUserIndex, GUID* pDSoundRenderGuid, GUID* pDSoundCaptureGuid);
-typedef DWORD(WINAPI* XInputGetBatteryInformation_ptr)(DWORD dwUserIndex, BYTE devType, void* pBatteryInformation);
-typedef DWORD(WINAPI* XInputGetKeystroke_ptr)(DWORD dwUserIndex, DWORD dwReserved, void* pKeystroke);
-
-XInputGetState_ptr XInputGetState_orig;
-XInputSetState_ptr XInputSetState_orig;
-XInputGetCapabilities_ptr XInputGetCapabilities_orig;
-XInputEnable_ptr XInputEnable_orig;
-XInputGetDSoundAudioDeviceGuids_ptr XInputGetDSoundAudioDeviceGuids_orig;
-XInputGetBatteryInformation_ptr XInputGetBatteryInformation_orig;
-XInputGetKeystroke_ptr XInputGetKeystroke_orig;
-
-// xinput1_3 needs everything at the proper ordinal, proxy.def handles that, but we need something for ordinal 1 so:
-PLUGIN_API void DllMain_stub()
-{
-}
-
-PLUGIN_API DWORD WINAPI XInputGetState(DWORD dwUserIndex, void* pState)
-{
-    return XInputGetState_orig(dwUserIndex, pState);
-}
-
-PLUGIN_API DWORD WINAPI XInputSetState(DWORD dwUserIndex, void* pVibration)
-{
-    return XInputSetState_orig(dwUserIndex, pVibration);
-}
-
-PLUGIN_API DWORD WINAPI XInputGetCapabilities(DWORD dwUserIndex, DWORD dwFlags, void* pCapabilities)
-{
-    return XInputGetCapabilities_orig(dwUserIndex, dwFlags, pCapabilities);
-}
-
-PLUGIN_API void WINAPI XInputEnable(BOOL enable)
-{
-    XInputEnable_orig(enable);
-}
-
-PLUGIN_API DWORD WINAPI XInputGetDSoundAudioDeviceGuids(DWORD dwUserIndex, GUID* pDSoundRenderGuid, GUID* pDSoundCaptureGuid)
-{
-    return XInputGetDSoundAudioDeviceGuids_orig(dwUserIndex, pDSoundRenderGuid, pDSoundCaptureGuid);
-}
-
-PLUGIN_API DWORD WINAPI XInputGetBatteryInformation(DWORD dwUserIndex, BYTE devType, void* pBatteryInformation)
-{
-    return XInputGetBatteryInformation_orig(dwUserIndex, devType, pBatteryInformation);
-}
-
-PLUGIN_API DWORD WINAPI XInputGetKeystroke(DWORD dwUserIndex, DWORD dwReserved, void* pKeystroke)
-{
-    return XInputGetKeystroke_orig(dwUserIndex, dwReserved, pKeystroke);
-}
-
 // dinput8.dll
 typedef HRESULT(WINAPI* DirectInput8Create_ptr)(HINSTANCE hinst, DWORD dwVersion, REFIID riidltf, LPVOID* ppvOut, void* punkOuter);
 
@@ -1166,15 +1109,6 @@ bool on_attach(HMODULE ourModule)
     origModule = LoadLibraryW(origModulePath);
     if (!origModule)
         return false;
-
-    XInputGetCapabilities_orig = (XInputGetCapabilities_ptr)GetProcAddress(origModule, "XInputGetCapabilities");
-    XInputGetDSoundAudioDeviceGuids_orig =
-        (XInputGetDSoundAudioDeviceGuids_ptr)GetProcAddress(origModule, "XInputGetDSoundAudioDeviceGuids");
-    XInputGetState_orig = (XInputGetState_ptr)GetProcAddress(origModule, "XInputGetState");
-    XInputSetState_orig = (XInputSetState_ptr)GetProcAddress(origModule, "XInputSetState");
-    XInputEnable_orig = (XInputEnable_ptr)GetProcAddress(origModule, "XInputEnable");
-    XInputGetBatteryInformation_orig = (XInputGetBatteryInformation_ptr)GetProcAddress(origModule, "XInputGetBatteryInformation");
-    XInputGetKeystroke_orig = (XInputGetKeystroke_ptr)GetProcAddress(origModule, "XInputGetKeystroke");
 
     DirectInput8Create_orig = (DirectInput8Create_ptr)GetProcAddress(origModule, "DirectInput8Create");
 

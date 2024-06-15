@@ -69,6 +69,10 @@ namespace Settings
 		spdlog::info(" - DisableStageCulling: {}", DisableStageCulling);
 		spdlog::info(" - FixZBufferPrecision: {}", FixZBufferPrecision);
 
+		spdlog::info(" - VibrationMode: {}", VibrationMode);
+		spdlog::info(" - VibrationStrength: {}", VibrationStrength);
+		spdlog::info(" - VibrationControllerId: {}", VibrationControllerId);
+
 		spdlog::info(" - SkipIntroLogos: {}", SkipIntroLogos);
 		spdlog::info(" - DisableCountdownTimer: {}", DisableCountdownTimer);
 
@@ -115,6 +119,13 @@ namespace Settings
 		DisableVehicleLODs = ini.Get("Graphics", "DisableVehicleLODs", std::move(DisableVehicleLODs));
 		DisableStageCulling = ini.Get("Graphics", "DisableStageCulling", std::move(DisableStageCulling));
 		FixZBufferPrecision = ini.Get("Graphics", "FixZBufferPrecision", std::move(FixZBufferPrecision));
+
+		VibrationMode = ini.Get("Vibration", "VibrationMode", std::move(VibrationMode));
+		VibrationMode = std::clamp(VibrationMode, 0, 3);
+		VibrationStrength = ini.Get("Vibration", "VibrationStrength", std::move(VibrationStrength));
+		VibrationStrength = std::clamp(VibrationStrength, 0, 10);
+		VibrationControllerId = ini.Get("Vibration", "VibrationControllerId", std::move(VibrationControllerId));
+		VibrationControllerId = std::clamp(VibrationControllerId, 0, 4);
 
 		SkipIntroLogos = ini.Get("Misc", "SkipIntroLogos", std::move(SkipIntroLogos));
 		DisableCountdownTimer = ini.Get("Misc", "DisableCountdownTimer", std::move(DisableCountdownTimer));

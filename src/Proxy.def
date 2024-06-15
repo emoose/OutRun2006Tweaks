@@ -1,12 +1,4 @@
 EXPORTS
-  DllMain_stub  @1
-  XInputGetState @2
-  XInputSetState @3
-  XInputGetCapabilities @4
-  XInputEnable @5
-  XInputGetDSoundAudioDeviceGuids @6
-  XInputGetBatteryInformation @7
-  XInputGetKeystroke @8
   DirectInput8Create @9
   DXGIDumpJournal @10
   CreateDXGIFactory @11

@@ -100,6 +100,7 @@ set(outrun2006tweaks_SOURCES
 	"src/dllmain.cpp"
 	"src/hook_mgr.cpp"
 	"src/hooks_bugfixes.cpp"
+	"src/hooks_forcefeedback.cpp"
 	"src/hooks_framerate.cpp"
 	"src/hooks_graphics.cpp"
 	"src/hooks_misc.cpp"
@@ -151,6 +152,7 @@ target_link_libraries(outrun2006tweaks PUBLIC
 	spdlog
 	safetyhook
 	version.lib
+	xinput.lib
 )
 
 target_link_options(outrun2006tweaks PUBLIC

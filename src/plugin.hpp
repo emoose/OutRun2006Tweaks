@@ -54,6 +54,10 @@ namespace Settings
 	inline bool DisableStageCulling = true;
 	inline bool FixZBufferPrecision = true;
 
+	inline int VibrationMode = 0;
+	inline int VibrationStrength = 10;
+	inline int VibrationControllerId = 0;
+
 	inline bool SkipIntroLogos = false;
 	inline bool DisableCountdownTimer = false;
 

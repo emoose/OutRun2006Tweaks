@@ -45,6 +45,9 @@ namespace Game
 
 	inline fn_1arg PrjSndRequest = nullptr;
 
+	inline fn_1arg_int GetNowStageNum = nullptr;
+	inline fn_1arg_int GetStageUniqueNum = nullptr;
+
 	inline void init()
 	{
 		current_mode = Module::exe_ptr<GameState>(0x38026C);
@@ -82,5 +85,8 @@ namespace Game
 		fn4666A0 = Module::fn_ptr<fn_0args>(0x666A0);
 
 		PrjSndRequest = Module::fn_ptr<fn_1arg>(0x249F0);
+
+		GetNowStageNum = Module::fn_ptr<fn_1arg_int>(0x50380);
+		GetStageUniqueNum = Module::fn_ptr<fn_1arg_int>(0x4DC50);
 	}
 };
