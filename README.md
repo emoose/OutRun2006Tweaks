@@ -2,24 +2,30 @@
 A wrapper DLL that can patch in some minor fixes & tweaks into OutRun 2006: Coast 2 Coast.
 
 ### Features
+**Bugfixes:**
+- Prevents the "DEST" save corruption bug when trying to remap controls while having many dinput devices connected
+- Fixes C2C ranking scoreboards not updating on Steam and certain releases due to faulty anti-piracy checks
+- Pegasus animation's clopping sound effect will now end properly, without looping through whole session
+- Game can now load lens flare effect from correct path, restoring lens flare without needing to change game files
+- Fixed Z-buffer precision issues that caused heavy z-fighting and distant object pop-in
+- Stage objects such as traffic cones will now only disappear once they're actually off-screen
+
+**Enhancements:**
+- Adds a built-in framelimiter to prevent game from speeding up
+- FPS can now be partially unlocked, drawing at unlocked FPS while game run at 60FPS tickrate
+- Allows disabling vehicle LODs, reducing the ugly pop-in as they get closer
+- Restores XInput rumble code from the Xbox release, allowing gear shifts/drifts/crashes/etc to give feedback
+- Can force anisotropic filtering & enable transparency supersampling, greatly reducing aliasing around the edges of the track
 - Game can now run in borderless windowed mode; mouse cursor will now be hidden while game is active
-- Adds a built-in framelimiter to prevent game from speeding up (along with an optional fix that can allow higher FPS without speedup)
-- Fixes objects being culled out before reaching edge of screen
-- Fixes C2C scoreboard not saving scores on the Steam release due to broken anti-piracy checks
-- Fixes Z-buffer precision issues, greatly reducing z-fighting & distant object pop-in
-- Allows disabling vehicle LODs to reduce the ugly pop-in of them
-- Disables culling of certain stage objects
-- Can force anisotropic filtering level & enable transparency supersampling, greatly reducing aliasing around the edges of the track. (set `DX/ANTIALIASING = 2` in outrun2006.ini for best results)
 - Automatically disables DPI scaling on the game window, fixing scaling issues with certain setups
-- Fixes broken lens flare effect by making game load it from correct path
 - Heavily reduced load times by disabling framelimiter/vsync during load screens
+- Allows skipping intro splash screens
 
-All the above can be toggled/customized via the Outrun2006Tweaks.ini file.
+All the above can be toggled/customized via the OutRun2006Tweaks.ini file.
 
-There's also a semi-experimental fix to allow running above 60FPS without speedup, by locking the games tickrate to 60FPS while draw-rate is unlimited.  
-You can use this by increasing the `FramerateLimit` setting (or disabling it), with `FramerateUnlockExperimental` enabled.  
-Since the game will still internally update at 60FPS this probably won't give as much benefit as a true framerate-unlock though.  
-(some things like animated textures & menu text also unfortunately have speed issues with it...)
+FPS can be partially unlocked by increasing the `FramerateLimit` setting above 60 (or disabling it), with `FramerateUnlockExperimental` enabled.  
+This will then lock the games tickrate to 60FPS while draw-rate itself is unlocked.  
+(some things like animated textures & menu text may speed up with this, but the game speed itself will remain the same)
 
 ### Setup
 Since Steam/DVD releases are packed with ancient DRM that doesn't play well with DLL wrappers, this pack includes a replacement game EXE to run the game with.
