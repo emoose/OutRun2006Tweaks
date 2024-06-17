@@ -22,13 +22,12 @@ void SetVibration(int userId, float leftMotor, float rightMotor)
         leftMotor = rightMotor;
         rightMotor = left;
     }
-    else if (Settings::VibrationMode == 3)
+    else if (Settings::VibrationMode == 3) // Merge L/R by using whichever is highest
     {
         leftMotor = rightMotor = max(leftMotor, rightMotor);
     }
 
-    XINPUT_VIBRATION vib = { 0 };
-
+    XINPUT_VIBRATION vib{ 0 };
     vib.wLeftMotorSpeed = uint16_t(std::clamp(int(leftMotor * 65535.f), 0, 0xFFFF));
     vib.wRightMotorSpeed = uint16_t(std::clamp(int(rightMotor * 65535.f), 0, 0xFFFF));
     XInputSetState(userId, &vib);
