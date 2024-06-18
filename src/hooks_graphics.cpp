@@ -442,65 +442,13 @@ class SupaTextureDumper9000 : public Hook
 {
 	const static int D3DXCreateTextureFromFileInMemory_Addr = 0x39412;
 
-	inline static SafetyHookInline D3DXCreateTextureFromFileInMemory = {};
-
 	inline static std::filesystem::path CurrentSpriteXmt;
-
 	inline static std::filesystem::path XmtDumpPath;
 	inline static std::filesystem::path XmtLoadPath;
 
-	inline static uint8_t* xstset = 0;
 	inline static int xstset_index = 0;
 
 	inline static std::unordered_map<int, std::pair<float, float>> sprite_scales;
-
-	static void RescaleSpriteClipArgs(const DDS_FILE* ddshead, DDS_FILE* newhead, float& scaleX, float& scaleY)
-	{
-		float ratio_width = float(newhead->data.dwWidth) / float(ddshead->data.dwWidth);
-		float ratio_height = float(newhead->data.dwHeight) / float(ddshead->data.dwHeight);
-		scaleX = ratio_width;
-		scaleY = ratio_height;
-
-		struct ClipArgsMb
-		{
-			uint32_t unk_0;
-			float field_4;
-			float field_8;
-			float field_C;
-			float field_10;
-			uint16_t field_14;
-			uint16_t field_16;
-			uint16_t field_18;
-			uint16_t field_1A;
-		};
-
-		uint8_t* clipargs = *(uint8_t**)(xstset + 4);
-		int numclips = *(int*)(clipargs + 0x18);
-		ClipArgsMb* clips = *(ClipArgsMb**)(clipargs + 0x1C);
-
-		int clipnum = *(int*)0x95B25C;
-		sprite_scales[(xstset_index << 16) | clipnum] = { ratio_width, ratio_height };
-	};
-
-	struct SPRARGS
-	{
-		uint32_t xstnum_0;
-		uint32_t top_4;
-		uint32_t left_8;
-		uint32_t bottom_C;
-		uint32_t right_10;
-		float scaleX;
-		float scaleY;
-		float float1C;
-		float float20;
-		float float24;
-		float float28;
-		uint32_t dword2C;
-		float float30;
-		uint32_t dword34;
-		uint32_t* pdword38;
-		uint8_t unk_3C[12];
-	};
 
 	inline static SafetyHookInline put_sprite_ex = {};
 	static int __cdecl put_sprite_ex_dest(SPRARGS* a1, float a2)
@@ -520,63 +468,52 @@ class SupaTextureDumper9000 : public Hook
 		return put_sprite_ex.call<int>(a1, a2);
 	}
 
-	struct SPRARGS2
-	{
-		uint32_t xstnum_0;
-		uint8_t unk_4[8];
-		uintptr_t xstset_ptr_C;
-		uint8_t unk_10[0x50];
-		float unk_60;
-		float unk_64;
-		float unk_68;
-		float unk_6C;
-		float unk_70;
-		float unk_74;
-		float unk_78;
-		float unk_7C;
-		float unk_80;
-		float unk_84;
-		float unk_88;
-		float unk_8C;
-		float unk_90;
-		float unk_94;
-		float unk_98;
-		float unk_9C;
-		float unk_A0;
-	};
-	static_assert(sizeof(SPRARGS2) == 0xA4, "");
+	// put_sprite_ex2 usually doesn't have the proper textureId set inside SPRARGS2, only the d3dtexture_ptr_C
+	// we could store each d3dtexture ptr somewhere when they're created, and then check against them later to find the scale
+	// but that's not really ideal since pointers could get freed with new texture using same address
+	// luckily it seems almost every put_sprite_ex2 call is preceeded by a get_texture call with the actual texture ID
+	// so we'll just hook get_texture, check that against our textureId -> scale map, and stash result for put_sprite_ex2 to use
+	inline static void* prevTexture = nullptr;
+	inline static int prevTextureId = 0;
 
-	// TODO:
-	// Right now we're using a map with the IDirect3DTexture9 pointer as index, since SPRARGS2 fortunately includes pointer to it
-	// (SPRARGS2 does contain a xstnum_0 field, but it doesn't always seem used...)
-	//
-	// It's likely that as gameplay progresses these pointers will become invalid, and may end up pointing to entirely different texture...
-	// 
-	// Seems game uses get_texture(textureId) to fetch the pointer first, and the textureId param should be able to index into our sprite_scales map
-	// So maybe better to just do something like
-	// get_texture hook -> if textureId exists inside sprite_scales, stash the IDirect3DTexture9* pointer somewhere
-	// put_sprite_ex2 hook -> check IDirect3DTexture9*, if it matches up apply the scale, then invalidate pointer
-	// 
-	inline static std::unordered_map<uintptr_t, std::pair<float, float>> sprite_offset_scales;
+	inline static SafetyHookInline get_texture = {};
+	static void* __cdecl get_texture_dest(int textureId)
+	{
+		auto* ret = get_texture.call<void*>(textureId);
+		if (ret && sprite_scales.contains(textureId))
+		{
+			prevTexture = ret;
+			prevTextureId = textureId;
+		}
+		return ret;
+	}
 
 	inline static SafetyHookInline put_sprite_ex2 = {};
 	static int __cdecl put_sprite_ex2_dest(SPRARGS2* a1, float a2)
 	{
 		int xstnum = a1->xstnum_0;
-		if (sprite_offset_scales.contains(a1->xstset_ptr_C))
+		if (a1->d3dtexture_ptr_C == prevTexture && sprite_scales.contains(prevTextureId))
 		{
-			auto scaleX = std::get<0>(sprite_offset_scales[a1->xstset_ptr_C]);
-			auto scaleY = std::get<1>(sprite_offset_scales[a1->xstset_ptr_C]);
+			auto scaleX = std::get<0>(sprite_scales[prevTextureId]);
+			auto scaleY = std::get<1>(sprite_scales[prevTextureId]);
 
+			// left is kept at both unk_88 & unk_A0, we'll do both seperately in case they're different for some reason
 			float origLeft = 1.0f - a1->unk_88;
 			origLeft = origLeft * scaleX;
 			a1->unk_88 = 1.0f - origLeft;
-			a1->unk_A0 = a1->unk_88;
+			
+			origLeft = 1.0f - a1->unk_A0;
+			origLeft = origLeft * scaleX;
+			a1->unk_A0 = 1.0f - origLeft;
 
+			// right at unk_90 & unk_98
 			float origRight = 1.0f - a1->unk_90;
 			origRight = origRight * scaleX;
 			a1->unk_90 = 1.0f - origRight;
-			a1->unk_98 = a1->unk_90;
+
+			origRight = 1.0f - a1->unk_98;
+			origRight = origRight * scaleX;
+			a1->unk_98 = 1.0f - origRight;
 
 			// bottom?
 			a1->unk_84 = a1->unk_84 * scaleY;
@@ -585,14 +522,11 @@ class SupaTextureDumper9000 : public Hook
 			// top?
 			a1->unk_94 = a1->unk_94 * scaleY;
 			a1->unk_9C = a1->unk_9C * scaleY;
+
+			prevTexture = nullptr;
+			prevTextureId = 0;
 		}
 		return put_sprite_ex2.call<int>(a1, a2);
-	}
-
-	inline static SafetyHookMid LoadSpriteTextures_hook = {};
-	static void LoadSpriteTextures_dest(safetyhook::Context& ctx)
-	{
-		xstset = (uint8_t*)(ctx.esi);
 	}
 
 	inline static SafetyHookMid LoadXstsetSprite_hook = {};
@@ -602,13 +536,10 @@ class SupaTextureDumper9000 : public Hook
 		xstset_index = (int)(ctx.eax);
 	};
 
+	inline static SafetyHookInline D3DXCreateTextureFromFileInMemory = {};
 	static HRESULT __stdcall D3DXCreateTextureFromFileInMemory_dest(LPDIRECT3DDEVICE9 pDevice, void* pSrcData, UINT SrcDataSize, LPDIRECT3DTEXTURE9* ppTexture)
 	{
 		std::unique_ptr<uint8_t[]> newdata;
-
-		bool scaled = false;
-		float scaleX = 1;
-		float scaleY = 1;
 
 		if (pSrcData && SrcDataSize)
 		{
@@ -640,8 +571,15 @@ class SupaTextureDumper9000 : public Hook
 					fread(newdata.get(), 1, size, file);
 					fclose(file);
 
-					scaled = true;
-					RescaleSpriteClipArgs(header, (DDS_FILE*)newdata.get(), scaleX, scaleY);
+					const DDS_FILE* newhead = (const DDS_FILE*)newdata.get();
+
+					// Calc the scaling ratio of new texture vs old one, to use in put_sprite funcs later
+					float ratio_width = float(newhead->data.dwWidth) / float(header->data.dwWidth);
+					float ratio_height = float(newhead->data.dwHeight) / float(header->data.dwHeight);
+
+					int curTextureNum = *Module::exe_ptr<int>(0x55B25C);
+					sprite_scales[(xstset_index << 16) | curTextureNum] = { ratio_width, ratio_height };
+
 					memcpy(pSrcData, newdata.get(), sizeof(DDS_FILE));
 
 					pSrcData = newdata.get();
@@ -659,10 +597,7 @@ class SupaTextureDumper9000 : public Hook
 			}
 		}
 
-		auto ret = D3DXCreateTextureFromFileInMemory.stdcall<HRESULT>(pDevice, pSrcData, SrcDataSize, ppTexture);
-		if (scaled && *ppTexture)
-			sprite_offset_scales[(uintptr_t)*ppTexture] = { scaleX, scaleY };
-		return ret;
+		return D3DXCreateTextureFromFileInMemory.stdcall<HRESULT>(pDevice, pSrcData, SrcDataSize, ppTexture);
 	}
 
 public:
@@ -683,11 +618,12 @@ public:
 
 		D3DXCreateTextureFromFileInMemory = safetyhook::create_inline(Module::exe_ptr(D3DXCreateTextureFromFileInMemory_Addr), D3DXCreateTextureFromFileInMemory_dest);
 
-		LoadSpriteTextures_hook = safetyhook::create_mid(Module::exe_ptr(0x30120), LoadSpriteTextures_dest);
 		LoadXstsetSprite_hook = safetyhook::create_mid(Module::exe_ptr(0x2FE20), LoadXstsetSprite_dest);
 		
 		put_sprite_ex = safetyhook::create_inline(Module::exe_ptr(0x2CFE0), put_sprite_ex_dest);
 		put_sprite_ex2 = safetyhook::create_inline(Module::exe_ptr(0x2D0C0), put_sprite_ex2_dest);
+
+		get_texture = safetyhook::create_inline(Module::exe_ptr(0x2A030), get_texture_dest);
 
 		return true;
 	}

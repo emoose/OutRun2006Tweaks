@@ -96,3 +96,50 @@ typedef struct tagEVWORK_CAR
 } EVWORK_CAR;
 static_assert(sizeof(EVWORK_CAR) == 0x10F0);
 // car0 = 0x7804B0
+
+struct SPRARGS
+{
+	uint32_t xstnum_0;
+	uint32_t top_4;
+	uint32_t left_8;
+	uint32_t bottom_C;
+	uint32_t right_10;
+	float scaleX;
+	float scaleY;
+	float float1C;
+	float float20;
+	float float24;
+	float float28;
+	uint32_t dword2C;
+	float float30;
+	uint32_t dword34;
+	uint32_t* pdword38;
+	uint8_t unk_3C[12];
+};
+static_assert(sizeof(SPRARGS) == 0x48);
+
+struct SPRARGS2
+{
+	uint32_t xstnum_0;
+	uint8_t unk_4[8];
+	void* d3dtexture_ptr_C; // IDirect3DTexture9* ?
+	uint8_t unk_10[0x50];
+	float unk_60;
+	float unk_64;
+	float unk_68;
+	float unk_6C;
+	float unk_70;
+	float unk_74;
+	float unk_78;
+	float unk_7C;
+	float unk_80;
+	float unk_84; // bottom
+	float unk_88; // left
+	float unk_8C; // bottom
+	float unk_90; // right
+	float unk_94; // top
+	float unk_98; // right
+	float unk_9C; // top
+	float unk_A0; // left
+};
+static_assert(sizeof(SPRARGS2) == 0xA4);
