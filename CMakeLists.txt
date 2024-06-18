@@ -107,6 +107,7 @@ set(outrun2006tweaks_SOURCES
 	"src/Proxy.def"
 	"src/Resource.rc"
 	"external/ModUtils/Patterns.cpp"
+	"external/xxHash/xxhash.c"
 	"src/Proxy.hpp"
 	"src/game.hpp"
 	"src/game_addrs.hpp"
@@ -115,6 +116,7 @@ set(outrun2006tweaks_SOURCES
 	"src/resource.h"
 	"external/ModUtils/Patterns.h"
 	"external/ModUtils/MemoryMgr.h"
+	"external/xxHash/xxhash.h"
 	cmake.toml
 )
 
@@ -146,6 +148,7 @@ target_include_directories(outrun2006tweaks PUBLIC
 	"include/"
 	"external/ModUtils/"
 	"external/ini-cpp/ini/"
+	"external/xxHash/"
 )
 
 target_link_libraries(outrun2006tweaks PUBLIC

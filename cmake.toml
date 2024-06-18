@@ -41,9 +41,9 @@ safetyhook = { git = "https://github.com/cursey/safetyhook", tag = "629558c64009
 
 [target.outrun2006tweaks]
 type = "shared"
-sources = ["src/**.cpp", "src/**.c", "src/**.def", "src/Resource.rc", "external/ModUtils/Patterns.cpp"]
-headers = ["src/**.hpp", "src/**.h", "external/ModUtils/Patterns.h", "external/ModUtils/MemoryMgr.h"]
-include-directories = ["shared/", "src/", "include/", "external/ModUtils/", "external/ini-cpp/ini/"]
+sources = ["src/**.cpp", "src/**.c", "src/**.def", "src/Resource.rc", "external/ModUtils/Patterns.cpp", "external/xxHash/xxhash.c"]
+headers = ["src/**.hpp", "src/**.h", "external/ModUtils/Patterns.h", "external/ModUtils/MemoryMgr.h", "external/xxHash/xxhash.h"]
+include-directories = ["shared/", "src/", "include/", "external/ModUtils/", "external/ini-cpp/ini/", "external/xxHash/"]
 compile-options = ["/GR-", "/GS-", "/bigobj", "/EHa", "/MP"]
 link-options = ["/DEBUG", "/OPT:REF", "/OPT:ICF"]
 compile-features = ["cxx_std_20"]
