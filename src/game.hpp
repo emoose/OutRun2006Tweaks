@@ -1,4 +1,5 @@
 #pragma once
+#include <d3d9types.h>
 
 typedef void (*fn_0args)();
 typedef void (*fn_1arg)(int);
@@ -97,7 +98,7 @@ typedef struct tagEVWORK_CAR
 static_assert(sizeof(EVWORK_CAR) == 0x10F0);
 // car0 = 0x7804B0
 
-struct SPRARGS
+typedef struct tagSPRARGS
 {
 	uint32_t xstnum_0;
 	uint32_t top_4;
@@ -115,31 +116,49 @@ struct SPRARGS
 	uint32_t dword34;
 	uint32_t* pdword38;
 	uint8_t unk_3C[12];
-};
+} SPRARGS;
 static_assert(sizeof(SPRARGS) == 0x48);
 
-struct SPRARGS2
+typedef struct D3DXVECTOR4 {
+	FLOAT x;
+	FLOAT y;
+	FLOAT z;
+	FLOAT w;
+} D3DXVECTOR4, * LPD3DXVECTOR4;
+
+typedef struct tagSPRARGS2
 {
 	uint32_t xstnum_0;
-	uint8_t unk_4[8];
-	void* d3dtexture_ptr_C; // IDirect3DTexture9* ?
-	uint8_t unk_10[0x50];
-	float unk_60;
-	float unk_64;
-	float unk_68;
-	float unk_6C;
-	float unk_70;
-	float unk_74;
-	float unk_78;
-	float unk_7C;
-	float unk_80;
-	float unk_84; // bottom
-	float unk_88; // left
-	float unk_8C; // bottom
-	float unk_90; // right
-	float unk_94; // top
-	float unk_98; // right
-	float unk_9C; // top
-	float unk_A0; // left
-};
-static_assert(sizeof(SPRARGS2) == 0xA4);
+	float color_4;
+	uint8_t unk_8[4];
+	struct IDirect3DTexture9* d3dtexture_ptr_C; // IDirect3DTexture9* ?
+	uint32_t unk_10;
+	D3DMATRIX mtx_14;
+	D3DVECTOR field_54;
+	D3DVECTOR field_60;
+	D3DVECTOR field_6C;
+	D3DVECTOR field_78;
+	float bottom_84;
+	float left_88;
+	float bottom_8C;
+	float right_90;
+	float top_94;
+	float right_98;
+	float top_9C;
+	float left_A0;
+	float unk_A4;
+	float unk_A8;
+	uint32_t unk_AC;
+	uint32_t unk_B0;
+	uint32_t ptr_B4;
+} SPRARGS2;
+static_assert(sizeof(SPRARGS2) == 0xB8);
+
+inline void WaitForDebugger()
+{
+#ifdef _DEBUG
+	while (!IsDebuggerPresent())
+	{
+	}
+#endif
+}

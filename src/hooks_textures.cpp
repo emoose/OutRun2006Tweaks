@@ -65,30 +65,30 @@ class TextureReplacement : public Hook
 			auto scaleY = std::get<1>(sprite_scales[prevTextureId]);
 
 			// left is kept at both unk_88 & unk_A0, we'll do both seperately in case they're different for some reason
-			float origLeft = 1.0f - a1->unk_88;
+			float origLeft = 1.0f - a1->left_88;
 			origLeft = origLeft * scaleX;
-			a1->unk_88 = 1.0f - origLeft;
+			a1->left_88 = 1.0f - origLeft;
 
-			origLeft = 1.0f - a1->unk_A0;
+			origLeft = 1.0f - a1->left_A0;
 			origLeft = origLeft * scaleX;
-			a1->unk_A0 = 1.0f - origLeft;
+			a1->left_A0 = 1.0f - origLeft;
 
 			// right at unk_90 & unk_98
-			float origRight = 1.0f - a1->unk_90;
+			float origRight = 1.0f - a1->right_90;
 			origRight = origRight * scaleX;
-			a1->unk_90 = 1.0f - origRight;
+			a1->right_90 = 1.0f - origRight;
 
-			origRight = 1.0f - a1->unk_98;
+			origRight = 1.0f - a1->right_98;
 			origRight = origRight * scaleX;
-			a1->unk_98 = 1.0f - origRight;
+			a1->right_98 = 1.0f - origRight;
 
 			// bottom?
-			a1->unk_84 = a1->unk_84 * scaleY;
-			a1->unk_8C = a1->unk_8C * scaleY;
+			a1->bottom_84 = a1->bottom_84 * scaleY;
+			a1->bottom_8C = a1->bottom_8C * scaleY;
 
 			// top?
-			a1->unk_94 = a1->unk_94 * scaleY;
-			a1->unk_9C = a1->unk_9C * scaleY;
+			a1->top_94 = a1->top_94 * scaleY;
+			a1->top_9C = a1->top_9C * scaleY;
 
 			prevTexture = nullptr;
 			prevTextureId = 0;
