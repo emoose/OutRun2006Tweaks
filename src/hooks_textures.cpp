@@ -5,6 +5,7 @@
 #include <xxhash.h>
 #include <d3d9.h>
 #include <ddraw.h>
+#include <unordered_set>
 
 #define DDS_MAGIC 0x20534444  // "DDS "
 struct DDS_FILE
@@ -13,10 +14,49 @@ struct DDS_FILE
 	DDSURFACEDESC2 data;
 };
 
+// QnD file entry cache class, so we don't have to run std::filesystem::exists for every texture
+// Probably not that much benefit since OS should have the directory cached anyway, but reducing OS calls should always help
+class DirectoryFileCache
+{
+public:
+	DirectoryFileCache() {}
+	explicit DirectoryFileCache(const std::filesystem::path& directory)
+		: directoryPath(directory)
+	{
+		scanDirectory();
+	}
+
+	bool exists(const std::filesystem::path& filename) const
+	{
+		return fileSet.find(filename) != fileSet.end();
+	}
+
+	void refresh()
+	{
+		fileSet.clear();
+		scanDirectory();
+	}
+
+private:
+	std::filesystem::path directoryPath;
+	std::unordered_set<std::filesystem::path> fileSet;
+
+	void scanDirectory()
+	{
+		if (!std::filesystem::exists(directoryPath))
+			return;
+
+		for (const auto& entry : std::filesystem::recursive_directory_iterator(directoryPath))
+			if (entry.is_regular_file() || entry.is_directory())
+				fileSet.insert(entry.path());
+	}
+};
+
 class TextureReplacement : public Hook
 {
 	inline static std::filesystem::path XmtDumpPath;
 	inline static std::filesystem::path XmtLoadPath;
+	inline static DirectoryFileCache FileSystem;
 
 	//
 	// UI texture replacement code
@@ -145,43 +185,43 @@ class TextureReplacement : public Hook
 		if (allowReplacement)
 		{
 			auto path_load = XmtLoadPath / texturePackName.filename().stem() / ddsName;
-			if (!std::filesystem::exists(path_load))
+			if (!FileSystem.exists(path_load))
 				path_load = XmtLoadPath / ddsName;
 
-			if (std::filesystem::exists(path_load))
+			if (FileSystem.exists(path_load))
 			{
-				FILE* file = fopen(path_load.string().c_str(), "rb");
+				std::ifstream file(path_load, std::ios::binary | std::ios::ate);
 				if (file)
 				{
-					fseek(file, 0, SEEK_END);
-					long size = ftell(file);
-					fseek(file, 0, SEEK_SET);
+					std::streamsize size = file.tellg();
+					file.seekg(0, std::ios::beg);
+
 					NewSrcData = std::make_unique<uint8_t[]>(size);
-					fread(NewSrcData.get(), 1, size, file);
-					fclose(file);
-
-					const DDS_FILE* newhead = (const DDS_FILE*)NewSrcData.get();
-					if (newhead->magic == DDS_MAGIC)
+					if (file.read((char*)NewSrcData.get(), size))
 					{
-						if (isUITexture)
+						const DDS_FILE* newhead = (const DDS_FILE*)NewSrcData.get();
+						if (newhead->magic == DDS_MAGIC)
 						{
-							// Calc the scaling ratio of new texture vs old one, to use in put_sprite funcs later
-							float ratio_width = float(newhead->data.dwWidth) / float(header->data.dwWidth);
-							float ratio_height = float(newhead->data.dwHeight) / float(header->data.dwHeight);
+							if (isUITexture)
+							{
+								// Calc the scaling ratio of new texture vs old one, to use in put_sprite funcs later
+								float ratio_width = float(newhead->data.dwWidth) / float(header->data.dwWidth);
+								float ratio_height = float(newhead->data.dwHeight) / float(header->data.dwHeight);
 
-							int curTextureNum = *Module::exe_ptr<int>(0x55B25C);
-							sprite_scales[(CurrentXstsetIndex << 16) | curTextureNum] = { ratio_width, ratio_height };
+								int curTextureNum = *Module::exe_ptr<int>(0x55B25C);
+								sprite_scales[(CurrentXstsetIndex << 16) | curTextureNum] = { ratio_width, ratio_height };
+							}
+
+							// Replace header in the old data in case some game code tries reading it...
+							memcpy(*ppSrcData, NewSrcData.get(), sizeof(DDS_FILE));
+
+							// Update pointers to our new texture
+							*ppSrcData = NewSrcData.get();
+							*pSrcDataSize = size;
+
+							// Don't dump texture if we've loaded in new one
+							dumpTexture = false;
 						}
-
-						// Replace header in the old data in case some game code tries reading it...
-						memcpy(*ppSrcData, NewSrcData.get(), sizeof(DDS_FILE));
-
-						// Update pointers to our new texture
-						*ppSrcData = NewSrcData.get();
-						*pSrcDataSize = size;
-
-						// Don't dump texture if we've loaded in new one
-						dumpTexture = false;
 					}
 				}
 			}
@@ -190,14 +230,18 @@ class TextureReplacement : public Hook
 		if (allowDump && dumpTexture)
 		{
 			auto path_dump = XmtDumpPath / texturePackName.filename().stem();
-			if (!std::filesystem::exists(path_dump))
+			if (!FileSystem.exists(path_dump))
 				std::filesystem::create_directories(path_dump);
+
 			path_dump = path_dump / ddsName;
-			if (!std::filesystem::exists(path_dump))
+			if (!FileSystem.exists(path_dump))
 			{
-				FILE* file = fopen(path_dump.string().c_str(), "wb");
-				fwrite(*ppSrcData, 1, *pSrcDataSize, file);
-				fclose(file);
+				std::ofstream file(path_dump, std::ios::binary);
+				if (file)
+				{
+					file.write((const char*)*ppSrcData, *pSrcDataSize);
+					FileSystem.refresh();
+				}
 			}
 		}
 
@@ -270,6 +314,8 @@ public:
 	{
 		XmtDumpPath = "textures\\dump";
 		XmtLoadPath = "textures\\load";
+
+		FileSystem = DirectoryFileCache(XmtLoadPath);
 
 		if (Settings::UITextureReplacement || Settings::UITextureDump)
 		{
