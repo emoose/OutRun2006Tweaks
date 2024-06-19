@@ -104,6 +104,7 @@ set(outrun2006tweaks_SOURCES
 	"src/hooks_framerate.cpp"
 	"src/hooks_graphics.cpp"
 	"src/hooks_misc.cpp"
+	"src/hooks_textures.cpp"
 	"src/Proxy.def"
 	"src/Resource.rc"
 	"external/ModUtils/Patterns.cpp"

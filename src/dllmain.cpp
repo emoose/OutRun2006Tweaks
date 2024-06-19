@@ -69,6 +69,11 @@ namespace Settings
 		spdlog::info(" - DisableStageCulling: {}", DisableStageCulling);
 		spdlog::info(" - FixZBufferPrecision: {}", FixZBufferPrecision);
 
+		spdlog::info(" - StageTextureReplacement: {}", StageTextureReplacement);
+		spdlog::info(" - StageTextureDump: {}", StageTextureDump);
+		spdlog::info(" - UITextureReplacement: {}", UITextureReplacement);
+		spdlog::info(" - UITextureDump: {}", UITextureDump);
+
 		spdlog::info(" - VibrationMode: {}", VibrationMode);
 		spdlog::info(" - VibrationStrength: {}", VibrationStrength);
 		spdlog::info(" - VibrationControllerId: {}", VibrationControllerId);
@@ -119,6 +124,11 @@ namespace Settings
 		DisableVehicleLODs = ini.Get("Graphics", "DisableVehicleLODs", std::move(DisableVehicleLODs));
 		DisableStageCulling = ini.Get("Graphics", "DisableStageCulling", std::move(DisableStageCulling));
 		FixZBufferPrecision = ini.Get("Graphics", "FixZBufferPrecision", std::move(FixZBufferPrecision));
+
+		StageTextureReplacement = ini.Get("Graphics", "StageTextureReplacement", std::move(StageTextureReplacement));
+		StageTextureDump = ini.Get("Graphics", "StageTextureDump", std::move(StageTextureDump));
+		UITextureReplacement = ini.Get("Graphics", "UITextureReplacement", std::move(UITextureReplacement));
+		UITextureDump = ini.Get("Graphics", "UITextureDump", std::move(UITextureDump));
 
 		VibrationMode = ini.Get("Vibration", "VibrationMode", std::move(VibrationMode));
 		VibrationMode = std::clamp(VibrationMode, 0, 3);

@@ -54,6 +54,11 @@ namespace Settings
 	inline bool DisableStageCulling = true;
 	inline bool FixZBufferPrecision = true;
 
+	inline bool StageTextureReplacement = true;
+	inline bool StageTextureDump = false;
+	inline bool UITextureReplacement = true;
+	inline bool UITextureDump = false;
+
 	inline int VibrationMode = 0;
 	inline int VibrationStrength = 10;
 	inline int VibrationControllerId = 0;
