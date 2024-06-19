@@ -172,6 +172,8 @@ class FixFullPedalChecks : public Hook
 	static int GetVolume_dest(int channel)
 	{
 		int result = GetVolume.call<int>(channel);
+		if (channel != 1 && channel != 2) // accelerate / brake pedals only
+			return result;
 		if (result < 255 && result >= 250)
 			result = 255;
 		return result;
@@ -181,6 +183,8 @@ class FixFullPedalChecks : public Hook
 	static int GetVolumeOld_dest(int channel)
 	{
 		int result = GetVolumeOld.call<int>(channel);
+		if (channel != 1 && channel != 2) // accelerate / brake pedals only
+			return result;
 		if (result < 255 && result >= 250)
 			result = 255;
 		return result;
