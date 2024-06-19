@@ -9,6 +9,7 @@ A wrapper DLL that can patch in some minor fixes & tweaks into OutRun 2006: Coas
 - Game can now load lens flare effect from correct path, restoring lens flare without needing to change game files
 - Fixed Z-buffer precision issues that caused heavy z-fighting and distant object pop-in
 - Stage objects such as traffic cones will now only disappear once they're actually off-screen
+- Fixes certain effects like engine backfiring which failed to appear when using controllers
 
 **Enhancements:**
 - Adds a built-in framelimiter to prevent game from speeding up

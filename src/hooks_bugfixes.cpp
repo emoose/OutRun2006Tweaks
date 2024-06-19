@@ -152,3 +152,58 @@ public:
 	static FixLensFlarePath instance;
 };
 FixLensFlarePath FixLensFlarePath::instance;
+
+class FixFullPedalChecks : public Hook
+{
+	// Game has a few checks to see if pedal is at full-press, with a value of 255
+	// For some reason the dinput controller code only returns a max value of ~253 though
+	// This breaks things like the backfire effect which is only allowed when pedal is fully pressed
+	// 
+	// Game does seem to have some other checks which just look if pedal is above 250
+	// so we'll apply that logic here and make any between 250-255 register as 255
+	//
+	// TODO: should we also apply for negative 250 as well?
+	// TODO: not really sure what the channel numbers are for, maybe should only apply to channel 1...
+
+	const static int GetVolume_Addr = 0x53720;
+	const static int GetVolumeOld_Addr = 0x53750;
+
+	inline static SafetyHookInline GetVolume = {};
+	static int GetVolume_dest(int channel)
+	{
+		int result = GetVolume.call<int>(channel);
+		if (result < 255 && result >= 250)
+			result = 255;
+		return result;
+	}
+
+	inline static SafetyHookInline GetVolumeOld = {};
+	static int GetVolumeOld_dest(int channel)
+	{
+		int result = GetVolumeOld.call<int>(channel);
+		if (result < 255 && result >= 250)
+			result = 255;
+		return result;
+	}
+
+public:
+	std::string_view description() override
+	{
+		return "FixFullPedalChecks";
+	}
+
+	bool validate() override
+	{
+		return true;
+	}
+
+	bool apply() override
+	{
+		GetVolume = safetyhook::create_inline(Module::exe_ptr(GetVolume_Addr), GetVolume_dest);
+		GetVolumeOld = safetyhook::create_inline(Module::exe_ptr(GetVolumeOld_Addr), GetVolumeOld_dest);
+		return !!GetVolume && !!GetVolumeOld;
+	}
+
+	static FixFullPedalChecks instance;
+};
+FixFullPedalChecks FixFullPedalChecks::instance;

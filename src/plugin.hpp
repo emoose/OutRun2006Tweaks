@@ -70,6 +70,7 @@ namespace Settings
 	inline bool FixC2CRankings = true;
 	inline bool PreventDESTSaveCorruption = true;
 	inline bool FixLensFlarePath = true;
+	inline bool FixFullPedalChecks = true;
 }
 
 namespace Util

@@ -85,6 +85,7 @@ namespace Settings
 		spdlog::info(" - FixC2CRankings: {}", FixC2CRankings);
 		spdlog::info(" - PreventDESTSaveCorruption: {}", PreventDESTSaveCorruption);
 		spdlog::info(" - FixLensFlarePath: {}", FixLensFlarePath);
+		spdlog::info(" - FixFullPedalChecks: {}", FixFullPedalChecks);
 	}
 
 	bool read(std::filesystem::path& iniPath)
@@ -144,6 +145,7 @@ namespace Settings
 		FixC2CRankings = ini.Get("Bugfixes", "FixC2CRankings", std::move(FixC2CRankings));
 		PreventDESTSaveCorruption = ini.Get("Bugfixes", "PreventDESTSaveCorruption", std::move(PreventDESTSaveCorruption));
 		FixLensFlarePath = ini.Get("Bugfixes", "FixLensFlarePath", std::move(FixLensFlarePath));
+		FixFullPedalChecks = ini.Get("Bugfixes", "FixFullPedalChecks", std::move(FixFullPedalChecks));
 
 		return true;
 	}
