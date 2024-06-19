@@ -28,7 +28,7 @@ class TextureReplacement : public Hook
 	const static int put_sprite_ex2_Addr = 0x2D0C0;
 	const static int LoadXstsetSprite_Addr = 0x2FE20;
 
-	inline static std::filesystem::path CurrentSpriteXmt;
+	inline static std::filesystem::path CurrentXstsetFilename;
 	inline static int CurrentXstsetIndex = 0;
 
 	inline static std::unordered_map<int, std::pair<float, float>> sprite_scales;
@@ -117,9 +117,93 @@ class TextureReplacement : public Hook
 	inline static SafetyHookMid LoadXstsetSprite_hook = {};
 	static void LoadXstsetSprite_dest(safetyhook::Context& ctx)
 	{
-		CurrentSpriteXmt = (char*)ctx.ecx; // sprite xstset filename
+		CurrentXstsetFilename = (char*)ctx.ecx; // sprite xstset filename
 		CurrentXstsetIndex = (int)(ctx.eax); // index into xstset array
 	};
+
+	static std::unique_ptr<uint8_t[]> HandleTexture(void** ppSrcData, UINT* pSrcDataSize, std::filesystem::path texturePackName, bool isUITexture)
+	{
+		if (!*ppSrcData || !*pSrcDataSize)
+			return nullptr;
+
+		bool allowReplacement = isUITexture ? Settings::UITextureReplacement : Settings::SceneTextureReplacement;
+		bool allowDump = isUITexture ? Settings::UITextureDump : Settings::SceneTextureDump;
+
+		const DDS_FILE* header = (const DDS_FILE*)*ppSrcData;
+		if (header->magic != DDS_MAGIC)
+			return nullptr;
+
+		std::unique_ptr<uint8_t[]> NewSrcData;
+
+		int width = header->data.dwWidth;
+		int height = header->data.dwHeight;
+		auto hash = XXH32(*ppSrcData, *pSrcDataSize, 0);
+
+		std::string ddsName = std::format("{:X}_{}x{}.dds", hash, width, height);
+
+		bool dumpTexture = true;
+		if (allowReplacement)
+		{
+			auto path_load = XmtLoadPath / texturePackName.filename().stem() / ddsName;
+			if (!std::filesystem::exists(path_load))
+				path_load = XmtLoadPath / ddsName;
+
+			if (std::filesystem::exists(path_load))
+			{
+				FILE* file = fopen(path_load.string().c_str(), "rb");
+				if (file)
+				{
+					fseek(file, 0, SEEK_END);
+					long size = ftell(file);
+					fseek(file, 0, SEEK_SET);
+					NewSrcData = std::make_unique<uint8_t[]>(size);
+					fread(NewSrcData.get(), 1, size, file);
+					fclose(file);
+
+					const DDS_FILE* newhead = (const DDS_FILE*)NewSrcData.get();
+					if (newhead->magic == DDS_MAGIC)
+					{
+						if (isUITexture)
+						{
+							// Calc the scaling ratio of new texture vs old one, to use in put_sprite funcs later
+							float ratio_width = float(newhead->data.dwWidth) / float(header->data.dwWidth);
+							float ratio_height = float(newhead->data.dwHeight) / float(header->data.dwHeight);
+
+							int curTextureNum = *Module::exe_ptr<int>(0x55B25C);
+							sprite_scales[(CurrentXstsetIndex << 16) | curTextureNum] = { ratio_width, ratio_height };
+						}
+
+						// Replace header in the old data in case some game code tries reading it...
+						memcpy(*ppSrcData, NewSrcData.get(), sizeof(DDS_FILE));
+
+						// Update pointers to our new texture
+						*ppSrcData = NewSrcData.get();
+						*pSrcDataSize = size;
+
+						// Don't dump texture if we've loaded in new one
+						dumpTexture = false;
+					}
+				}
+			}
+		}
+
+		if (allowDump && dumpTexture)
+		{
+			auto path_dump = XmtDumpPath / texturePackName.filename().stem();
+			if (!std::filesystem::exists(path_dump))
+				std::filesystem::create_directories(path_dump);
+			path_dump = path_dump / ddsName;
+			if (!std::filesystem::exists(path_dump))
+			{
+				FILE* file = fopen(path_dump.string().c_str(), "wb");
+				fwrite(*ppSrcData, 1, *pSrcDataSize, file);
+				fclose(file);
+			}
+		}
+
+		return std::move(NewSrcData);
+	}
+
 
 	inline static SafetyHookInline D3DXCreateTextureFromFileInMemory = {};
 	static HRESULT __stdcall D3DXCreateTextureFromFileInMemory_dest(LPDIRECT3DDEVICE9 pDevice, void* pSrcData, UINT SrcDataSize, LPDIRECT3DTEXTURE9* ppTexture)
@@ -128,80 +212,48 @@ class TextureReplacement : public Hook
 
 		if (pSrcData && SrcDataSize)
 		{
-			const DDS_FILE* header = (const DDS_FILE*)pSrcData;
-			if (header->magic == DDS_MAGIC)
-			{
-				int width = header->data.dwWidth;
-				int height = header->data.dwHeight;
-				auto hash = XXH32(pSrcData, SrcDataSize, 0);
-
-				std::string ddsName = std::format("{:X}_{}x{}.dds", hash, width, height);
-
-				bool dumpTexture = true;
-				if (Settings::UITextureReplacement)
-				{
-					auto path_load = XmtLoadPath / CurrentSpriteXmt.filename().stem() / ddsName;
-					if (!std::filesystem::exists(path_load))
-						path_load = XmtLoadPath / ddsName;
-
-					if (std::filesystem::exists(path_load))
-					{
-						FILE* file = fopen(path_load.string().c_str(), "rb");
-						if (file)
-						{
-							fseek(file, 0, SEEK_END);
-							long size = ftell(file);
-							fseek(file, 0, SEEK_SET);
-							newdata = std::make_unique<uint8_t[]>(size);
-							fread(newdata.get(), 1, size, file);
-							fclose(file);
-
-							const DDS_FILE* newhead = (const DDS_FILE*)newdata.get();
-							if (newhead->magic == DDS_MAGIC)
-							{
-								// Calc the scaling ratio of new texture vs old one, to use in put_sprite funcs later
-								float ratio_width = float(newhead->data.dwWidth) / float(header->data.dwWidth);
-								float ratio_height = float(newhead->data.dwHeight) / float(header->data.dwHeight);
-
-								int curTextureNum = *Module::exe_ptr<int>(0x55B25C);
-								sprite_scales[(CurrentXstsetIndex << 16) | curTextureNum] = { ratio_width, ratio_height };
-
-								// Replace header in the old data in case some game code tries reading it...
-								memcpy(pSrcData, newdata.get(), sizeof(DDS_FILE));
-
-								// Update pointers to our new texture
-								pSrcData = newdata.get();
-								SrcDataSize = size;
-
-								// Don't dump texture if we've loaded in new one
-								dumpTexture = false;
-							}
-						}
-					}
-				}
-
-				if (Settings::UITextureDump && dumpTexture)
-				{
-					auto path_dump = XmtDumpPath / CurrentSpriteXmt.filename().stem();
-					if (!std::filesystem::exists(path_dump))
-						std::filesystem::create_directories(path_dump);
-					path_dump = path_dump / ddsName;
-					if (!std::filesystem::exists(path_dump))
-					{
-						FILE* file = fopen(path_dump.string().c_str(), "wb");
-						fwrite(pSrcData, 1, SrcDataSize, file);
-						fclose(file);
-					}
-				}
-			}
+			newdata = HandleTexture(&pSrcData, &SrcDataSize, CurrentXstsetFilename, true);
 		}
 
 		return D3DXCreateTextureFromFileInMemory.stdcall<HRESULT>(pDevice, pSrcData, SrcDataSize, ppTexture);
 	}
 
 	//
-	// Stage texture replacement code
+	// Scene texture replacement code
 	//
+
+	const static int D3DXCreateTextureFromFileInMemoryEx_Addr = 0x39406;
+	const static int LoadXmtsetObject_Addr = 0x2E0D0;
+
+	inline static std::filesystem::path CurrentXmtsetFilename;
+	inline static const char* PrevXmtName = nullptr;
+
+	inline static SafetyHookInline D3DXCreateTextureFromFileInMemoryEx = {};
+	static HRESULT __stdcall D3DXCreateTextureFromFileInMemoryEx_dest(LPDIRECT3DDEVICE9 pDevice, void* pSrcData, UINT SrcDataSize, UINT Width, UINT Height, UINT MipLevels, DWORD Usage, D3DFORMAT Format, D3DPOOL Pool, DWORD Filter, DWORD MipFilter, D3DCOLOR ColorKey, void* pSrcInfo, PALETTEENTRY* pPalette, LPDIRECT3DTEXTURE9* ppTexture)
+	{
+		std::unique_ptr<uint8_t[]> newdata;
+
+		if (pSrcData && SrcDataSize)
+		{
+			newdata = HandleTexture(&pSrcData, &SrcDataSize, CurrentXmtsetFilename, false);
+		}
+
+		return D3DXCreateTextureFromFileInMemoryEx.stdcall<HRESULT>(pDevice, pSrcData, SrcDataSize, Width, Height, MipLevels, Usage, Format, Pool, Filter, MipFilter, ColorKey, pSrcInfo, pPalette, ppTexture);
+	}
+
+	inline static SafetyHookInline LoadXmtsetObject = {};
+	static int __cdecl LoadXmtsetObject_dest(char* XmtFileName, int XmtIndex)
+	{
+		if (PrevXmtName != XmtFileName)
+		{
+			CurrentXmtsetFilename = XmtFileName;
+			PrevXmtName = XmtFileName;
+
+			// TODO: try to pre-cache all replacement textures inside textures/load/[XmtFileName] here?
+		}
+
+		return LoadXmtsetObject.call<int>(XmtFileName, XmtIndex);
+	}
 
 public:
 	std::string_view description() override
@@ -211,7 +263,7 @@ public:
 
 	bool validate() override
 	{
-		return (Settings::StageTextureReplacement || Settings::StageTextureDump) || (Settings::UITextureReplacement || Settings::UITextureDump);
+		return (Settings::SceneTextureReplacement || Settings::SceneTextureDump) || (Settings::UITextureReplacement || Settings::UITextureDump);
 	}
 
 	bool apply() override
@@ -222,13 +274,20 @@ public:
 		if (Settings::UITextureReplacement || Settings::UITextureDump)
 		{
 			D3DXCreateTextureFromFileInMemory = safetyhook::create_inline(Module::exe_ptr(D3DXCreateTextureFromFileInMemory_Addr), D3DXCreateTextureFromFileInMemory_dest);
+			LoadXstsetSprite_hook = safetyhook::create_mid(Module::exe_ptr(LoadXstsetSprite_Addr), LoadXstsetSprite_dest);
+
 			if (Settings::UITextureReplacement)
 			{
 				get_texture = safetyhook::create_inline(Module::exe_ptr(get_texture_Addr), get_texture_dest);
 				put_sprite_ex = safetyhook::create_inline(Module::exe_ptr(put_sprite_ex_Addr), put_sprite_ex_dest);
 				put_sprite_ex2 = safetyhook::create_inline(Module::exe_ptr(put_sprite_ex2_Addr), put_sprite_ex2_dest);
-				LoadXstsetSprite_hook = safetyhook::create_mid(Module::exe_ptr(LoadXstsetSprite_Addr), LoadXstsetSprite_dest);
 			}
+		}
+
+		if (Settings::SceneTextureReplacement || Settings::SceneTextureDump)
+		{
+			D3DXCreateTextureFromFileInMemoryEx = safetyhook::create_inline(Module::exe_ptr(D3DXCreateTextureFromFileInMemoryEx_Addr), D3DXCreateTextureFromFileInMemoryEx_dest);
+			LoadXmtsetObject = safetyhook::create_inline(Module::exe_ptr(LoadXmtsetObject_Addr), LoadXmtsetObject_dest);
 		}
 
 		return true;

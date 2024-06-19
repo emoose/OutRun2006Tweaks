@@ -69,8 +69,8 @@ namespace Settings
 		spdlog::info(" - DisableStageCulling: {}", DisableStageCulling);
 		spdlog::info(" - FixZBufferPrecision: {}", FixZBufferPrecision);
 
-		spdlog::info(" - StageTextureReplacement: {}", StageTextureReplacement);
-		spdlog::info(" - StageTextureDump: {}", StageTextureDump);
+		spdlog::info(" - SceneTextureReplacement: {}", SceneTextureReplacement);
+		spdlog::info(" - SceneTextureDump: {}", SceneTextureDump);
 		spdlog::info(" - UITextureReplacement: {}", UITextureReplacement);
 		spdlog::info(" - UITextureDump: {}", UITextureDump);
 
@@ -125,8 +125,8 @@ namespace Settings
 		DisableStageCulling = ini.Get("Graphics", "DisableStageCulling", std::move(DisableStageCulling));
 		FixZBufferPrecision = ini.Get("Graphics", "FixZBufferPrecision", std::move(FixZBufferPrecision));
 
-		StageTextureReplacement = ini.Get("Graphics", "StageTextureReplacement", std::move(StageTextureReplacement));
-		StageTextureDump = ini.Get("Graphics", "StageTextureDump", std::move(StageTextureDump));
+		SceneTextureReplacement = ini.Get("Graphics", "SceneTextureReplacement", std::move(SceneTextureReplacement));
+		SceneTextureDump = ini.Get("Graphics", "SceneTextureDump", std::move(SceneTextureDump));
 		UITextureReplacement = ini.Get("Graphics", "UITextureReplacement", std::move(UITextureReplacement));
 		UITextureDump = ini.Get("Graphics", "UITextureDump", std::move(UITextureDump));
 

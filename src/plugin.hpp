@@ -54,8 +54,8 @@ namespace Settings
 	inline bool DisableStageCulling = true;
 	inline bool FixZBufferPrecision = true;
 
-	inline bool StageTextureReplacement = true;
-	inline bool StageTextureDump = false;
+	inline bool SceneTextureReplacement = true;
+	inline bool SceneTextureDump = false;
 	inline bool UITextureReplacement = true;
 	inline bool UITextureDump = false;
 
