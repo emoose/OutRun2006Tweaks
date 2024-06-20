@@ -62,6 +62,8 @@ namespace Settings
 		spdlog::info(" - DisableDPIScaling: {}", DisableDPIScaling);
 		spdlog::info(" - AutoDetectResolution: {}", AutoDetectResolution);
 
+		spdlog::info(" - AllowUncompressedBGM: {}", AllowUncompressedBGM);
+
 		spdlog::info(" - AnisotropicFiltering: {}", AnisotropicFiltering);
 		spdlog::info(" - TransparencySupersampling: {}", TransparencySupersampling);
 		spdlog::info(" - ScreenEdgeCullFix: {}", ScreenEdgeCullFix);
@@ -117,6 +119,8 @@ namespace Settings
 		WindowedHideMouseCursor = ini.Get("Window", "WindowedHideMouseCursor", std::move(WindowedHideMouseCursor));
 		DisableDPIScaling = ini.Get("Window", "DisableDPIScaling", std::move(DisableDPIScaling));
 		AutoDetectResolution = ini.Get("Window", "AutoDetectResolution", std::move(AutoDetectResolution));
+
+		AllowUncompressedBGM = ini.Get("Audio", "AllowUncompressedBGM", std::move(AllowUncompressedBGM));
 
 		AnisotropicFiltering = ini.Get("Graphics", "AnisotropicFiltering", std::move(AnisotropicFiltering));
 		AnisotropicFiltering = std::clamp(AnisotropicFiltering, 0, 16);

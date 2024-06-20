@@ -99,6 +99,7 @@ set(outrun2006tweaks_SOURCES
 	"src/Proxy.cpp"
 	"src/dllmain.cpp"
 	"src/hook_mgr.cpp"
+	"src/hooks_audio.cpp"
 	"src/hooks_bugfixes.cpp"
 	"src/hooks_forcefeedback.cpp"
 	"src/hooks_framerate.cpp"
@@ -129,6 +130,7 @@ source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${outrun2006tweaks_SOURCES})
 target_compile_definitions(outrun2006tweaks PUBLIC
 	_SILENCE_STDEXT_ARR_ITERS_DEPRECATION_WARNING
 	_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR
+	DIRECTINPUT_VERSION=0x0800
 )
 
 target_compile_features(outrun2006tweaks PUBLIC

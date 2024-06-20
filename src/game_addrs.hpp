@@ -1,5 +1,6 @@
 #include "plugin.hpp"
 #include <d3d9.h>
+#include <dinput.h>
 
 namespace Game
 {
@@ -13,8 +14,13 @@ namespace Game
 	inline D3DPRESENT_PARAMETERS* D3DPresentParams = nullptr;
 	inline IDirect3DDevice9** D3DDevice_ptr = nullptr;
 
+	inline IDirectInput8A** DirectInput8_ptr = nullptr;
+
 	inline IDirect3DDevice9* D3DDevice() {
 		return *D3DDevice_ptr;
+	}
+	inline IDirectInput8A* DirectInput8() {
+		return *DirectInput8_ptr;
 	}
 
 	// ini cfg
@@ -29,6 +35,8 @@ namespace Game
 	// game functions
 	inline fn_0args SetFrameStartCpuTime = nullptr;
 	inline fn_1arg_int CalcNumUpdatesToRun = nullptr;
+
+	inline LPDIENUMDEVICESCALLBACKA DInput_EnumJoysticksCallback = nullptr;
 
 	inline fn_0args Sumo_D3DResourcesRelease = nullptr;
 	inline fn_0args Sumo_D3DResourcesCreate = nullptr;
@@ -58,6 +66,7 @@ namespace Game
 
 		D3DPresentParams = Module::exe_ptr<D3DPRESENT_PARAMETERS>(0x49BD64);
 		D3DDevice_ptr = Module::exe_ptr<IDirect3DDevice9*>(0x49BD60);
+		DirectInput8_ptr = Module::exe_ptr<IDirectInput8A*>(0x4606E8);
 
 		screen_width = Module::exe_ptr<float>(0x340C8C);
 		screen_height = Module::exe_ptr<float>(0x340C90);
@@ -70,6 +79,8 @@ namespace Game
 
 		SetFrameStartCpuTime = Module::fn_ptr<fn_0args>(0x49430);
 		CalcNumUpdatesToRun = Module::fn_ptr<fn_1arg_int>(0x17890);
+
+		DInput_EnumJoysticksCallback = Module::fn_ptr<LPDIENUMDEVICESCALLBACKA>(0x3EF0);
 
 		Sumo_D3DResourcesRelease = Module::fn_ptr<fn_0args>(0x17970);
 		Sumo_D3DResourcesCreate = Module::fn_ptr<fn_0args>(0x17A20);

@@ -47,6 +47,8 @@ namespace Settings
 	inline bool DisableDPIScaling = true;
 	inline bool AutoDetectResolution = true;
 
+	inline bool AllowUncompressedBGM = true;
+
 	inline int AnisotropicFiltering = 16;
 	inline bool TransparencySupersampling = true;
 	inline bool ScreenEdgeCullFix = true;
