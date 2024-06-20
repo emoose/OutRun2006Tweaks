@@ -156,7 +156,7 @@ target_link_libraries(outrun2006tweaks PUBLIC
 	spdlog
 	safetyhook
 	version.lib
-	xinput.lib
+	xinput9_1_0.lib
 )
 
 target_link_options(outrun2006tweaks PUBLIC
