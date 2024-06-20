@@ -49,6 +49,10 @@ namespace Settings
 
 	inline bool AllowUncompressedBGM = true;
 
+	inline bool CDSwitcherEnable = false;
+	inline std::string CDSwitcherTrackNext = "Back";
+	inline std::string CDSwitcherTrackPrevious = "RS+Back";
+
 	inline int AnisotropicFiltering = 16;
 	inline bool TransparencySupersampling = true;
 	inline bool ScreenEdgeCullFix = true;

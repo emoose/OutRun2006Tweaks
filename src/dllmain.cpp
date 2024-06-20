@@ -64,6 +64,10 @@ namespace Settings
 
 		spdlog::info(" - AllowUncompressedBGM: {}", AllowUncompressedBGM);
 
+		spdlog::info(" - CDSwitcherEnable: {}", CDSwitcherEnable);
+		spdlog::info(" - CDSwitcherTrackNext: {}", CDSwitcherTrackNext);
+		spdlog::info(" - CDSwitcherTrackPrevious: {}", CDSwitcherTrackPrevious);
+
 		spdlog::info(" - AnisotropicFiltering: {}", AnisotropicFiltering);
 		spdlog::info(" - TransparencySupersampling: {}", TransparencySupersampling);
 		spdlog::info(" - ScreenEdgeCullFix: {}", ScreenEdgeCullFix);
@@ -121,6 +125,10 @@ namespace Settings
 		AutoDetectResolution = ini.Get("Window", "AutoDetectResolution", std::move(AutoDetectResolution));
 
 		AllowUncompressedBGM = ini.Get("Audio", "AllowUncompressedBGM", std::move(AllowUncompressedBGM));
+
+		CDSwitcherEnable = ini.Get("CDSwitcher", "SwitcherEnable", std::move(CDSwitcherEnable));
+		CDSwitcherTrackNext = ini.Get("CDSwitcher", "TrackNext", std::move(CDSwitcherTrackNext));
+		CDSwitcherTrackPrevious = ini.Get("CDSwitcher", "TrackPrevious", std::move(CDSwitcherTrackPrevious));
 
 		AnisotropicFiltering = ini.Get("Graphics", "AnisotropicFiltering", std::move(AnisotropicFiltering));
 		AnisotropicFiltering = std::clamp(AnisotropicFiltering, 0, 16);

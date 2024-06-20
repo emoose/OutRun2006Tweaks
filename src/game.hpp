@@ -1,9 +1,77 @@
 #pragma once
 #include <d3d9types.h>
+#include <Xinput.h>
 
 typedef void (*fn_0args)();
 typedef void (*fn_1arg)(int);
+typedef void (*fn_2args)(int, int);
 typedef int (*fn_1arg_int)(int);
+typedef void (*fn_2floats)(float, float);
+typedef void (*fn_printf)(const char*, ...);
+
+#define XINPUT_DIGITAL_LEFT_TRIGGER   0x10000
+#define XINPUT_DIGITAL_RIGHT_TRIGGER  0x20000
+#define XINPUT_DIGITAL_LS_UP         0x100000
+#define XINPUT_DIGITAL_LS_DOWN       0x200000
+#define XINPUT_DIGITAL_LS_LEFT       0x400000
+#define XINPUT_DIGITAL_LS_RIGHT      0x800000
+#define XINPUT_DIGITAL_RS_UP        0x1000000
+#define XINPUT_DIGITAL_RS_DOWN      0x2000000
+#define XINPUT_DIGITAL_RS_LEFT      0x4000000
+#define XINPUT_DIGITAL_RS_RIGHT     0x8000000
+
+namespace Input
+{
+	inline XINPUT_STATE PadStatePrev{ 0 };
+	inline uint32_t PadDigitalPrev{ 0 };
+	inline XINPUT_STATE PadStateCur{ 0 };
+	inline uint32_t PadDigitalCur{ 0 };
+
+	inline void PadUpdate(int controllerIndex)
+	{
+		PadStatePrev = PadStateCur;
+		PadDigitalPrev = PadDigitalCur;
+
+		if (XInputGetState(controllerIndex, &PadStateCur) != ERROR_SUCCESS)
+			PadStateCur = { 0 };
+
+		PadDigitalCur = PadStateCur.Gamepad.wButtons;
+
+		// Convert analog inputs to digital bitfield
+		{
+			if (PadStateCur.Gamepad.bLeftTrigger > XINPUT_GAMEPAD_TRIGGER_THRESHOLD)
+				PadDigitalCur |= XINPUT_DIGITAL_LEFT_TRIGGER;
+			if (PadStateCur.Gamepad.bRightTrigger > XINPUT_GAMEPAD_TRIGGER_THRESHOLD)
+				PadDigitalCur |= XINPUT_DIGITAL_RIGHT_TRIGGER;
+
+			// Check left stick
+			if (PadStateCur.Gamepad.sThumbLY > XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE)
+				PadDigitalCur |= XINPUT_DIGITAL_LS_UP;
+			if (PadStateCur.Gamepad.sThumbLY < -XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE)
+				PadDigitalCur |= XINPUT_DIGITAL_LS_DOWN;
+			if (PadStateCur.Gamepad.sThumbLX < -XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE)
+				PadDigitalCur |= XINPUT_DIGITAL_LS_LEFT;
+			if (PadStateCur.Gamepad.sThumbLX > XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE)
+				PadDigitalCur |= XINPUT_DIGITAL_LS_RIGHT;
+
+			// Check right stick
+			if (PadStateCur.Gamepad.sThumbRY > XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE)
+				PadDigitalCur |= XINPUT_DIGITAL_RS_UP;
+			if (PadStateCur.Gamepad.sThumbRY < -XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE)
+				PadDigitalCur |= XINPUT_DIGITAL_RS_DOWN;
+			if (PadStateCur.Gamepad.sThumbRX < -XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE)
+				PadDigitalCur |= XINPUT_DIGITAL_RS_LEFT;
+			if (PadStateCur.Gamepad.sThumbRX > XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE)
+				PadDigitalCur |= XINPUT_DIGITAL_RS_RIGHT;
+		}
+	}
+
+	inline bool PadReleased(uint32_t buttons)
+	{
+		return (PadDigitalPrev & buttons) == buttons &&
+			   (PadDigitalCur & buttons) != buttons;
+	}
+};
 
 enum GameState
 {

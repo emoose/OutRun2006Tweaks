@@ -7,6 +7,9 @@
 // hooks_forcefeedback.cpp
 extern void SetVibration(int userId, float leftMotor, float rightMotor);
 
+// hooks_audio.cpp
+extern void CDSwitcher_Draw(int numUpdates);
+
 class ReplaceGameUpdateLoop : public Hook
 {
 	const static int HookAddr = 0x17C7B;
@@ -127,12 +130,21 @@ class ReplaceGameUpdateLoop : public Hook
 		// need to call 43FA10 in order for "extend time" gfx to disappear
 		Game::fn43FA10(numUpdates);
 
-		// Reset vibration if we're not in main game state
-		if (Settings::VibrationMode != 0 && numUpdates > 0 && CurGameState != GameState::STATE_GAME)
-			SetVibration(Settings::VibrationControllerId, 0.0f, 0.0f);
+		CDSwitcher_Draw(numUpdates);
+
+		if (numUpdates > 0)
+		{
+			// Reset vibration if we're not in main game state
+			if (Settings::VibrationMode != 0 && CurGameState != GameState::STATE_GAME)
+				SetVibration(Settings::VibrationControllerId, 0.0f, 0.0f);
+		}
 
 		for (int curUpdateIdx = 0; curUpdateIdx < numUpdates; curUpdateIdx++)
 		{
+			// Fetch latest input state
+			// (do this inside our update-loop so that any hooked game funcs have accurate state...)
+			Input::PadUpdate(Settings::VibrationControllerId);
+
 			Game::ReadIO();
 			Game::SoundControl_mb();
 			Game::LinkControlReceive();

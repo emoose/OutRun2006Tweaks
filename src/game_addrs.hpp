@@ -23,6 +23,8 @@ namespace Game
 		return *DirectInput8_ptr;
 	}
 
+	inline int* sel_bgm_kind_buf = nullptr;
+
 	// ini cfg
 	inline float* screen_width = nullptr;
 	inline float* screen_height = nullptr;
@@ -56,6 +58,17 @@ namespace Game
 	inline fn_1arg_int GetNowStageNum = nullptr;
 	inline fn_1arg_int GetStageUniqueNum = nullptr;
 
+	// 2d sprite drawing
+	inline fn_1arg sprSetFontPriority = nullptr;
+	inline fn_1arg sprSetPrintFont = nullptr;
+	inline fn_1arg sprSetFontColor = nullptr;
+	inline fn_2floats sprSetFontScale = nullptr;
+	inline fn_2args sprLocateP = nullptr;
+	inline fn_printf sprPrintf = nullptr;
+
+	// audio
+	inline fn_2args adxPlay = nullptr;
+
 	inline void init()
 	{
 		current_mode = Module::exe_ptr<GameState>(0x38026C);
@@ -67,6 +80,8 @@ namespace Game
 		D3DPresentParams = Module::exe_ptr<D3DPRESENT_PARAMETERS>(0x49BD64);
 		D3DDevice_ptr = Module::exe_ptr<IDirect3DDevice9*>(0x49BD60);
 		DirectInput8_ptr = Module::exe_ptr<IDirectInput8A*>(0x4606E8);
+
+		sel_bgm_kind_buf = Module::exe_ptr<int>(0x430364);
 
 		screen_width = Module::exe_ptr<float>(0x340C8C);
 		screen_height = Module::exe_ptr<float>(0x340C90);
@@ -99,5 +114,14 @@ namespace Game
 
 		GetNowStageNum = Module::fn_ptr<fn_1arg_int>(0x50380);
 		GetStageUniqueNum = Module::fn_ptr<fn_1arg_int>(0x4DC50);
+
+		sprSetFontPriority = Module::fn_ptr<fn_1arg>(0x2CCB0);
+		sprSetPrintFont = Module::fn_ptr<fn_1arg>(0x2CA60);
+		sprSetFontColor = Module::fn_ptr<fn_1arg>(0x2CCA0);
+		sprSetFontScale = Module::fn_ptr<fn_2floats>(0x2CC60);
+		sprLocateP = Module::fn_ptr<fn_2args>(0x2CC00);
+		sprPrintf = Module::fn_ptr<fn_printf>(0x2CCE0);
+
+		adxPlay = Module::fn_ptr<fn_2args>(0x1000);
 	}
 };
