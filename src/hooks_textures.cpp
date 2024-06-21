@@ -259,7 +259,9 @@ class TextureReplacement : public Hook
 			newdata = HandleTexture(&pSrcData, &SrcDataSize, CurrentXstsetFilename, true);
 		}
 
-		return D3DXCreateTextureFromFileInMemory.stdcall<HRESULT>(pDevice, pSrcData, SrcDataSize, ppTexture);
+		// Call D3DXCreateTextureFromFileInMemoryEx instead of D3DXCreateTextureFromFileInMemory, so we can specify no mipmaps
+		// Should prevent D3D from trying to generate mipmaps, reducing load times of non-mipped UI textures quite a bit
+		return D3DXCreateTextureFromFileInMemoryEx.stdcall<HRESULT>(pDevice, pSrcData, SrcDataSize, D3DX_DEFAULT, D3DX_DEFAULT, 1, 0, D3DFMT_UNKNOWN, D3DPOOL_MANAGED, 1, 3, 0, nullptr, nullptr, ppTexture);
 	}
 
 	//
@@ -277,7 +279,7 @@ class TextureReplacement : public Hook
 	{
 		std::unique_ptr<uint8_t[]> newdata;
 
-		if (pSrcData && SrcDataSize)
+		if ((Settings::SceneTextureReplacement || Settings::SceneTextureDump) && pSrcData && SrcDataSize)
 		{
 			newdata = HandleTexture(&pSrcData, &SrcDataSize, CurrentXmtsetFilename, false);
 		}
@@ -317,7 +319,18 @@ public:
 
 		FileSystem = DirectoryFileCache(XmtLoadPath);
 
-		if (Settings::UITextureReplacement || Settings::UITextureDump)
+		bool ApplyUIHooks = Settings::UITextureReplacement || Settings::UITextureDump;
+		bool ApplySceneHooks = Settings::SceneTextureReplacement || Settings::SceneTextureDump;
+
+		// Scene hooks are applied through D3DXCreateTextureFromFileInMemoryEx
+		// But our UI code also calls D3DXCreateTextureFromFileInMemoryEx to allow loading textures slightly faster
+		// So we'll setup this hook if either are enabled
+		if (ApplyUIHooks || ApplySceneHooks)
+		{
+			D3DXCreateTextureFromFileInMemoryEx = safetyhook::create_inline(Module::exe_ptr(D3DXCreateTextureFromFileInMemoryEx_Addr), D3DXCreateTextureFromFileInMemoryEx_dest);
+		}
+
+		if (ApplyUIHooks)
 		{
 			D3DXCreateTextureFromFileInMemory = safetyhook::create_inline(Module::exe_ptr(D3DXCreateTextureFromFileInMemory_Addr), D3DXCreateTextureFromFileInMemory_dest);
 			LoadXstsetSprite_hook = safetyhook::create_mid(Module::exe_ptr(LoadXstsetSprite_Addr), LoadXstsetSprite_dest);
@@ -330,9 +343,8 @@ public:
 			}
 		}
 
-		if (Settings::SceneTextureReplacement || Settings::SceneTextureDump)
+		if (ApplySceneHooks)
 		{
-			D3DXCreateTextureFromFileInMemoryEx = safetyhook::create_inline(Module::exe_ptr(D3DXCreateTextureFromFileInMemoryEx_Addr), D3DXCreateTextureFromFileInMemoryEx_dest);
 			LoadXmtsetObject = safetyhook::create_inline(Module::exe_ptr(LoadXmtsetObject_Addr), LoadXmtsetObject_dest);
 		}
 
