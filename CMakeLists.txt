@@ -104,6 +104,7 @@ set(outrun2006tweaks_SOURCES
 	"src/hooks_forcefeedback.cpp"
 	"src/hooks_framerate.cpp"
 	"src/hooks_graphics.cpp"
+	"src/hooks_input.cpp"
 	"src/hooks_misc.cpp"
 	"src/hooks_textures.cpp"
 	"src/Proxy.def"
@@ -159,6 +160,7 @@ target_link_libraries(outrun2006tweaks PUBLIC
 	safetyhook
 	version.lib
 	xinput9_1_0.lib
+	Hid.lib
 )
 
 target_link_options(outrun2006tweaks PUBLIC

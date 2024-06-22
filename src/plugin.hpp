@@ -76,6 +76,9 @@ namespace Settings
 	inline int VibrationMode = 0;
 	inline int VibrationStrength = 10;
 	inline int VibrationControllerId = 0;
+	inline int ImpulseVibrationMode = 0;
+	inline float ImpulseVibrationLeftMultiplier = 0.25f;
+	inline float ImpulseVibrationRightMultiplier = 0.25f;
 
 	inline bool SkipIntroLogos = false;
 	inline bool DisableCountdownTimer = false;

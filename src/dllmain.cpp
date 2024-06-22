@@ -84,6 +84,9 @@ namespace Settings
 		spdlog::info(" - VibrationMode: {}", VibrationMode);
 		spdlog::info(" - VibrationStrength: {}", VibrationStrength);
 		spdlog::info(" - VibrationControllerId: {}", VibrationControllerId);
+		spdlog::info(" - ImpulseVibrationMode: {}", ImpulseVibrationMode);
+		spdlog::info(" - ImpulseVibrationLeftMultiplier: {}", ImpulseVibrationLeftMultiplier);
+		spdlog::info(" - ImpulseVibrationRightMultiplier: {}", ImpulseVibrationRightMultiplier);
 
 		spdlog::info(" - SkipIntroLogos: {}", SkipIntroLogos);
 		spdlog::info(" - DisableCountdownTimer: {}", DisableCountdownTimer);
@@ -152,6 +155,13 @@ namespace Settings
 		VibrationStrength = std::clamp(VibrationStrength, 0, 10);
 		VibrationControllerId = ini.Get("Vibration", "VibrationControllerId", std::move(VibrationControllerId));
 		VibrationControllerId = std::clamp(VibrationControllerId, 0, 4);
+
+		ImpulseVibrationMode = ini.Get("Vibration", "ImpulseVibrationMode", std::move(ImpulseVibrationMode));
+		ImpulseVibrationMode = std::clamp(ImpulseVibrationMode, 0, 3);
+		ImpulseVibrationLeftMultiplier = ini.Get("Vibration", "ImpulseVibrationLeftMultiplier", std::move(ImpulseVibrationLeftMultiplier));
+		ImpulseVibrationLeftMultiplier = std::clamp(ImpulseVibrationLeftMultiplier, 0.0f, 1.0f);
+		ImpulseVibrationRightMultiplier = ini.Get("Vibration", "ImpulseVibrationRightMultiplier", std::move(ImpulseVibrationRightMultiplier));
+		ImpulseVibrationRightMultiplier = std::clamp(ImpulseVibrationRightMultiplier, 0.0f, 1.0f);
 
 		SkipIntroLogos = ini.Get("Misc", "SkipIntroLogos", std::move(SkipIntroLogos));
 		DisableCountdownTimer = ini.Get("Misc", "DisableCountdownTimer", std::move(DisableCountdownTimer));

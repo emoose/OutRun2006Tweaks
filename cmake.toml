@@ -52,7 +52,8 @@ link-libraries = [
     "spdlog",
     "safetyhook",
     "version.lib",
-    "xinput9_1_0.lib"
+    "xinput9_1_0.lib",
+    "Hid.lib"
 ]
 
 [target.outrun2006tweaks.properties]
