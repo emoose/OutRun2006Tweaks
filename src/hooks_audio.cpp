@@ -2,6 +2,9 @@
 #include "plugin.hpp"
 #include "game_addrs.hpp"
 #include <mmiscapi.h>
+#include <fstream>
+
+std::string BGMOverridePath;
 
 class AllowUncompressedBGM : public Hook
 {
@@ -17,22 +20,34 @@ class AllowUncompressedBGM : public Hook
 	inline static SafetyHookMid hook = {};
 	static void destination(safetyhook::Context& ctx)
 	{
-		const char* strWaveFileName = *(const char**)(ctx.esp + 0x54);
+		std::filesystem::path strWaveFileName = *(const char**)(ctx.esp + 0x54);
+		if (!BGMOverridePath.empty())
+		{
+			if (!std::filesystem::exists(BGMOverridePath))
+				BGMOverridePath = ".\\Sound\\" + BGMOverridePath;
+
+			if (std::filesystem::exists(BGMOverridePath))
+			{
+				strcpy_s(CurWavFilePath, BGMOverridePath.c_str());
+				*(const char**)(ctx.esp + 0x54) = CurWavFilePath;
+				strWaveFileName = BGMOverridePath;
+			}
+			BGMOverridePath.clear();
+		}
 
 		// If a .wav file exists with the same filename, let's try checking that file instead
 		std::filesystem::path fileNameAsWav = strWaveFileName;
 		fileNameAsWav = fileNameAsWav.replace_extension(".wav");
-		strcpy_s(CurWavFilePath, fileNameAsWav.string().c_str());
 
 		bool useWavFile = std::filesystem::exists(fileNameAsWav);
 		if (useWavFile)
-			strWaveFileName = CurWavFilePath;
+			strWaveFileName = fileNameAsWav;
 
 		// Game hardcodes this to 3, but 1 allows using CWaveFile to load the audio
 		int waveFileType = ctx.eax;
 
 		FILE* file;
-		if (fopen_s(&file, strWaveFileName, "rb") != 0)
+		if (fopen_s(&file, strWaveFileName.string().c_str(), "rb") != 0)
 			return;
 
 		uint32_t magic;
@@ -48,7 +63,10 @@ class AllowUncompressedBGM : public Hook
 			waveFileType = 1;
 			// Switch the file game is trying to load to the wav instead
 			if (useWavFile)
+			{
+				strcpy_s(CurWavFilePath, strWaveFileName.string().c_str());
 				*(const char**)(ctx.esp + 0x54) = CurWavFilePath;
+			}
 		}
 
 		ctx.eax = waveFileType;
@@ -75,111 +93,6 @@ public:
 };
 AllowUncompressedBGM AllowUncompressedBGM::instance;
 
-std::vector<std::string> SongTitles =
-{
-	"#01. Splash Wave",
-	"#02. Magical Sound Shower",
-	"#03. Passing Breeze",
-	"#04. Risky Ride",
-	"#05. Shiny World",
-	"#06. Night Flight",
-	"#07. Life was a Bore",
-	"#08. Radiation",
-	"#09. Night Bird",
-	"#10. Splash Wave (1986)",
-	"#11. Magical Sound Shower (1986)",
-	"#12. Passing Breeze (1986)",
-	"#13. Shake the Street (1989)",
-	"#14. Rush a Difficulty (1989)",
-	"#15. Who are You (1989)",
-	"#16. Keep Your Heart (1989)",
-	"#17. Splash Wave (EuroMix)",
-	"#18. Magical Sound Shower (EuroMix)",
-	"#19. Passing Breeze (EuroMix)",
-	"#20. Risky Ride (Guitar Mix)",
-	"#21. Shake the Street (ARRANGED)",
-	"#22. Who are You (ARRANGED)",
-	"#23. Rush a difficulty (ARRANGED)",
-	"#24. Keep your Heart  (ARRANGED)",
-	"#25. Shiny World (Prototype)",
-	"#26. Night Flight (Prototype)",
-	"#27. Life was a Bore (Instrumental)",
-	"#28. Night Flight (Instrumental)",
-	"#29. Last Wave",
-	"#30. SEGA Intro",
-	"#31. Beach Waves",
-	"#32. C2C TitlePattern",
-	"#33. C2C TITLE 01",
-	"SEL 01 Splash Wave",
-	"SEL 02 Magical Sound Shower",
-	"SEL 03 Passing Breeze",
-	"SEL 04 Risky Ride",
-	"SEL 05 Shiny World",
-	"SEL 06 Night Flight",
-	"SEL 07 Life was a Bore",
-	"SEL 08 Radiation",
-	"SEL 09 Night Bird",
-	"SEL 10 Splash Wave 1986",
-	"SEL 11 Magical Sound Shower 1986",
-	"SEL 12 Passing Breeze 1986",
-	"SEL 13 Shake the Street 1989",
-	"SEL 14 Rush a Difficulty",
-	"SEL 15 Who are You 1989",
-	"SEL 16 Keep Your Heart 1989",
-	"SEL 17 Splash Wave EuroMix",
-	"SEL 18 Magical Sound Shower EuroMix",
-	"SEL 19 Passing Breeze EuroMix",
-	"SEL 20 Risky Ride Guitar",
-	"SEL 21 Shake the Street ARRANGED",
-	"SEL 22 Who are you ARRANGED",
-	"SEL 23 Rush a Difficulty ARRANGED",
-	"SEL 24 Keep your Heart ARRANGED",
-	"SEL 25 Shiny World Prototype",
-	"SEL 26 Night Flight Prototype",
-	"SEL 27 Life was a Bore Instrumental",
-	"SEL 28 Night Flight Instrumental",
-	"OR2ED1",
-	"OR2ED2",
-	"OR2ED3A",
-	"OR2ED3B",
-	"OR2ED4",
-	"OR2ED5",
-};
-
-static const std::unordered_map<std::string, uint32_t> kXInputButtons = {
-	{"up", XINPUT_GAMEPAD_DPAD_UP},
-	{"down", XINPUT_GAMEPAD_DPAD_DOWN},
-	{"left", XINPUT_GAMEPAD_DPAD_LEFT},
-	{"right", XINPUT_GAMEPAD_DPAD_RIGHT},
-
-	{"start", XINPUT_GAMEPAD_START},
-	{"back", XINPUT_GAMEPAD_BACK},
-
-	{"ls", XINPUT_GAMEPAD_LEFT_THUMB},
-	{"rs", XINPUT_GAMEPAD_RIGHT_THUMB},
-
-	{"lb", XINPUT_GAMEPAD_LEFT_SHOULDER},
-	{"rb", XINPUT_GAMEPAD_RIGHT_SHOULDER},
-
-	{"a", XINPUT_GAMEPAD_A},
-	{"b", XINPUT_GAMEPAD_B},
-	{"x", XINPUT_GAMEPAD_X},
-	{"y", XINPUT_GAMEPAD_Y},
-
-	{"lt", XINPUT_DIGITAL_LEFT_TRIGGER},
-	{"rt", XINPUT_DIGITAL_RIGHT_TRIGGER},
-
-	{"ls-up", XINPUT_DIGITAL_LS_UP},
-	{"ls-down", XINPUT_DIGITAL_LS_DOWN},
-	{"ls-left", XINPUT_DIGITAL_LS_LEFT},
-	{"ls-right", XINPUT_DIGITAL_LS_RIGHT},
-
-	{"rs-up", XINPUT_DIGITAL_RS_UP},
-	{"rs-down", XINPUT_DIGITAL_RS_DOWN},
-	{"rs-left", XINPUT_DIGITAL_RS_LEFT},
-	{"rs-right", XINPUT_DIGITAL_RS_RIGHT},
-};
-
 uint32_t ParseButtonCombination(std::string_view combo)
 {
 	int retval = 0;
@@ -190,8 +103,8 @@ uint32_t ParseButtonCombination(std::string_view combo)
 	{
 		if (!isalpha(c) && c != '-')
 		{
-			if (cur_token.length() && kXInputButtons.count(cur_token))
-				retval |= kXInputButtons.at(cur_token);
+			if (cur_token.length() && XInputButtonMap.count(cur_token))
+				retval |= XInputButtonMap.at(cur_token);
 
 			cur_token.clear();
 			continue;
@@ -199,8 +112,8 @@ uint32_t ParseButtonCombination(std::string_view combo)
 		cur_token += ::tolower(c);
 	}
 
-	if (cur_token.length() && kXInputButtons.count(cur_token))
-		retval |= kXInputButtons.at(cur_token);
+	if (cur_token.length() && XInputButtonMap.count(cur_token))
+		retval |= XInputButtonMap.at(cur_token);
 
 	return retval;
 }
@@ -209,8 +122,8 @@ class CDSwitcher : public Hook
 {
 	constexpr static int SongTitleDisplaySeconds = 2;
 	constexpr static int SongTitleDisplayFrames = SongTitleDisplaySeconds * 60;
-	constexpr static float SongTitleFadeBeginTime = 0.75; // seconds
-	constexpr static int SongTitleFadeBeginFrame = int(SongTitleFadeBeginTime * 60.f);
+	constexpr static float SongTitleFadeBeginSeconds = 0.75;
+	constexpr static int SongTitleFadeBeginFrame = int(SongTitleFadeBeginSeconds * 60.f);
 
 	const static int Game_Ctrl_Addr = 0x9C840;
 
@@ -223,16 +136,6 @@ class CDSwitcher : public Hook
 	inline static uint32_t PadButtonCombo_Next_BitCount = 0;
 	inline static uint32_t PadButtonCombo_Prev_BitCount = 0;
 
-	uint32_t bitcount(uint32_t n)
-	{
-		n = n - ((n >> 1) & 0x55555555);          // put count of each 2 bits into those 2 bits
-		n = (n & 0x33333333) + ((n >> 2) & 0x33333333); // put count of each 4 bits into those 4 bits
-		n = (n + (n >> 4)) & 0x0F0F0F0F;          // put count of each 8 bits into those 8 bits
-		n = n + (n >> 8);                         // put count of each 16 bits into their lowest 8 bits
-		n = n + (n >> 16);                        // put count of each 32 bits into their lowest 8 bits
-		return n & 0x0000003F;                    // return the count
-	}
-
 	inline static SafetyHookInline Game_Ctrl = {};
 	static void destination()
 	{
@@ -243,7 +146,7 @@ class CDSwitcher : public Hook
 		if (PadStateNext && PadStatePrev)
 		{
 			// Whichever combination has the most number of buttons takes precedence
-			// otherwise there may be issues if one binding is a subset of another one
+			// (else there could be issues if one binding is a subset of another one)
 			if (PadButtonCombo_Prev_BitCount > PadButtonCombo_Next_BitCount)
 				PadStateNext = false;
 			else
@@ -262,7 +165,7 @@ class CDSwitcher : public Hook
 			{
 				*Game::sel_bgm_kind_buf = *Game::sel_bgm_kind_buf - 1;
 				if (*Game::sel_bgm_kind_buf < 0)
-					*Game::sel_bgm_kind_buf = 66;
+					*Game::sel_bgm_kind_buf = Settings::CDTracks.size() - 1;
 				BGMChanged = true;
 			}
 		}
@@ -272,7 +175,7 @@ class CDSwitcher : public Hook
 			if (KeyStateNext)
 			{
 				*Game::sel_bgm_kind_buf = *Game::sel_bgm_kind_buf + 1;
-				if (*Game::sel_bgm_kind_buf >= 67)
+				if (*Game::sel_bgm_kind_buf >= Settings::CDTracks.size())
 					*Game::sel_bgm_kind_buf = 0;
 				BGMChanged = true;
 			}
@@ -280,7 +183,8 @@ class CDSwitcher : public Hook
 
 		if (BGMChanged)
 		{
-			Game::adxPlay(0, *Game::sel_bgm_kind_buf);
+			BGMOverridePath = Settings::CDTracks[*Game::sel_bgm_kind_buf].first;
+			Game::adxPlay(0, 0);
 
 			SongTitleDisplayTimer = SongTitleDisplayFrames;
 		}
@@ -289,18 +193,16 @@ class CDSwitcher : public Hook
 public:
 	static void draw(int numUpdates)
 	{
-		if (SongTitleDisplayTimer > 0 && *Game::sel_bgm_kind_buf < 67)
+		if (SongTitleDisplayTimer > 0 && *Game::sel_bgm_kind_buf < Settings::CDTracks.size())
 		{
 			Game::sprSetFontPriority(4);
 			Game::sprSetPrintFont(2);
 			Game::sprSetFontScale(0.3f, 0.5f);
-			Game::sprLocateP(350, 450);
+			Game::sprLocateP(375, 450);
 
 			uint32_t color = 0xFFFFFF;
 			if (SongTitleDisplayTimer > SongTitleFadeBeginFrame)
-			{
 				color |= 0xFF000000;
-			}
 			else
 			{
 				uint8_t alpha = uint8_t((float(SongTitleDisplayTimer) / SongTitleFadeBeginFrame) * 255.f);
@@ -308,8 +210,9 @@ public:
 			}
 			Game::sprSetFontColor(color);
 
-			const auto& song = SongTitles[*Game::sel_bgm_kind_buf];
-			Game::sprPrintf(song.c_str());
+			const auto& song = Settings::CDTracks[*Game::sel_bgm_kind_buf].second;
+			//std::string songText = std::format("#{:02}. {}", (*Game::sel_bgm_kind_buf) + 1, song);
+			Game::sprPrintf("#%02d. %s", (*Game::sel_bgm_kind_buf) + 1, song.c_str());
 
 			SongTitleDisplayTimer -= numUpdates;
 			if (SongTitleDisplayTimer <= 0)
@@ -331,8 +234,8 @@ public:
 	{
 		PadButtonCombo_Next = ParseButtonCombination(Settings::CDSwitcherTrackNext);
 		PadButtonCombo_Prev = ParseButtonCombination(Settings::CDSwitcherTrackPrevious);
-		PadButtonCombo_Next_BitCount = bitcount(PadButtonCombo_Next);
-		PadButtonCombo_Prev_BitCount = bitcount(PadButtonCombo_Prev);
+		PadButtonCombo_Next_BitCount = Util::BitCount(PadButtonCombo_Next);
+		PadButtonCombo_Prev_BitCount = Util::BitCount(PadButtonCombo_Prev);
 
 		Game_Ctrl = safetyhook::create_inline(Module::exe_ptr(Game_Ctrl_Addr), destination);
 		return !!Game_Ctrl;
@@ -344,5 +247,53 @@ CDSwitcher CDSwitcher::instance;
 
 void CDSwitcher_Draw(int numUpdates)
 {
+	if (!Settings::CDSwitcherDisplayTitle)
+		return;
 	CDSwitcher::draw(numUpdates);
+}
+
+void CDSwitcher_ReadIni(const std::filesystem::path& iniPath)
+{
+	Settings::CDTracks.clear();
+
+	if (!std::filesystem::exists(iniPath))
+	{
+		// TODO: fill in defaults if no INI found? for now we'll just disable switcher
+		Settings::CDSwitcherEnable = false;
+	}
+
+	std::ifstream file(iniPath);
+	if (file && file.is_open())
+	{
+		std::string line;
+		bool inCDTracksSection = false;
+
+		while (std::getline(file, line))
+		{
+			if (inCDTracksSection)
+			{
+				if (line.empty())
+					continue;
+				line = Util::trim(line);
+				if (line.front() == '[' && line.back() == ']') // Reached a new section
+					break;
+				if (line.front() == '#' || line.front() == ';')
+					continue;
+
+				auto delimiterPos = line.find('=');
+				if (delimiterPos != std::string::npos)
+				{
+					std::string key = Util::trim(line.substr(0, delimiterPos));
+					std::string value = Util::trim(line.substr(delimiterPos + 1));
+					Settings::CDTracks.emplace_back(key, value);
+				}
+			}
+			else if (line == "[CDTracks]")
+			{
+				inCDTracksSection = true;
+			}
+		}
+
+		file.close();
+	}
 }

@@ -2,6 +2,8 @@
 #include <d3d9types.h>
 #include <Xinput.h>
 
+#define D3DX_DEFAULT ULONG_MAX
+
 typedef void (*fn_0args)();
 typedef void (*fn_1arg)(int);
 typedef void (*fn_2args)(int, int);
@@ -19,6 +21,40 @@ typedef void (*fn_printf)(const char*, ...);
 #define XINPUT_DIGITAL_RS_DOWN      0x2000000
 #define XINPUT_DIGITAL_RS_LEFT      0x4000000
 #define XINPUT_DIGITAL_RS_RIGHT     0x8000000
+
+inline static const std::unordered_map<std::string, uint32_t> XInputButtonMap = {
+	{"up", XINPUT_GAMEPAD_DPAD_UP},
+	{"down", XINPUT_GAMEPAD_DPAD_DOWN},
+	{"left", XINPUT_GAMEPAD_DPAD_LEFT},
+	{"right", XINPUT_GAMEPAD_DPAD_RIGHT},
+
+	{"start", XINPUT_GAMEPAD_START},
+	{"back", XINPUT_GAMEPAD_BACK},
+
+	{"ls", XINPUT_GAMEPAD_LEFT_THUMB},
+	{"rs", XINPUT_GAMEPAD_RIGHT_THUMB},
+
+	{"lb", XINPUT_GAMEPAD_LEFT_SHOULDER},
+	{"rb", XINPUT_GAMEPAD_RIGHT_SHOULDER},
+
+	{"a", XINPUT_GAMEPAD_A},
+	{"b", XINPUT_GAMEPAD_B},
+	{"x", XINPUT_GAMEPAD_X},
+	{"y", XINPUT_GAMEPAD_Y},
+
+	{"lt", XINPUT_DIGITAL_LEFT_TRIGGER},
+	{"rt", XINPUT_DIGITAL_RIGHT_TRIGGER},
+
+	{"ls-up", XINPUT_DIGITAL_LS_UP},
+	{"ls-down", XINPUT_DIGITAL_LS_DOWN},
+	{"ls-left", XINPUT_DIGITAL_LS_LEFT},
+	{"ls-right", XINPUT_DIGITAL_LS_RIGHT},
+
+	{"rs-up", XINPUT_DIGITAL_RS_UP},
+	{"rs-down", XINPUT_DIGITAL_RS_DOWN},
+	{"rs-left", XINPUT_DIGITAL_RS_LEFT},
+	{"rs-right", XINPUT_DIGITAL_RS_RIGHT},
+};
 
 namespace Input
 {

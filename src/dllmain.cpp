@@ -65,6 +65,7 @@ namespace Settings
 		spdlog::info(" - AllowUncompressedBGM: {}", AllowUncompressedBGM);
 
 		spdlog::info(" - CDSwitcherEnable: {}", CDSwitcherEnable);
+		spdlog::info(" - CDSwitcherDisplayTitle: {}", CDSwitcherDisplayTitle);
 		spdlog::info(" - CDSwitcherTrackNext: {}", CDSwitcherTrackNext);
 		spdlog::info(" - CDSwitcherTrackPrevious: {}", CDSwitcherTrackPrevious);
 
@@ -128,6 +129,7 @@ namespace Settings
 		AllowUncompressedBGM = ini.Get("Audio", "AllowUncompressedBGM", std::move(AllowUncompressedBGM));
 
 		CDSwitcherEnable = ini.Get("CDSwitcher", "SwitcherEnable", std::move(CDSwitcherEnable));
+		CDSwitcherDisplayTitle = ini.Get("CDSwitcher", "SwitcherDisplayTitle", std::move(CDSwitcherDisplayTitle));
 		CDSwitcherTrackNext = ini.Get("CDSwitcher", "TrackNext", std::move(CDSwitcherTrackNext));
 		CDSwitcherTrackPrevious = ini.Get("CDSwitcher", "TrackPrevious", std::move(CDSwitcherTrackPrevious));
 
@@ -160,6 +162,10 @@ namespace Settings
 		FixLensFlarePath = ini.Get("Bugfixes", "FixLensFlarePath", std::move(FixLensFlarePath));
 		FixFullPedalChecks = ini.Get("Bugfixes", "FixFullPedalChecks", std::move(FixFullPedalChecks));
 		HideOnlineSigninText = ini.Get("Bugfixes", "HideOnlineSigninText", std::move(HideOnlineSigninText));
+
+		// INIReader doesn't preserve the order of the keys/values in a section
+		// Will need to try opening INI ourselves to grab cd tracks...
+		CDSwitcher_ReadIni(iniPath);
 
 		return true;
 	}

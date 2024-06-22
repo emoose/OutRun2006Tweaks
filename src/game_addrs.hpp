@@ -1,3 +1,5 @@
+#pragma once
+
 #include "plugin.hpp"
 #include <d3d9.h>
 #include <dinput.h>

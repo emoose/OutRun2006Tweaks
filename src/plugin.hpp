@@ -1,7 +1,12 @@
 #pragma once
+
 #include <filesystem>
 
 #include "game.hpp"
+
+extern void SetVibration(int userId, float leftMotor, float rightMotor); // hooks_forcefeedback.cpp
+extern void CDSwitcher_Draw(int numUpdates); // hooks_audio.cpp
+extern void CDSwitcher_ReadIni(const std::filesystem::path& iniPath);
 
 namespace Module
 {
@@ -50,8 +55,11 @@ namespace Settings
 	inline bool AllowUncompressedBGM = true;
 
 	inline bool CDSwitcherEnable = false;
+	inline bool CDSwitcherDisplayTitle = true;
 	inline std::string CDSwitcherTrackNext = "Back";
 	inline std::string CDSwitcherTrackPrevious = "RS+Back";
+
+	inline std::vector<std::pair<std::string, std::string>> CDTracks;
 
 	inline int AnisotropicFiltering = 16;
 	inline bool TransparencySupersampling = true;
@@ -107,5 +115,41 @@ namespace Util
 		}
 
 		return std::wstring(buffer.data(), result);
+	}
+
+	inline uint32_t BitCount(uint32_t n)
+	{
+		n = n - ((n >> 1) & 0x55555555);          // put count of each 2 bits into those 2 bits
+		n = (n & 0x33333333) + ((n >> 2) & 0x33333333); // put count of each 4 bits into those 4 bits
+		n = (n + (n >> 4)) & 0x0F0F0F0F;          // put count of each 8 bits into those 8 bits
+		n = n + (n >> 8);                         // put count of each 16 bits into their lowest 8 bits
+		n = n + (n >> 16);                        // put count of each 32 bits into their lowest 8 bits
+		return n & 0x0000003F;                    // return the count
+	}
+
+	// Function to trim spaces from the start of a string
+	inline std::string ltrim(const std::string& s)
+	{
+		auto start = std::find_if_not(s.begin(), s.end(), [](unsigned char ch)
+		{
+			return std::isspace(ch);
+		});
+		return std::string(start, s.end());
+	}
+
+	// Function to trim spaces from the end of a string
+	inline std::string rtrim(const std::string& s)
+	{
+		auto end = std::find_if_not(s.rbegin(), s.rend(), [](unsigned char ch)
+		{
+			return std::isspace(ch);
+		});
+		return std::string(s.begin(), end.base());
+	}
+
+	// Function to trim spaces from both ends of a string
+	inline std::string trim(const std::string& s)
+	{
+		return ltrim(rtrim(s));
 	}
 }

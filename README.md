@@ -10,6 +10,7 @@ A wrapper DLL that can patch in some minor fixes & tweaks into OutRun 2006: Coas
 - Fixed Z-buffer precision issues that caused heavy z-fighting and distant object pop-in
 - Stage objects such as traffic cones will now only disappear once they're actually off-screen
 - Fixes certain effects like engine backfiring which failed to appear when using controllers
+- Can hide text related to the now-defunct online service
 
 **Enhancements:**
 - Adds a built-in framelimiter to prevent game from speeding up
@@ -21,6 +22,7 @@ A wrapper DLL that can patch in some minor fixes & tweaks into OutRun 2006: Coas
 - Automatically disables DPI scaling on the game window, fixing scaling issues with certain setups
 - Heavily reduced load times by disabling framelimiter/vsync during load screens
 - Allows skipping intro splash screens
+- Music track can be changed mid-race via Q and E buttons, or Back/RS+Back on controller (`CDSwitcher` must be enabled in INI first)
 
 All the above can be toggled/customized via the OutRun2006Tweaks.ini file.
 
@@ -55,10 +57,9 @@ If the batch script succeeds you should see a `build\outrun2006tweaks-proj.sln` 
 - likewise certain parts of the stage have pop-in, usually happens when some part is obscured by some other geometry, occlusion culling maybe?
 - car shadow improvements? seems player car uses different shadowing to other cars, could that be added to those too?
 -   (the existing car shadows also seem to disappear after some distance, could it be increased?)
-- input improvements: deadzone, rumble?
+- input deadzone improvements?
 - fix broken car horn (haven't seen any code for it yet though...)
 - game retiming? probably a pipe dream - seems game is meant for 60.2Hz tickrate, lots of things coded for that & using 0.0166112... frametimes
-- a way to change music mid-race would be sweet
 
 ### Thanks
 Thanks to [debugging.games](http://debugging.games) for hosting debug symbols for OutRun 2 SP (Lindburgh), very useful for looking into Outrun2006.

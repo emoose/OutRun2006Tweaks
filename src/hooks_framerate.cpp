@@ -4,12 +4,6 @@
 
 #include <d3d9.h>
 
-// hooks_forcefeedback.cpp
-extern void SetVibration(int userId, float leftMotor, float rightMotor);
-
-// hooks_audio.cpp
-extern void CDSwitcher_Draw(int numUpdates);
-
 class ReplaceGameUpdateLoop : public Hook
 {
 	const static int HookAddr = 0x17C7B;
