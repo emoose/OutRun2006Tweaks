@@ -146,7 +146,9 @@ public:
 
     static void DeviceEnumerationThread()
     {
+#ifdef _DEBUG
         SetThreadDescription(GetCurrentThread(), L"DeviceEnumerationThread");
+#endif
 
         while (true)
         {
@@ -169,7 +171,7 @@ public:
 
     bool apply() override
     {
-        // Patch game to go through our DInput_EnumJoysticksCallback func, so we can learn GUID of any already connected pads
+        // Patch games controller init code to go through our DInput_EnumJoysticksCallback func, so we can learn GUID of any already connected pads
         Memory::VP::Patch(Module::exe_ptr(DInputInit_CallbackPtr_Addr + 1), DInput_EnumJoysticksCallback);
 
         return true;
