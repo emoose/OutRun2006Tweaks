@@ -132,7 +132,8 @@ class ReplaceGameUpdateLoop : public Hook
 			if (Settings::VibrationMode != 0 && CurGameState != GameState::STATE_GAME)
 				SetVibration(Settings::VibrationControllerId, 0.0f, 0.0f);
 
-			DInput_RegisterNewDevices();
+			if (Settings::ControllerHotPlug)
+				DInput_RegisterNewDevices();
 		}
 
 		for (int curUpdateIdx = 0; curUpdateIdx < numUpdates; curUpdateIdx++)
