@@ -241,16 +241,15 @@ public:
 
 	bool apply() override
 	{
-		// Don't allow "sign in" action button text to show
-		Sumo_DrawActionButtonName = safetyhook::create_inline(Module::exe_ptr(Sumo_DrawActionButtonName_Addr), Sumo_DrawActionButtonName_dest);
-
 		// Hide "Not Signed In" text
 		Memory::VP::Patch(Module::exe_ptr(Sumo_PrintSignedInStatus_Addr), { 0xC3 });
 
 		// Hide box that contains the message above
 		Memory::VP::Patch(Module::exe_ptr(Sumo_DrawSignedInStatusBox_PatchAddr), { 0xEB });
 
-		// TODO: hide the F1 button prompt, doesn't seem handled by the same code as above...
+		// Don't allow "sign in" action button text to show
+		// TODO: disabled for now until we can also hide the F1 button prompt for it, doesn't seem handled by the same code as this...
+		// Sumo_DrawActionButtonName = safetyhook::create_inline(Module::exe_ptr(Sumo_DrawActionButtonName_Addr), Sumo_DrawActionButtonName_dest);
 
 		return !!Sumo_DrawActionButtonName;
 	}

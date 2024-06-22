@@ -4,6 +4,7 @@
 
 #include "game.hpp"
 
+extern void DInput_RegisterNewDevices(); // hooks_input.cpp
 extern void SetVibration(int userId, float leftMotor, float rightMotor); // hooks_forcefeedback.cpp
 extern void CDSwitcher_Draw(int numUpdates); // hooks_audio.cpp
 extern void CDSwitcher_ReadIni(const std::filesystem::path& iniPath);
@@ -89,6 +90,7 @@ namespace Settings
 	inline bool FixLensFlarePath = true;
 	inline bool FixFullPedalChecks = true;
 	inline bool HideOnlineSigninText = true;
+	inline bool ControllerHotPlug = true;
 }
 
 namespace Util

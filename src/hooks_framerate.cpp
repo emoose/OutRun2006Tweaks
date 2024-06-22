@@ -131,6 +131,8 @@ class ReplaceGameUpdateLoop : public Hook
 			// Reset vibration if we're not in main game state
 			if (Settings::VibrationMode != 0 && CurGameState != GameState::STATE_GAME)
 				SetVibration(Settings::VibrationControllerId, 0.0f, 0.0f);
+
+			DInput_RegisterNewDevices();
 		}
 
 		for (int curUpdateIdx = 0; curUpdateIdx < numUpdates; curUpdateIdx++)

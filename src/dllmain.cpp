@@ -97,6 +97,7 @@ namespace Settings
 		spdlog::info(" - FixLensFlarePath: {}", FixLensFlarePath);
 		spdlog::info(" - FixFullPedalChecks: {}", FixFullPedalChecks);
 		spdlog::info(" - HideOnlineSigninText: {}", HideOnlineSigninText);
+		spdlog::info(" - ControllerHotPlug: {}", ControllerHotPlug);
 	}
 
 	bool read(std::filesystem::path& iniPath)
@@ -172,6 +173,7 @@ namespace Settings
 		FixLensFlarePath = ini.Get("Bugfixes", "FixLensFlarePath", std::move(FixLensFlarePath));
 		FixFullPedalChecks = ini.Get("Bugfixes", "FixFullPedalChecks", std::move(FixFullPedalChecks));
 		HideOnlineSigninText = ini.Get("Bugfixes", "HideOnlineSigninText", std::move(HideOnlineSigninText));
+		ControllerHotPlug = ini.Get("Bugfixes", "ControllerHotPlug", std::move(ControllerHotPlug));
 
 		// INIReader doesn't preserve the order of the keys/values in a section
 		// Will need to try opening INI ourselves to grab cd tracks...

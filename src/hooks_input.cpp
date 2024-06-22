@@ -4,6 +4,8 @@
 #include <winioctl.h>
 #include <hidsdi.h>
 
+#include <queue>
+
 #include "hook_mgr.hpp"
 #include "plugin.hpp"
 #include "game_addrs.hpp"
@@ -116,3 +118,85 @@ public:
     static ImpulseVibration instance;
 };
 ImpulseVibration ImpulseVibration::instance;
+
+class ControllerHotPlug : public Hook
+{
+    const static int DInputInit_CallbackPtr_Addr = 0x3E10;
+
+public:
+    inline static std::mutex mtx;
+    inline static std::unique_ptr<std::thread> DeviceEnumerationThreadHandle;
+    inline static std::vector<GUID> KnownDevices;
+    inline static std::queue<DIDEVICEINSTANCE> NewDevices;
+
+    static BOOL __stdcall DInput_EnumJoysticksCallback(const DIDEVICEINSTANCE* pdidInstance, VOID* pContext)
+    {
+        std::lock_guard<std::mutex> lock(mtx);
+        if (std::find(KnownDevices.begin(), KnownDevices.end(), pdidInstance->guidInstance) == KnownDevices.end())
+        {
+            // GUID not found, add to the vector
+            KnownDevices.push_back(pdidInstance->guidInstance);
+
+            // Add the new device instance to the queue
+            NewDevices.push(*pdidInstance);
+        }
+
+        return DIENUM_CONTINUE;
+    }
+
+    static void DeviceEnumerationThread()
+    {
+        SetThreadDescription(GetCurrentThread(), L"DeviceEnumerationThread");
+
+        while (true)
+        {
+            if (Game::DirectInput8())
+                Game::DirectInput8()->EnumDevices(DI8DEVCLASS_GAMECTRL, DInput_EnumJoysticksCallback, nullptr, DIEDFL_ATTACHEDONLY);
+
+            std::this_thread::sleep_for(std::chrono::seconds(2)); // Poll every 2 seconds
+        }
+    }
+
+    std::string_view description() override
+    {
+        return "ControllerHotPlug";
+    }
+
+    bool validate() override
+    {
+        return Settings::ControllerHotPlug;
+    }
+
+    bool apply() override
+    {
+        // Patch game to go through our DInput_EnumJoysticksCallback func, so we can learn GUID of any already connected pads
+        Memory::VP::Patch(Module::exe_ptr(DInputInit_CallbackPtr_Addr + 1), DInput_EnumJoysticksCallback);
+
+        return true;
+    }
+
+    static ControllerHotPlug instance;
+};
+ControllerHotPlug ControllerHotPlug::instance;
+
+void DInput_RegisterNewDevices()
+{
+    if (!ControllerHotPlug::DeviceEnumerationThreadHandle)
+    {
+        ControllerHotPlug::DeviceEnumerationThreadHandle = std::make_unique<std::thread>(ControllerHotPlug::DeviceEnumerationThread);
+        ControllerHotPlug::DeviceEnumerationThreadHandle->detach();
+    }
+
+    std::lock_guard<std::mutex> lock(ControllerHotPlug::mtx);
+    while (!ControllerHotPlug::NewDevices.empty())
+    {
+        DIDEVICEINSTANCE deviceInstance = ControllerHotPlug::NewDevices.front();
+        ControllerHotPlug::NewDevices.pop();
+
+        // Tell game about it
+        Game::DInput_EnumJoysticksCallback(&deviceInstance, 0);
+
+        // Sets some kind of active-device-number to let it work
+        *Module::exe_ptr<int>(0x3398D4) = 0;
+    }
+}
