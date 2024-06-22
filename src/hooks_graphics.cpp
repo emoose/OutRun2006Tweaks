@@ -1,6 +1,45 @@
 #include "hook_mgr.hpp"
 #include "plugin.hpp"
 #include "game_addrs.hpp"
+#include <array>
+
+class ReflectionResolution : public Hook
+{
+	inline static std::array<int, 6> ReflectionResolution_Addrs = 
+	{
+		// Envmap_Init
+		0x13B50 + 1,
+		0x13BA1 + 1,
+		0x13BA6 + 1,
+		// D3D_CreateTemporaries
+		0x17A69 + 1,
+		0x17A88 + 1,
+		0x17A8D + 1,
+	};
+
+public:
+	std::string_view description() override
+	{
+		return "ReflectionResolution";
+	}
+
+	bool validate() override
+	{
+		return Settings::ReflectionResolution >= 2;
+	}
+
+	bool apply() override
+	{
+		for (const int& addr : ReflectionResolution_Addrs)
+		{
+			Memory::VP::Patch(Module::exe_ptr<int>(addr), Settings::ReflectionResolution);
+		}
+		return true;
+	}
+
+	static ReflectionResolution instance;
+};
+ReflectionResolution ReflectionResolution::instance;
 
 class DisableDPIScaling : public Hook
 {

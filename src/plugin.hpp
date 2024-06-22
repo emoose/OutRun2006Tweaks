@@ -63,6 +63,7 @@ namespace Settings
 	inline std::vector<std::pair<std::string, std::string>> CDTracks;
 
 	inline int AnisotropicFiltering = 16;
+	inline int ReflectionResolution = 1024;
 	inline bool TransparencySupersampling = true;
 	inline bool ScreenEdgeCullFix = true;
 	inline bool DisableVehicleLODs = true;
