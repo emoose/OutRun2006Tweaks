@@ -198,7 +198,7 @@ public:
 
 	bool validate() override
 	{
-		return true;
+		return Settings::FixFullPedalChecks;
 	}
 
 	bool apply() override
@@ -211,3 +211,50 @@ public:
 	static FixFullPedalChecks instance;
 };
 FixFullPedalChecks FixFullPedalChecks::instance;
+
+class HideOnlineSigninText : public Hook
+{
+	// Online mode is no longer active, let's try to clean up the remnants of it
+	const static int Sumo_PrintSignedInStatus_Addr = 0x41370;
+	const static int Sumo_DrawSignedInStatusBox_PatchAddr = 0x43256;
+	const static int Sumo_DrawActionButtonName_Addr = 0x46510;
+
+	inline static SafetyHookInline Sumo_DrawActionButtonName = {};
+	static bool __fastcall Sumo_DrawActionButtonName_dest(void* thisptr, int unused, int buttonId)
+	{
+		if (buttonId == 1)
+			return true;
+
+		return Sumo_DrawActionButtonName.thiscall<bool>(thisptr, buttonId);
+	}
+
+public:
+	std::string_view description() override
+	{
+		return "HideOnlineSigninText";
+	}
+
+	bool validate() override
+	{
+		return Settings::HideOnlineSigninText;
+	}
+
+	bool apply() override
+	{
+		// Don't allow "sign in" action button text to show
+		Sumo_DrawActionButtonName = safetyhook::create_inline(Module::exe_ptr(Sumo_DrawActionButtonName_Addr), Sumo_DrawActionButtonName_dest);
+
+		// Hide "Not Signed In" text
+		Memory::VP::Patch(Module::exe_ptr(Sumo_PrintSignedInStatus_Addr), { 0xC3 });
+
+		// Hide box that contains the message above
+		Memory::VP::Patch(Module::exe_ptr(Sumo_DrawSignedInStatusBox_PatchAddr), { 0xEB });
+
+		// TODO: hide the F1 button prompt, doesn't seem handled by the same code as above...
+
+		return !!Sumo_DrawActionButtonName;
+	}
+
+	static HideOnlineSigninText instance;
+};
+HideOnlineSigninText HideOnlineSigninText::instance;

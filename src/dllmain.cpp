@@ -92,6 +92,7 @@ namespace Settings
 		spdlog::info(" - PreventDESTSaveCorruption: {}", PreventDESTSaveCorruption);
 		spdlog::info(" - FixLensFlarePath: {}", FixLensFlarePath);
 		spdlog::info(" - FixFullPedalChecks: {}", FixFullPedalChecks);
+		spdlog::info(" - HideOnlineSigninText: {}", HideOnlineSigninText);
 	}
 
 	bool read(std::filesystem::path& iniPath)
@@ -158,6 +159,7 @@ namespace Settings
 		PreventDESTSaveCorruption = ini.Get("Bugfixes", "PreventDESTSaveCorruption", std::move(PreventDESTSaveCorruption));
 		FixLensFlarePath = ini.Get("Bugfixes", "FixLensFlarePath", std::move(FixLensFlarePath));
 		FixFullPedalChecks = ini.Get("Bugfixes", "FixFullPedalChecks", std::move(FixFullPedalChecks));
+		HideOnlineSigninText = ini.Get("Bugfixes", "HideOnlineSigninText", std::move(HideOnlineSigninText));
 
 		return true;
 	}
