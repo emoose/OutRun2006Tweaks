@@ -5,6 +5,41 @@
 #include "plugin.hpp"
 #include "game_addrs.hpp"
 
+class RestoreJPClarissa : public Hook
+{
+	// Patch get_load_heroine_chrset to use the non-USA models
+	// (oddly there are 3 USA models defined, but code only seems to use 2 of them?)
+	const static int get_load_heroine_chrset_Addr1 = 0x88044 + 1;
+	const static int get_load_heroine_chrset_Addr2 = 0x8804E + 1;
+
+public:
+	std::string_view description() override
+	{
+		return "RestoreJPClarissa";
+	}
+
+	bool validate() override
+	{
+		return Settings::RestoreJPClarissa;
+	}
+
+	bool apply() override
+	{
+		// chrset 6 -> 5
+		Memory::VP::Patch(Module::exe_ptr<int>(get_load_heroine_chrset_Addr1), 5);
+		// chrset 8 -> 7
+		Memory::VP::Patch(Module::exe_ptr<int>(get_load_heroine_chrset_Addr2), 7);
+
+		// there is another USA chrset 15 at 0x654950 which could be patched to 14
+		// but doesn't seem any code uses it which could be patched?
+		// forcing it to load shows clarissa with bugged anims, wonder if it's driver chrset...
+		return true;
+	}
+
+	static RestoreJPClarissa instance;
+};
+RestoreJPClarissa RestoreJPClarissa::instance;
+
 class CommandLineArguments : public Hook
 {
 	const static int Win32_CfgRead_Addr = 0xE4D0;

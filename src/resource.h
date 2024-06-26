@@ -15,8 +15,8 @@
 
 #define MODULE_VERSION_MAJOR 0
 #define MODULE_VERSION_MINOR 3
-#define MODULE_VERSION_BUILD 0
-#define MODULE_VERSION_REVISION 3
+#define MODULE_VERSION_BUILD 1
+#define MODULE_VERSION_REVISION 0
 
 #define STR(value) #value
 #define STRINGIZE(value) STR(value)

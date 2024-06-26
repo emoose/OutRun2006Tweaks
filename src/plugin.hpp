@@ -89,6 +89,7 @@ namespace Settings
 
 	inline bool SkipIntroLogos = false;
 	inline bool DisableCountdownTimer = false;
+	inline bool RestoreJPClarissa = false;
 
 	inline bool FixPegasusClopping = true;
 	inline bool FixC2CRankings = true;
