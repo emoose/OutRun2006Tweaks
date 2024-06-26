@@ -16,10 +16,13 @@ Latest builds can be found under the releases section: https://github.com/emoose
 
 **Enhancements:**
 - Adds a built-in framelimiter to prevent game from speeding up
+- Textures for the UI and the game scene can be dumped & replaced
 - FPS can now be partially unlocked, drawing at unlocked FPS while game runs at 60FPS tickrate
 - Allows disabling vehicle LODs, reducing the ugly pop-in as they get closer
 - Restores XInput rumble code from the Xbox release, allowing gear shifts/drifts/crashes/etc to give feedback
+- Xbox Series impulse triggers are supported and can be tweaked inside INI
 - Can force anisotropic filtering & enable transparency supersampling, greatly reducing aliasing around the edges of the track
+- Render resolution of reflections can be increased from the default 128x128
 - Game can now run in borderless windowed mode; mouse cursor will now be hidden while game is active
 - Automatically disables DPI scaling on the game window, fixing scaling issues with certain setups
 - Heavily reduced load times by disabling framelimiter/vsync during load screens
