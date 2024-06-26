@@ -132,7 +132,7 @@ public:
 			*Game::D3DAntialiasing = 2;
 			*Game::CfgLanguage = 0;
 
-			spdlog::info("AutoDetectResolution: default resolution set to {}x{}, windowed enabled, fog enabled, antialiasing 2", width, height);
+			spdlog::info("GameDefaultConfigOverride: default resolution set to {}x{}, windowed enabled, fog enabled, antialiasing 2", width, height);
 		}
 
 		return true;

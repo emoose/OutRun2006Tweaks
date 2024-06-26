@@ -238,10 +238,10 @@ typedef struct tagSPRARGS2
 	struct IDirect3DTexture9* d3dtexture_ptr_C; // IDirect3DTexture9* ?
 	uint32_t unk_10;
 	D3DMATRIX mtx_14;
-	D3DVECTOR field_54;
-	D3DVECTOR field_60;
-	D3DVECTOR field_6C;
-	D3DVECTOR field_78;
+	D3DVECTOR TopLeft_54;
+	D3DVECTOR BottomLeft_60;
+	D3DVECTOR TopRight_6C;
+	D3DVECTOR BottomRight_78;
 	float bottom_84;
 	float left_88;
 	float bottom_8C;

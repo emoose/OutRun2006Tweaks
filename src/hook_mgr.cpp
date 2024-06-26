@@ -15,7 +15,11 @@ void HookManager::ApplyHooks()
             hook->is_active_ = hook->apply();
             auto desc = hook->description();
             if (!desc.empty())
-                spdlog::info("{}: apply {}", desc, hook->is_active_ ? "successful" : "failed");
+            {
+                spdlog::log(hook->is_active_ ?
+                    spdlog::level::info : spdlog::level::err,
+                    "{}: apply {}", desc, hook->is_active_ ? "successful" : "failed");
+            }
         }
     }
 }

@@ -1,6 +1,8 @@
 # OutRun2006Tweaks
 A wrapper DLL that can patch in some minor fixes & tweaks into OutRun 2006: Coast 2 Coast.
 
+Latest builds can be found under the releases section: https://github.com/emoose/OutRun2006Tweaks/releases
+
 ### Features
 **Bugfixes:**
 - Prevents the "DEST" save corruption bug when trying to remap controls while having many dinput devices connected
@@ -14,7 +16,7 @@ A wrapper DLL that can patch in some minor fixes & tweaks into OutRun 2006: Coas
 
 **Enhancements:**
 - Adds a built-in framelimiter to prevent game from speeding up
-- FPS can now be partially unlocked, drawing at unlocked FPS while game run at 60FPS tickrate
+- FPS can now be partially unlocked, drawing at unlocked FPS while game runs at 60FPS tickrate
 - Allows disabling vehicle LODs, reducing the ugly pop-in as they get closer
 - Restores XInput rumble code from the Xbox release, allowing gear shifts/drifts/crashes/etc to give feedback
 - Can force anisotropic filtering & enable transparency supersampling, greatly reducing aliasing around the edges of the track
