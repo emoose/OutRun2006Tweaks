@@ -1,0 +1,41 @@
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+    tags:
+      - v*
+
+jobs:
+  build:
+    runs-on: windows-2022
+    strategy:
+      matrix:
+        arch: [ Win32 ]
+        build_type: [ Release ]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4.1.7
+        with:
+          submodules: recursive
+
+      - name: Configure
+        run: |
+          mkdir build
+          cd build
+          cmake -G "Visual Studio 17 2022" -A ${{matrix.arch}} ..
+
+      - name: Build
+        run: |
+          cmake --build build --config ${{matrix.build_type}}
+          
+      - name: Copy settings
+        run: |
+          cp OutRun2006Tweaks.ini build/bin/OutRun2006Tweaks.ini
+          
+      - name: Upload
+        uses: actions/upload-artifact@v4.3.3
+        with:
+          name: outrun2006tweaks-dllonly
+          path: build/bin/
