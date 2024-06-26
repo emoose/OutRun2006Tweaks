@@ -66,6 +66,11 @@ namespace Settings
 
 		spdlog::info(" - CDSwitcherEnable: {}", CDSwitcherEnable);
 		spdlog::info(" - CDSwitcherDisplayTitle: {}", CDSwitcherDisplayTitle);
+		spdlog::info(" - CDSwitcherTitleFont: {}", CDSwitcherTitleFont);
+		spdlog::info(" - CDSwitcherTitleFontSizeX: {}", CDSwitcherTitleFontSizeX);
+		spdlog::info(" - CDSwitcherTitleFontSizeY: {}", CDSwitcherTitleFontSizeY);
+		spdlog::info(" - CDSwitcherTitlePositionX: {}", CDSwitcherTitlePositionX);
+		spdlog::info(" - CDSwitcherTitlePositionY: {}", CDSwitcherTitlePositionY);
 		spdlog::info(" - CDSwitcherTrackNext: {}", CDSwitcherTrackNext);
 		spdlog::info(" - CDSwitcherTrackPrevious: {}", CDSwitcherTrackPrevious);
 
@@ -135,6 +140,12 @@ namespace Settings
 
 		CDSwitcherEnable = ini.Get("CDSwitcher", "SwitcherEnable", std::move(CDSwitcherEnable));
 		CDSwitcherDisplayTitle = ini.Get("CDSwitcher", "SwitcherDisplayTitle", std::move(CDSwitcherDisplayTitle));
+		CDSwitcherTitleFont = ini.Get("CDSwitcher", "SwitcherTitleFont", std::move(CDSwitcherTitleFont));
+		CDSwitcherTitleFont = std::clamp(CDSwitcherTitleFont, 0, 9);
+		CDSwitcherTitleFontSizeX = ini.Get("CDSwitcher", "SwitcherTitleFontSizeX", std::move(CDSwitcherTitleFontSizeX));
+		CDSwitcherTitleFontSizeY = ini.Get("CDSwitcher", "SwitcherTitleFontSizeY", std::move(CDSwitcherTitleFontSizeY));
+		CDSwitcherTitlePositionX = ini.Get("CDSwitcher", "SwitcherTitlePositionX", std::move(CDSwitcherTitlePositionX));
+		CDSwitcherTitlePositionY = ini.Get("CDSwitcher", "SwitcherTitlePositionY", std::move(CDSwitcherTitlePositionY));
 		CDSwitcherTrackNext = ini.Get("CDSwitcher", "TrackNext", std::move(CDSwitcherTrackNext));
 		CDSwitcherTrackPrevious = ini.Get("CDSwitcher", "TrackPrevious", std::move(CDSwitcherTrackPrevious));
 

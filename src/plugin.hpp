@@ -57,6 +57,11 @@ namespace Settings
 
 	inline bool CDSwitcherEnable = false;
 	inline bool CDSwitcherDisplayTitle = true;
+	inline int CDSwitcherTitleFont = 2;
+	inline float CDSwitcherTitleFontSizeX = 0.3f;
+	inline float CDSwitcherTitleFontSizeY = 0.5f;
+	inline int CDSwitcherTitlePositionX = 375;
+	inline int CDSwitcherTitlePositionY = 450;
 	inline std::string CDSwitcherTrackNext = "Back";
 	inline std::string CDSwitcherTrackPrevious = "RS+Back";
 

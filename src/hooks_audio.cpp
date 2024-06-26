@@ -196,9 +196,9 @@ public:
 		if (SongTitleDisplayTimer > 0 && *Game::sel_bgm_kind_buf < Settings::CDTracks.size())
 		{
 			Game::sprSetFontPriority(4);
-			Game::sprSetPrintFont(2);
-			Game::sprSetFontScale(0.3f, 0.5f);
-			Game::sprLocateP(375, 450);
+			Game::sprSetPrintFont(Settings::CDSwitcherTitleFont);
+			Game::sprSetFontScale(Settings::CDSwitcherTitleFontSizeX, Settings::CDSwitcherTitleFontSizeY);
+			Game::sprLocateP(Settings::CDSwitcherTitlePositionX, Settings::CDSwitcherTitlePositionY);
 
 			uint32_t color = 0xFFFFFF;
 			if (SongTitleDisplayTimer > SongTitleFadeBeginFrame)
@@ -211,7 +211,6 @@ public:
 			Game::sprSetFontColor(color);
 
 			const auto& song = Settings::CDTracks[*Game::sel_bgm_kind_buf].second;
-			//std::string songText = std::format("#{:02}. {}", (*Game::sel_bgm_kind_buf) + 1, song);
 			Game::sprPrintf("#%02d. %s", (*Game::sel_bgm_kind_buf) + 1, song.c_str());
 
 			SongTitleDisplayTimer -= numUpdates;
