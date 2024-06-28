@@ -491,15 +491,27 @@ class UIScaling : public Hook
 
 			pScaling->x = (pScaling->x / Game::screen_scale->x) * scale;
 			pScaling->y = (pScaling->y / Game::screen_scale->y) * scale;
-			pTranslation->x = (pTranslation->x / Game::screen_scale->x) * scale;
+
+			float origX = (pTranslation->x / Game::screen_scale->x);
+			pTranslation->x = origX * scale;
 			pTranslation->y = (pTranslation->y / Game::screen_scale->y) * scale;
 
-			if (mode == ScalingMode::KeepCentered)
+			float add = 0;
+			if (mode == ScalingMode::OnlineArcade)
+			{
+				float spacing = -((Game::screen_scale->y * 640) - Game::screen_resolution->x) / 2;
+
+				if (origX >= 213)
+					add = spacing;
+				if (origX >= 426)
+					add = spacing * 2;
+			}
+			else if (mode == ScalingMode::KeepCentered)
 			{
 				// Amount to add for centering
-				float add = (Game::screen_resolution->x - (Game::original_resolution.x * scale)) / 2;
-				pTranslation->x += add;
+				add = (Game::screen_resolution->x - (Game::original_resolution.x * scale)) / 2;
 			}
+			pTranslation->x += add;
 		}
 
 		return D3DXMatrixTransformation2D.stdcall<int>(pOut, pScalingCenter, pScalingRotation, pScaling, pRotationCenter, Rotation, pTranslation);
@@ -606,10 +618,21 @@ class UIScaling : public Hook
 		}
 		else if (mode == ScalingMode::OnlineArcade)
 		{
-			g_spriteVertexStream[0] = (scaleY * topLeft.x);
-			g_spriteVertexStream[7] = (scaleY * bottomLeft.x);
-			g_spriteVertexStream[0xE] = (scaleY * topRight.x);
-			g_spriteVertexStream[0x15] = (scaleY * bottomRight.x);
+			float spacing = -((Game::screen_scale->y * 640) - Game::screen_resolution->x) / 2;
+
+			// Space out the UI elements if they're past a certain X position
+			// Seems this is pretty much what online arcade does
+			// TODO: add checks to skip processing non-HUD elements
+			float add = 0;
+			if (topLeft.x > 213)
+				add = spacing;
+			if (topLeft.x > 426)
+				add = spacing * 2;
+
+			g_spriteVertexStream[0] = (scaleY * topLeft.x) + add;
+			g_spriteVertexStream[7] = (scaleY * bottomLeft.x) + add;
+			g_spriteVertexStream[0xE] = (scaleY * topRight.x) + add;
+			g_spriteVertexStream[0x15] = (scaleY * bottomRight.x) + add;
 		}
 		else // if (mode == Mode::Vanilla)
 		{
