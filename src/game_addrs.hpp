@@ -27,6 +27,9 @@ namespace Game
 
 	inline int* sel_bgm_kind_buf = nullptr;
 
+	inline int* app_time = nullptr; // used by SetTweeningTable etc
+	inline int* sprani_num_ticks = nullptr; // number of game ticks being ran in the current frame (can be 0 if above 60FPS)
+
 	// ini cfg
 	inline float* screen_width = nullptr;
 	inline float* screen_height = nullptr;
@@ -84,6 +87,9 @@ namespace Game
 		DirectInput8_ptr = Module::exe_ptr<IDirectInput8A*>(0x4606E8);
 
 		sel_bgm_kind_buf = Module::exe_ptr<int>(0x430364);
+
+		app_time = Module::exe_ptr<int>(0x49EDB8);
+		sprani_num_ticks = Module::exe_ptr<int>(0x380278);
 
 		screen_width = Module::exe_ptr<float>(0x340C8C);
 		screen_height = Module::exe_ptr<float>(0x340C90);

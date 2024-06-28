@@ -8,6 +8,7 @@ class ReplaceGameUpdateLoop : public Hook
 {
 	const static int HookAddr = 0x17C7B;
 	const static int GameLoopFrameLimiterAddr = 0x17DD3;
+	const static int SetTweeningTable_Addr = 0xED60;
 
 	inline static double FramelimiterFrequency = 0;
 	inline static double FramelimiterPrevCounter = 0;
@@ -152,6 +153,18 @@ class ReplaceGameUpdateLoop : public Hook
 		}
 	}
 
+	// Fixes animation rate of certain stage textures (beach waves / street lights...)
+	// Vanilla game would add 1 to app_time every frame, new code will only add if a game tick is being ran on this frame
+	// (as a bonus, this should also fix anim speed when running lower than 60FPS too)
+	inline static SafetyHookInline SetTweeningTable = {};
+	static void SetTweeningTable_dest()
+	{
+		if (*Game::sprani_num_ticks > 0)
+		{
+			*Game::app_time += *Game::sprani_num_ticks;
+		}
+	}
+
 public:
 	std::string_view description() override
 	{
@@ -189,6 +202,10 @@ public:
 		// replace game update loop with custom version
 		Memory::VP::Nop(Module::exe_ptr<uint8_t>(HookAddr), 0xA3);
 		dest_hook = safetyhook::create_mid(Module::exe_ptr<uint8_t>(HookAddr), destination);
+
+		if (Settings::FramerateUnlockExperimental)
+			SetTweeningTable = safetyhook::create_inline(Module::exe_ptr<uint8_t>(SetTweeningTable_Addr), SetTweeningTable_dest);
+
 		return !!dest_hook;
 	}
 
