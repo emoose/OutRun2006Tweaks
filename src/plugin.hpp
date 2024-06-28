@@ -67,6 +67,7 @@ namespace Settings
 
 	inline std::vector<std::pair<std::string, std::string>> CDTracks;
 
+	inline int UIScalingMode = 0;
 	inline int AnisotropicFiltering = 16;
 	inline int ReflectionResolution = 2048;
 	inline bool TransparencySupersampling = true;

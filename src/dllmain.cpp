@@ -74,6 +74,7 @@ namespace Settings
 		spdlog::info(" - CDSwitcherTrackNext: {}", CDSwitcherTrackNext);
 		spdlog::info(" - CDSwitcherTrackPrevious: {}", CDSwitcherTrackPrevious);
 
+		spdlog::info(" - UIScalingMode: {}", UIScalingMode);
 		spdlog::info(" - AnisotropicFiltering: {}", AnisotropicFiltering);
 		spdlog::info(" - ReflectionResolution: {}", ReflectionResolution);
 		spdlog::info(" - TransparencySupersampling: {}", TransparencySupersampling);
@@ -150,6 +151,8 @@ namespace Settings
 		CDSwitcherTrackNext = ini.Get("CDSwitcher", "TrackNext", std::move(CDSwitcherTrackNext));
 		CDSwitcherTrackPrevious = ini.Get("CDSwitcher", "TrackPrevious", std::move(CDSwitcherTrackPrevious));
 
+		UIScalingMode = ini.Get("Graphics", "UIScalingMode", std::move(UIScalingMode));
+		UIScalingMode = std::clamp(UIScalingMode, 0, 2);
 		AnisotropicFiltering = ini.Get("Graphics", "AnisotropicFiltering", std::move(AnisotropicFiltering));
 		AnisotropicFiltering = std::clamp(AnisotropicFiltering, 0, 16);
 		ReflectionResolution = ini.Get("Graphics", "ReflectionResolution", std::move(ReflectionResolution));

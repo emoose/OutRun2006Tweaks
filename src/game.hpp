@@ -223,6 +223,11 @@ typedef struct tagSPRARGS
 } SPRARGS;
 static_assert(sizeof(SPRARGS) == 0x48);
 
+typedef struct D3DXVECTOR2 {
+	FLOAT x;
+	FLOAT y;
+} D3DXVECTOR2, * LPD3DXVECTOR2;
+
 typedef struct D3DXVECTOR4 {
 	FLOAT x;
 	FLOAT y;

@@ -61,9 +61,9 @@ class CommandLineArguments : public Hook
 			try
 			{
 				if (!wcsicmp(argv[i], L"-width") && i + 1 < argc)
-					*Game::screen_width = std::stol(argv[++i], 0, 0);
+					Game::screen_resolution->x = std::stol(argv[++i], 0, 0);
 				else if (!wcsicmp(argv[i], L"-height") && i + 1 < argc)
-					*Game::screen_height = std::stol(argv[++i], 0, 0);
+					Game::screen_resolution->y = std::stol(argv[++i], 0, 0);
 				else if ((!wcsicmp(argv[i], L"-antialiasing") || !wcsicmp(argv[i], L"-aa")) && i + 1 < argc)
 					*Game::D3DAntialiasing = std::stol(argv[++i], 0, 0); // TODO: clamp to valid AA options
 				else if (!wcsicmp(argv[i], L"-window") || !wcsicmp(argv[i], L"-windowed") || !wcsicmp(argv[i], L"-w"))
@@ -159,8 +159,8 @@ public:
 			if (width < 640 || height < 480)
 				return false; // bail out if resolution is less than the default
 
-			*Game::screen_width = width;
-			*Game::screen_height = height;
+			Game::screen_resolution->x = width;
+			Game::screen_resolution->y = height;
 
 			*Game::D3DFogEnabled = true;
 			*Game::D3DWindowed = true;

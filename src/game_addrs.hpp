@@ -4,8 +4,12 @@
 #include <d3d9.h>
 #include <dinput.h>
 
+typedef void(__stdcall* D3DXVec4Transform_fn)(D3DXVECTOR4*, D3DXVECTOR4*, D3DMATRIX*);
+
 namespace Game
 {
+	inline D3DXVECTOR2 original_resolution{ 640, 480 };
+
 	inline GameState* current_mode = nullptr;
 	inline int* game_start_progress_code = nullptr;
 	inline int* file_load_progress_code = nullptr;
@@ -30,9 +34,10 @@ namespace Game
 	inline int* app_time = nullptr; // used by SetTweeningTable etc
 	inline int* sprani_num_ticks = nullptr; // number of game ticks being ran in the current frame (can be 0 if above 60FPS)
 
+	inline D3DXVECTOR2* screen_scale = nullptr;
+
 	// ini cfg
-	inline float* screen_width = nullptr;
-	inline float* screen_height = nullptr;
+	inline D3DXVECTOR2* screen_resolution = nullptr;
 	inline int* D3DFogEnabled = nullptr;
 	inline int* D3DAdapterNum = nullptr;
 	inline int* D3DAntialiasing = nullptr;
@@ -74,6 +79,9 @@ namespace Game
 	// audio
 	inline fn_2args adxPlay = nullptr;
 
+	// D3DX
+	inline D3DXVec4Transform_fn D3DXVec4Transform = nullptr;
+
 	inline void init()
 	{
 		current_mode = Module::exe_ptr<GameState>(0x38026C);
@@ -91,8 +99,9 @@ namespace Game
 		app_time = Module::exe_ptr<int>(0x49EDB8);
 		sprani_num_ticks = Module::exe_ptr<int>(0x380278);
 
-		screen_width = Module::exe_ptr<float>(0x340C8C);
-		screen_height = Module::exe_ptr<float>(0x340C90);
+		screen_scale = Module::exe_ptr<D3DXVECTOR2>(0x340C94);
+
+		screen_resolution = Module::exe_ptr<D3DXVECTOR2>(0x340C8C);
 
 		D3DFogEnabled = Module::exe_ptr<int>(0x340C88);
 		D3DAdapterNum = Module::exe_ptr<int>(0x55AF00);
@@ -131,5 +140,7 @@ namespace Game
 		sprPrintf = Module::fn_ptr<fn_printf>(0x2CCE0);
 
 		adxPlay = Module::fn_ptr<fn_2args>(0x1000);
+
+		D3DXVec4Transform = Module::fn_ptr<D3DXVec4Transform_fn>(0x393B2);
 	}
 };
