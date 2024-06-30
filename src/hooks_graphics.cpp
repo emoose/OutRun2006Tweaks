@@ -682,7 +682,6 @@ class UIScaling : public Hook
 	static void drawFootage_dest(safetyhook::Context& ctx)
 	{
 		ScalingMode mode = ScalingMode(Settings::UIScalingMode);
-		float* m = *Module::exe_ptr<float*>(0x49B564);
 		if (mode == ScalingMode::OnlineArcade && ScalingType != SpriteScaleType::Disabled)
 		{
 			float spacing = -((Game::screen_scale->y * Game::original_resolution.x) - Game::screen_resolution->x) / 2;
@@ -691,6 +690,7 @@ class UIScaling : public Hook
 			// Seems this is pretty much what online arcade does
 			// TODO: add checks to skip processing non-HUD elements
 
+			float* m = *Module::exe_ptr<float*>(0x49B564);
 			float x = m[12];
 
 			float add = 0;
@@ -723,6 +723,15 @@ class UIScaling : public Hook
 	{
 		ScalingType = SpriteScaleType::Disabled;
 	}
+
+	// dispMarkerCheck
+
+	static inline SafetyHookMid dispMarkerCheck_SpriteScalingDisable_hk{};
+	static void dispMarkerCheck_SpriteScalingDisable(safetyhook::Context& ctx)
+	{
+		ScalingType = SpriteScaleType::Disabled;
+	}
+
 
 	// DispTimeAttack2D
 
@@ -761,6 +770,10 @@ class UIScaling : public Hook
 	static inline SafetyHookMid DispTimeAttack2D_put_scroll_AdjustPosition_hk12{};
 	static void DispTimeAttack2D_put_scroll_AdjustPosition(safetyhook::Context& ctx)
 	{
+		ScalingMode mode = ScalingMode(Settings::UIScalingMode);
+		if (mode != ScalingMode::KeepCentered && mode != ScalingMode::OnlineArcade)
+			return;
+
 		float spacing = -((Game::screen_scale->y * Game::original_resolution.x) - Game::screen_resolution->x) / 2;
 		spacing = spacing / Game::screen_scale->x;
 
@@ -768,9 +781,14 @@ class UIScaling : public Hook
 		*positionX += (int)spacing;
 	}
 
+	// PutGhostGapInfo
 	static inline SafetyHookMid PutGhostGapInfo_AdjustPosition_hk{};
 	static void PutGhostGapInfo_AdjustPosition(safetyhook::Context& ctx)
 	{
+		ScalingMode mode = ScalingMode(Settings::UIScalingMode);
+		if (mode != ScalingMode::KeepCentered && mode != ScalingMode::OnlineArcade)
+			return;
+
 		float spacing = -((Game::screen_scale->y * Game::original_resolution.x) - Game::screen_resolution->x) / 2;
 		spacing = spacing / Game::screen_scale->x;
 
@@ -786,6 +804,10 @@ class UIScaling : public Hook
 	static inline SafetyHookMid PutGhostGapInfo_sub_AdjustPosition_hk{};
 	static void PutGhostGapInfo_sub_AdjustPosition(safetyhook::Context& ctx)
 	{
+		ScalingMode mode = ScalingMode(Settings::UIScalingMode);
+		if (mode != ScalingMode::KeepCentered && mode != ScalingMode::OnlineArcade)
+			return;
+
 		float spacing = -((Game::screen_scale->y * Game::original_resolution.x) - Game::screen_resolution->x) / 2;
 		spacing = spacing / Game::screen_scale->x;
 
@@ -794,6 +816,8 @@ class UIScaling : public Hook
 			spacing = -spacing;
 		ctx.xmm0.f32[0] = val + spacing;
 	}
+
+	// DispGhostGap
 
 	static inline SafetyHookMid DispGhostGap_ForceLeft_hk{};
 	static void DispGhostGap_ForceLeft(safetyhook::Context& ctx)
@@ -814,6 +838,10 @@ class UIScaling : public Hook
 	static inline SafetyHookMid draw_sprite_custom_matrix_multi_CenterSprite_hk{};
 	static void draw_sprite_custom_matrix_multi_CenterSprite(safetyhook::Context& ctx)
 	{
+		ScalingMode mode = ScalingMode(Settings::UIScalingMode);
+		if (mode != ScalingMode::KeepCentered && mode != ScalingMode::OnlineArcade)
+			return;
+
 		float* vtxStream = (float*)(ctx.ecx);
 
 		float scale = min(Game::screen_scale->x, Game::screen_scale->y);
@@ -833,6 +861,10 @@ class UIScaling : public Hook
 	static inline SafetyHookMid draw_sprite_custom_matrix_multi_CenterSprite2_hk{};
 	static void draw_sprite_custom_matrix_multi_CenterSprite2(safetyhook::Context& ctx)
 	{
+		ScalingMode mode = ScalingMode(Settings::UIScalingMode);
+		if (mode != ScalingMode::KeepCentered && mode != ScalingMode::OnlineArcade)
+			return;
+
 		float* vtxStream = (float*)(ctx.esp + 0x80);
 
 		float scale = min(Game::screen_scale->x, Game::screen_scale->y);
@@ -852,6 +884,10 @@ class UIScaling : public Hook
 	static inline SafetyHookMid draw_sprite_custom_matrix_multi_CenterSprite3_hk{};
 	static void draw_sprite_custom_matrix_multi_CenterSprite3(safetyhook::Context& ctx)
 	{
+		ScalingMode mode = ScalingMode(Settings::UIScalingMode);
+		if (mode != ScalingMode::KeepCentered && mode != ScalingMode::OnlineArcade)
+			return;
+
 		float* vtxStream = (float*)(ctx.edx);
 
 		float scale = min(Game::screen_scale->x, Game::screen_scale->y);
@@ -892,9 +928,11 @@ public:
 
 		NaviPub_Disp_SpriteSpacingEnable_hk = safetyhook::create_mid(Module::exe_ptr(NaviPub_Disp_SpriteScaleEnable_Addr), NaviPub_Disp_SpriteSpacingEnable);
 		NaviPub_Disp_SpriteSpacingEnable2_hk = safetyhook::create_mid(Module::exe_ptr(NaviPub_Disp_SpriteScaleEnable2_Addr), NaviPub_Disp_SpriteSpacingEnable2);
-
 		NaviPub_Disp_SpriteSpacingDisable_hk = safetyhook::create_mid(Module::exe_ptr(NaviPub_Disp_SpriteScaleDisable_Addr), NaviPub_Disp_SpriteSpacingDisable);
 		NaviPub_Disp_SpriteSpacingDisable2_hk = safetyhook::create_mid(Module::exe_ptr(NaviPub_Disp_SpriteScaleDisable2_Addr), NaviPub_Disp_SpriteSpacingDisable2);
+
+		// dispMarkerCheck is called by all three rival-marker functions, hopefully can fix them all
+		dispMarkerCheck_SpriteScalingDisable_hk = safetyhook::create_mid((void*)0x4BA0E0, dispMarkerCheck_SpriteScalingDisable);
 
 		drawFootage = safetyhook::create_mid(Module::exe_ptr(drawFootage_caller_Addr), drawFootage_dest);
 
