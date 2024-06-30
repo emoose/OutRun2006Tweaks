@@ -702,6 +702,74 @@ class UIScaling : public Hook
 			m[12] = x + add;
 		}
 	}
+	static inline SafetyHookMid draw_sprite_custom_matrix_multi_CenterSprite_hk{};
+	static void draw_sprite_custom_matrix_multi_CenterSprite(safetyhook::Context& ctx)
+	{
+		ScalingMode mode = ScalingMode(Settings::UIScalingMode);
+		if (mode != ScalingMode::KeepCentered && mode != ScalingMode::OnlineArcade)
+			return;
+
+		float* vtxStream = (float*)(ctx.ecx);
+
+		float scale = min(Game::screen_scale->x, Game::screen_scale->y);
+		float centering = (Game::screen_resolution->x - (Game::original_resolution.x * scale)) / 2;
+
+		float x1 = vtxStream[0];
+		float x2 = vtxStream[9];
+		float x3 = vtxStream[18];
+		float x4 = vtxStream[27];
+
+		vtxStream[0] = ((vtxStream[0] / Game::screen_scale->x) * scale) + centering;
+		vtxStream[9] = ((vtxStream[9] / Game::screen_scale->x) * scale) + centering;
+		vtxStream[18] = ((vtxStream[18] / Game::screen_scale->x) * scale) + centering;
+		vtxStream[27] = ((vtxStream[27] / Game::screen_scale->x) * scale) + centering;
+	}
+
+	static inline SafetyHookMid draw_sprite_custom_matrix_multi_CenterSprite2_hk{};
+	static void draw_sprite_custom_matrix_multi_CenterSprite2(safetyhook::Context& ctx)
+	{
+		ScalingMode mode = ScalingMode(Settings::UIScalingMode);
+		if (mode != ScalingMode::KeepCentered && mode != ScalingMode::OnlineArcade)
+			return;
+
+		float* vtxStream = (float*)(ctx.esp + 0x80);
+
+		float scale = min(Game::screen_scale->x, Game::screen_scale->y);
+		float centering = (Game::screen_resolution->x - (Game::original_resolution.x * scale)) / 2;
+
+		float x1 = vtxStream[0];
+		float x2 = vtxStream[11];
+		float x3 = vtxStream[22];
+		float x4 = vtxStream[33];
+
+		vtxStream[0] = ((vtxStream[0] / Game::screen_scale->x) * scale) + centering;
+		vtxStream[11] = ((vtxStream[11] / Game::screen_scale->x) * scale) + centering;
+		vtxStream[22] = ((vtxStream[22] / Game::screen_scale->x) * scale) + centering;
+		vtxStream[33] = ((vtxStream[33] / Game::screen_scale->x) * scale) + centering;
+	}
+
+	static inline SafetyHookMid draw_sprite_custom_matrix_multi_CenterSprite3_hk{};
+	static void draw_sprite_custom_matrix_multi_CenterSprite3(safetyhook::Context& ctx)
+	{
+		ScalingMode mode = ScalingMode(Settings::UIScalingMode);
+		if (mode != ScalingMode::KeepCentered && mode != ScalingMode::OnlineArcade)
+			return;
+
+		float* vtxStream = (float*)(ctx.edx);
+
+		float scale = min(Game::screen_scale->x, Game::screen_scale->y);
+		float centering = (Game::screen_resolution->x - (Game::original_resolution.x * scale)) / 2;
+
+		float x1 = vtxStream[0];
+		float x2 = vtxStream[13];
+		float x3 = vtxStream[26];
+		float x4 = vtxStream[39];
+
+		vtxStream[0] = ((vtxStream[0] / Game::screen_scale->x) * scale) + centering;
+		vtxStream[13] = ((vtxStream[13] / Game::screen_scale->x) * scale) + centering;
+		vtxStream[26] = ((vtxStream[26] / Game::screen_scale->x) * scale) + centering;
+		vtxStream[39] = ((vtxStream[39] / Game::screen_scale->x) * scale) + centering;
+	}
 
 	static inline SafetyHookMid NaviPub_Disp_SpriteSpacingEnable_hk{};
 	static void NaviPub_Disp_SpriteSpacingEnable(safetyhook::Context& ctx)
@@ -731,7 +799,6 @@ class UIScaling : public Hook
 	{
 		ScalingType = SpriteScaleType::Disabled;
 	}
-
 
 	// DispTimeAttack2D
 
@@ -835,73 +902,12 @@ class UIScaling : public Hook
 		ScalingType = SpriteScaleType::ForceRight;
 	}
 
-	static inline SafetyHookMid draw_sprite_custom_matrix_multi_CenterSprite_hk{};
-	static void draw_sprite_custom_matrix_multi_CenterSprite(safetyhook::Context& ctx)
+	// NaviPub_DispTimeAttackGoal
+
+	static inline SafetyHookMid NaviPub_DispTimeAttackGoal_DisableScaling_hk{};
+	static void NaviPub_DispTimeAttackGoal_DisableScaling(safetyhook::Context& ctx)
 	{
-		ScalingMode mode = ScalingMode(Settings::UIScalingMode);
-		if (mode != ScalingMode::KeepCentered && mode != ScalingMode::OnlineArcade)
-			return;
-
-		float* vtxStream = (float*)(ctx.ecx);
-
-		float scale = min(Game::screen_scale->x, Game::screen_scale->y);
-		float centering = (Game::screen_resolution->x - (Game::original_resolution.x * scale)) / 2;
-
-		float x1 = vtxStream[0];
-		float x2 = vtxStream[9];
-		float x3 = vtxStream[18];
-		float x4 = vtxStream[27];
-
-		vtxStream[0] = ((vtxStream[0] / Game::screen_scale->x) * scale) + centering;
-		vtxStream[9] = ((vtxStream[9] / Game::screen_scale->x) * scale) + centering;
-		vtxStream[18] = ((vtxStream[18] / Game::screen_scale->x) * scale) + centering;
-		vtxStream[27] = ((vtxStream[27] / Game::screen_scale->x) * scale) + centering;
-	}
-
-	static inline SafetyHookMid draw_sprite_custom_matrix_multi_CenterSprite2_hk{};
-	static void draw_sprite_custom_matrix_multi_CenterSprite2(safetyhook::Context& ctx)
-	{
-		ScalingMode mode = ScalingMode(Settings::UIScalingMode);
-		if (mode != ScalingMode::KeepCentered && mode != ScalingMode::OnlineArcade)
-			return;
-
-		float* vtxStream = (float*)(ctx.esp + 0x80);
-
-		float scale = min(Game::screen_scale->x, Game::screen_scale->y);
-		float centering = (Game::screen_resolution->x - (Game::original_resolution.x * scale)) / 2;
-
-		float x1 = vtxStream[0];
-		float x2 = vtxStream[11];
-		float x3 = vtxStream[22];
-		float x4 = vtxStream[33];
-
-		vtxStream[0] = ((vtxStream[0] / Game::screen_scale->x) * scale) + centering;
-		vtxStream[11] = ((vtxStream[11] / Game::screen_scale->x) * scale) + centering;
-		vtxStream[22] = ((vtxStream[22] / Game::screen_scale->x) * scale) + centering;
-		vtxStream[33] = ((vtxStream[33] / Game::screen_scale->x) * scale) + centering;
-	}
-
-	static inline SafetyHookMid draw_sprite_custom_matrix_multi_CenterSprite3_hk{};
-	static void draw_sprite_custom_matrix_multi_CenterSprite3(safetyhook::Context& ctx)
-	{
-		ScalingMode mode = ScalingMode(Settings::UIScalingMode);
-		if (mode != ScalingMode::KeepCentered && mode != ScalingMode::OnlineArcade)
-			return;
-
-		float* vtxStream = (float*)(ctx.edx);
-
-		float scale = min(Game::screen_scale->x, Game::screen_scale->y);
-		float centering = (Game::screen_resolution->x - (Game::original_resolution.x * scale)) / 2;
-
-		float x1 = vtxStream[0];
-		float x2 = vtxStream[13];
-		float x3 = vtxStream[26];
-		float x4 = vtxStream[39];
-
-		vtxStream[0] = ((vtxStream[0] / Game::screen_scale->x) * scale) + centering;
-		vtxStream[13] = ((vtxStream[13] / Game::screen_scale->x) * scale) + centering;
-		vtxStream[26] = ((vtxStream[26] / Game::screen_scale->x) * scale) + centering;
-		vtxStream[39] = ((vtxStream[39] / Game::screen_scale->x) * scale) + centering;
+		ScalingType = SpriteScaleType::Disabled;
 	}
 
 public:
@@ -968,6 +974,9 @@ public:
 		DispGhostGap_ForceRight_hk = safetyhook::create_mid((void*)0x4BE0A5, DispGhostGap_ForceRight);
 
 		PutGhostGapInfo_sub_AdjustPosition_hk = safetyhook::create_mid((void*)0x4BDAE8, PutGhostGapInfo_sub_AdjustPosition);
+
+		NaviPub_DispTimeAttackGoal_DisableScaling_hk = safetyhook::create_mid((void*)0x4BEA64, NaviPub_DispTimeAttackGoal_DisableScaling);
+
 		return true;
 	}
 	static UIScaling instance;
