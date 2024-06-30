@@ -891,6 +891,47 @@ class UIScaling : public Hook
 	static inline SafetyHookMid NaviPub_Disp_C2CHeartEnableScaling_hk{};
 	static inline SafetyHookMid NaviPub_Disp_C2CHeartEnableScaling2_hk{};
 
+	static inline SafetyHookMid ctrl_icon_work_AdjustPosition_hk{};
+	static void ctrl_icon_work_AdjustPosition(safetyhook::Context& ctx)
+	{
+		ScalingMode mode = ScalingMode(Settings::UIScalingMode);
+		if (mode != ScalingMode::OnlineArcade)
+			return;
+
+		float spacing = -((Game::screen_scale->y * Game::original_resolution.x) - Game::screen_resolution->x) / 2;
+		spacing = spacing / Game::screen_scale->x;
+		ctx.xmm0.f32[0] = ctx.xmm0.f32[0] + spacing;
+	}
+
+	static inline SafetyHookMid ctrl_icon_work_AdjustPosition2_hk{};
+	static inline SafetyHookMid set_icon_work_AdjustPosition_hk{};
+	static void ctrl_icon_work_AdjustPosition2(safetyhook::Context& ctx)
+	{
+		ScalingMode mode = ScalingMode(Settings::UIScalingMode);
+		if (mode != ScalingMode::OnlineArcade)
+			return;
+
+		float spacing = -((Game::screen_scale->y * Game::original_resolution.x) - Game::screen_resolution->x) / 2;
+		spacing = spacing / Game::screen_scale->x;
+		ctx.xmm0.f32[0] = ctx.xmm0.f32[0] + spacing;
+
+		*(float*)(ctx.esp) = ctx.xmm0.f32[0];
+	}
+
+	static inline SafetyHookMid DispTempHeartNum_AdjustPosition_hk{};
+	static void DispTempHeartNum_AdjustPosition(safetyhook::Context& ctx)
+	{
+		ScalingMode mode = ScalingMode(Settings::UIScalingMode);
+		if (mode != ScalingMode::OnlineArcade)
+			return;
+
+		float spacing = -((Game::screen_scale->y * Game::original_resolution.x) - Game::screen_resolution->x) / 2;
+		spacing = spacing / Game::screen_scale->x;
+
+		int* val = (int*)(ctx.esp);
+		*val = int(float(*val) + spacing);
+	}
+
 public:
 	std::string_view description() override
 	{
@@ -972,6 +1013,14 @@ public:
 		PutGhostGapInfo_sub_AdjustPosition_hk = safetyhook::create_mid((void*)0x4BDAE8, PutGhostGapInfo_sub_AdjustPosition);
 
 		NaviPub_DispTimeAttackGoal_DisableScaling_hk = safetyhook::create_mid((void*)0x4BEA64, SpriteSpacingDisable);
+
+		// adjusts the girlfriend request speech bubble
+		ctrl_icon_work_AdjustPosition_hk = safetyhook::create_mid((void*)0x460D40, ctrl_icon_work_AdjustPosition);
+		ctrl_icon_work_AdjustPosition2_hk = safetyhook::create_mid((void*)0x460FBC, ctrl_icon_work_AdjustPosition2);
+		set_icon_work_AdjustPosition_hk = safetyhook::create_mid((void*)0x460A21, ctrl_icon_work_AdjustPosition2); // set_icon_work can use same logic as ctrl_icon_work_AdjustPosition2
+
+		// "-" text when negative heart score
+		DispTempHeartNum_AdjustPosition_hk = safetyhook::create_mid((void*)0x4BBA89, DispTempHeartNum_AdjustPosition);
 
 		return true;
 	}
