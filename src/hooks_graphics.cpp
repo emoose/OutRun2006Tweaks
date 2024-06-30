@@ -817,10 +817,20 @@ class UIScaling : public Hook
 	static inline SafetyHookMid DispTimeAttack2D_put_scroll_AdjustPosition_hk11{};
 	static inline SafetyHookMid DispTimeAttack2D_put_scroll_AdjustPosition_hk12{};
 
-	static void DispTimeAttack2D_put_scroll_AdjustPosition(safetyhook::Context& ctx)
+	static inline SafetyHookMid DispRank_put_scroll_AdjustPosition_hk1{};
+	static inline SafetyHookMid DispRank_put_scroll_AdjustPosition_hk2{};
+	static inline SafetyHookMid DispRank_put_scroll_AdjustPosition_hk3{};
+	static inline SafetyHookMid DispRank_put_scroll_AdjustPosition_hk4{};
+	static inline SafetyHookMid DispRank_put_scroll_AdjustPosition_hk5{};
+	static inline SafetyHookMid DispRank_put_scroll_AdjustPosition_hk6{};
+	static inline SafetyHookMid DispRank_put_scroll_AdjustPosition_hk7{};
+	static inline SafetyHookMid DispRank_put_scroll_AdjustPosition_hk8{};
+	static inline SafetyHookMid DispRank_put_scroll_AdjustPosition_hk9{};
+
+	static void put_scroll_AdjustPosition(safetyhook::Context& ctx)
 	{
 		ScalingMode mode = ScalingMode(Settings::UIScalingMode);
-		if (mode != ScalingMode::KeepCentered && mode != ScalingMode::OnlineArcade)
+		if (mode != ScalingMode::OnlineArcade)
 			return;
 
 		float spacing = -((Game::screen_scale->y * Game::original_resolution.x) - Game::screen_resolution->x) / 2;
@@ -835,7 +845,7 @@ class UIScaling : public Hook
 	static void PutGhostGapInfo_AdjustPosition(safetyhook::Context& ctx)
 	{
 		ScalingMode mode = ScalingMode(Settings::UIScalingMode);
-		if (mode != ScalingMode::KeepCentered && mode != ScalingMode::OnlineArcade)
+		if (mode != ScalingMode::OnlineArcade)
 			return;
 
 		float spacing = -((Game::screen_scale->y * Game::original_resolution.x) - Game::screen_resolution->x) / 2;
@@ -854,7 +864,7 @@ class UIScaling : public Hook
 	static void PutGhostGapInfo_sub_AdjustPosition(safetyhook::Context& ctx)
 	{
 		ScalingMode mode = ScalingMode(Settings::UIScalingMode);
-		if (mode != ScalingMode::KeepCentered && mode != ScalingMode::OnlineArcade)
+		if (mode != ScalingMode::OnlineArcade)
 			return;
 
 		float spacing = -((Game::screen_scale->y * Game::original_resolution.x) - Game::screen_resolution->x) / 2;
@@ -926,18 +936,27 @@ public:
 		DispTimeAttack2D_SpriteScalingForceLeft_hk = safetyhook::create_mid((void*)0x4BE4E7, SpriteSpacingForceLeft);
 		DispTimeAttack2D_SpriteScalingForceEnable_hk = safetyhook::create_mid((void*)0x4BE575, SpriteSpacingEnable);
 
-		DispTimeAttack2D_put_scroll_AdjustPosition_hk = safetyhook::create_mid((void*)0x4BE5CD, DispTimeAttack2D_put_scroll_AdjustPosition);
-		DispTimeAttack2D_put_scroll_AdjustPosition_hk2 = safetyhook::create_mid((void*)0x4BE603, DispTimeAttack2D_put_scroll_AdjustPosition);
-		DispTimeAttack2D_put_scroll_AdjustPosition_hk3 = safetyhook::create_mid((void*)0x4BE633, DispTimeAttack2D_put_scroll_AdjustPosition);
-		DispTimeAttack2D_put_scroll_AdjustPosition_hk4 = safetyhook::create_mid((void*)0x4BE66D, DispTimeAttack2D_put_scroll_AdjustPosition);
-		DispTimeAttack2D_put_scroll_AdjustPosition_hk5 = safetyhook::create_mid((void*)0x4BE690, DispTimeAttack2D_put_scroll_AdjustPosition);
-		DispTimeAttack2D_put_scroll_AdjustPosition_hk6 = safetyhook::create_mid((void*)0x4BE6B5, DispTimeAttack2D_put_scroll_AdjustPosition);
-		DispTimeAttack2D_put_scroll_AdjustPosition_hk7 = safetyhook::create_mid((void*)0x4BE6D5, DispTimeAttack2D_put_scroll_AdjustPosition);
-		DispTimeAttack2D_put_scroll_AdjustPosition_hk8 = safetyhook::create_mid((void*)0x4BE8D8, DispTimeAttack2D_put_scroll_AdjustPosition);
-		DispTimeAttack2D_put_scroll_AdjustPosition_hk9 = safetyhook::create_mid((void*)0x4BE915, DispTimeAttack2D_put_scroll_AdjustPosition);
-		DispTimeAttack2D_put_scroll_AdjustPosition_hk10 = safetyhook::create_mid((void*)0x4BE94A, DispTimeAttack2D_put_scroll_AdjustPosition);
-		DispTimeAttack2D_put_scroll_AdjustPosition_hk11 = safetyhook::create_mid((void*)0x4BE97A, DispTimeAttack2D_put_scroll_AdjustPosition);
-		DispTimeAttack2D_put_scroll_AdjustPosition_hk12 = safetyhook::create_mid((void*)0x4BE9A3, DispTimeAttack2D_put_scroll_AdjustPosition);
+		DispTimeAttack2D_put_scroll_AdjustPosition_hk = safetyhook::create_mid((void*)0x4BE5CD, put_scroll_AdjustPosition);
+		DispTimeAttack2D_put_scroll_AdjustPosition_hk2 = safetyhook::create_mid((void*)0x4BE603, put_scroll_AdjustPosition);
+		DispTimeAttack2D_put_scroll_AdjustPosition_hk3 = safetyhook::create_mid((void*)0x4BE633, put_scroll_AdjustPosition);
+		DispTimeAttack2D_put_scroll_AdjustPosition_hk4 = safetyhook::create_mid((void*)0x4BE66D, put_scroll_AdjustPosition);
+		DispTimeAttack2D_put_scroll_AdjustPosition_hk5 = safetyhook::create_mid((void*)0x4BE690, put_scroll_AdjustPosition);
+		DispTimeAttack2D_put_scroll_AdjustPosition_hk6 = safetyhook::create_mid((void*)0x4BE6B5, put_scroll_AdjustPosition);
+		DispTimeAttack2D_put_scroll_AdjustPosition_hk7 = safetyhook::create_mid((void*)0x4BE6D5, put_scroll_AdjustPosition);
+		DispTimeAttack2D_put_scroll_AdjustPosition_hk8 = safetyhook::create_mid((void*)0x4BE8D8, put_scroll_AdjustPosition);
+		DispTimeAttack2D_put_scroll_AdjustPosition_hk9 = safetyhook::create_mid((void*)0x4BE915, put_scroll_AdjustPosition);
+		DispTimeAttack2D_put_scroll_AdjustPosition_hk10 = safetyhook::create_mid((void*)0x4BE94A, put_scroll_AdjustPosition);
+		DispTimeAttack2D_put_scroll_AdjustPosition_hk11 = safetyhook::create_mid((void*)0x4BE97A, put_scroll_AdjustPosition);
+		DispTimeAttack2D_put_scroll_AdjustPosition_hk12 = safetyhook::create_mid((void*)0x4BE9A3, put_scroll_AdjustPosition);
+
+		DispRank_put_scroll_AdjustPosition_hk1 = safetyhook::create_mid((void*)0x4B9F3A, put_scroll_AdjustPosition);
+		DispRank_put_scroll_AdjustPosition_hk2 = safetyhook::create_mid((void*)0x4B9F5E, put_scroll_AdjustPosition);
+		DispRank_put_scroll_AdjustPosition_hk3 = safetyhook::create_mid((void*)0x4B9F81, put_scroll_AdjustPosition);
+		DispRank_put_scroll_AdjustPosition_hk4 = safetyhook::create_mid((void*)0x4B9FD0, put_scroll_AdjustPosition);
+		DispRank_put_scroll_AdjustPosition_hk5 = safetyhook::create_mid((void*)0x4B9FFC, put_scroll_AdjustPosition);
+		DispRank_put_scroll_AdjustPosition_hk6 = safetyhook::create_mid((void*)0x4BA01E, put_scroll_AdjustPosition);
+		DispRank_put_scroll_AdjustPosition_hk7 = safetyhook::create_mid((void*)0x4BA035, put_scroll_AdjustPosition);
+		DispRank_put_scroll_AdjustPosition_hk8 = safetyhook::create_mid((void*)0x4BA052, put_scroll_AdjustPosition);
 
 		// Fix ghost car info text positions
 		PutGhostGapInfo_AdjustPosition_hk = safetyhook::create_mid((void*)0x4BDE3A, PutGhostGapInfo_AdjustPosition);
