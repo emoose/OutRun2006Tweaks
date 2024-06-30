@@ -771,57 +771,38 @@ class UIScaling : public Hook
 		vtxStream[39] = ((vtxStream[39] / Game::screen_scale->x) * scale) + centering;
 	}
 
-	static inline SafetyHookMid NaviPub_Disp_SpriteSpacingEnable_hk{};
-	static void NaviPub_Disp_SpriteSpacingEnable(safetyhook::Context& ctx)
+	static void SpriteSpacingEnable(safetyhook::Context& ctx)
 	{
 		ScalingType = SpriteScaleType::DetectEdges;
 	}
-	static inline SafetyHookMid NaviPub_Disp_SpriteSpacingEnable2_hk{};
-	static void NaviPub_Disp_SpriteSpacingEnable2(safetyhook::Context& ctx)
-	{
-		ScalingType = SpriteScaleType::DetectEdges;
-	}
-	static inline SafetyHookMid NaviPub_Disp_SpriteSpacingDisable_hk{};
-	static void NaviPub_Disp_SpriteSpacingDisable(safetyhook::Context& ctx)
+	static void SpriteSpacingDisable(safetyhook::Context& ctx)
 	{
 		ScalingType = SpriteScaleType::Disabled;
 	}
-	static inline SafetyHookMid NaviPub_Disp_SpriteSpacingDisable2_hk{};
-	static void NaviPub_Disp_SpriteSpacingDisable2(safetyhook::Context& ctx)
-	{
-		ScalingType = SpriteScaleType::Disabled;
-	}
-
-	// dispMarkerCheck
-
-	static inline SafetyHookMid dispMarkerCheck_SpriteScalingDisable_hk{};
-	static void dispMarkerCheck_SpriteScalingDisable(safetyhook::Context& ctx)
-	{
-		ScalingType = SpriteScaleType::Disabled;
-	}
-
-	// DispTimeAttack2D
-
-	static inline SafetyHookMid DispTimeAttack2D_SpriteScalingForceRight_hk{};
-	static void DispTimeAttack2D_SpriteScalingForceRight(safetyhook::Context& ctx)
-	{
-		ScalingType = SpriteScaleType::ForceRight;
-	}
-	static inline SafetyHookMid DispTimeAttack2D_SpriteScalingForceLeft_hk{};
-	static void DispTimeAttack2D_SpriteScalingForceLeft(safetyhook::Context& ctx)
+	static void SpriteSpacingForceLeft(safetyhook::Context& ctx)
 	{
 		ScalingType = SpriteScaleType::ForceLeft;
 	}
+	static void SpriteSpacingForceRight(safetyhook::Context& ctx)
+	{
+		ScalingType = SpriteScaleType::ForceRight;
+	}
+
+	// NaviPub_Disp
+	static inline SafetyHookMid NaviPub_Disp_SpriteSpacingEnable_hk{};
+	static inline SafetyHookMid NaviPub_Disp_SpriteSpacingEnable2_hk{};
+
+	static inline SafetyHookMid NaviPub_Disp_SpriteSpacingDisable_hk{};
+	static inline SafetyHookMid NaviPub_Disp_SpriteSpacingDisable2_hk{};
+
+	// dispMarkerCheck
+	static inline SafetyHookMid dispMarkerCheck_SpriteScalingDisable_hk{};
+
+	// DispTimeAttack2D
+	static inline SafetyHookMid DispTimeAttack2D_SpriteScalingForceRight_hk{};
+	static inline SafetyHookMid DispTimeAttack2D_SpriteScalingForceLeft_hk{};
 	static inline SafetyHookMid DispTimeAttack2D_SpriteScalingDisable_hk{};
-	static void DispTimeAttack2D_SpriteScalingDisable(safetyhook::Context& ctx)
-	{
-		ScalingType = SpriteScaleType::Disabled;
-	}
 	static inline SafetyHookMid DispTimeAttack2D_SpriteScalingForceEnable_hk{};
-	static void DispTimeAttack2D_SpriteScalingForceEnable(safetyhook::Context& ctx)
-	{
-		ScalingType = SpriteScaleType::DetectEdges;
-	}
 
 	static inline SafetyHookMid DispTimeAttack2D_put_scroll_AdjustPosition_hk{};
 	static inline SafetyHookMid DispTimeAttack2D_put_scroll_AdjustPosition_hk2{};
@@ -835,6 +816,7 @@ class UIScaling : public Hook
 	static inline SafetyHookMid DispTimeAttack2D_put_scroll_AdjustPosition_hk10{};
 	static inline SafetyHookMid DispTimeAttack2D_put_scroll_AdjustPosition_hk11{};
 	static inline SafetyHookMid DispTimeAttack2D_put_scroll_AdjustPosition_hk12{};
+
 	static void DispTimeAttack2D_put_scroll_AdjustPosition(safetyhook::Context& ctx)
 	{
 		ScalingMode mode = ScalingMode(Settings::UIScalingMode);
@@ -885,30 +867,17 @@ class UIScaling : public Hook
 	}
 
 	// DispGhostGap
-
 	static inline SafetyHookMid DispGhostGap_ForceLeft_hk{};
-	static void DispGhostGap_ForceLeft(safetyhook::Context& ctx)
-	{
-		ScalingType = SpriteScaleType::ForceLeft;
-	}
 	static inline SafetyHookMid DispGhostGap_ForceLeft2_hk{};
-	static void DispGhostGap_ForceLeft2(safetyhook::Context& ctx)
-	{
-		ScalingType = SpriteScaleType::ForceLeft;
-	}
 	static inline SafetyHookMid DispGhostGap_ForceRight_hk{};
-	static void DispGhostGap_ForceRight(safetyhook::Context& ctx)
-	{
-		ScalingType = SpriteScaleType::ForceRight;
-	}
 
 	// NaviPub_DispTimeAttackGoal
-
 	static inline SafetyHookMid NaviPub_DispTimeAttackGoal_DisableScaling_hk{};
-	static void NaviPub_DispTimeAttackGoal_DisableScaling(safetyhook::Context& ctx)
-	{
-		ScalingType = SpriteScaleType::Disabled;
-	}
+
+	// Heart totals
+	static inline SafetyHookMid NaviPub_Disp_HeartDisableScaling_hk{};
+	static inline SafetyHookMid NaviPub_Disp_HeartEnableScaling_hk{};
+	static inline SafetyHookMid NaviPub_Disp_C2CHeartDisableScaling_hk{};
 
 public:
 	std::string_view description() override
@@ -932,13 +901,16 @@ public:
 
 		Calc3D2D_hk = safetyhook::create_inline(Module::exe_ptr(Calc3D2D_Addr), Calc3D2D_dest);
 
-		NaviPub_Disp_SpriteSpacingEnable_hk = safetyhook::create_mid(Module::exe_ptr(NaviPub_Disp_SpriteScaleEnable_Addr), NaviPub_Disp_SpriteSpacingEnable);
-		NaviPub_Disp_SpriteSpacingEnable2_hk = safetyhook::create_mid(Module::exe_ptr(NaviPub_Disp_SpriteScaleEnable2_Addr), NaviPub_Disp_SpriteSpacingEnable2);
-		NaviPub_Disp_SpriteSpacingDisable_hk = safetyhook::create_mid(Module::exe_ptr(NaviPub_Disp_SpriteScaleDisable_Addr), NaviPub_Disp_SpriteSpacingDisable);
-		NaviPub_Disp_SpriteSpacingDisable2_hk = safetyhook::create_mid(Module::exe_ptr(NaviPub_Disp_SpriteScaleDisable2_Addr), NaviPub_Disp_SpriteSpacingDisable2);
+		NaviPub_Disp_SpriteSpacingEnable_hk = safetyhook::create_mid(Module::exe_ptr(NaviPub_Disp_SpriteScaleEnable_Addr), SpriteSpacingEnable);
+		NaviPub_Disp_SpriteSpacingEnable2_hk = safetyhook::create_mid(Module::exe_ptr(NaviPub_Disp_SpriteScaleEnable2_Addr), SpriteSpacingEnable);
+		NaviPub_Disp_SpriteSpacingDisable_hk = safetyhook::create_mid(Module::exe_ptr(NaviPub_Disp_SpriteScaleDisable_Addr), SpriteSpacingDisable);
+		NaviPub_Disp_SpriteSpacingDisable2_hk = safetyhook::create_mid(Module::exe_ptr(NaviPub_Disp_SpriteScaleDisable2_Addr), SpriteSpacingDisable);
+		NaviPub_Disp_HeartDisableScaling_hk = safetyhook::create_mid((void*)0x4BEBE1, SpriteSpacingDisable);
+		NaviPub_Disp_HeartEnableScaling_hk = safetyhook::create_mid((void*)0x4BEBE6, SpriteSpacingEnable);
+		NaviPub_Disp_C2CHeartDisableScaling_hk = safetyhook::create_mid((void*)0x4BEC9B, SpriteSpacingDisable);
 
 		// dispMarkerCheck is called by all three rival-marker functions, hopefully can fix them all
-		dispMarkerCheck_SpriteScalingDisable_hk = safetyhook::create_mid((void*)0x4BA0E0, dispMarkerCheck_SpriteScalingDisable);
+		dispMarkerCheck_SpriteScalingDisable_hk = safetyhook::create_mid((void*)0x4BA0E0, SpriteSpacingDisable);
 
 		drawFootage = safetyhook::create_mid(Module::exe_ptr(drawFootage_caller_Addr), drawFootage_dest);
 
@@ -949,10 +921,10 @@ public:
 		draw_sprite_custom_matrix_multi_CenterSprite3_hk = safetyhook::create_mid(Module::exe_ptr(draw_sprite_custom_matrix_multi__case4_Addr), draw_sprite_custom_matrix_multi_CenterSprite3);
 
 		// Fixes for the time displays in time attack mode
-		DispTimeAttack2D_SpriteScalingForceRight_hk = safetyhook::create_mid((void*)0x4BE4BC, DispTimeAttack2D_SpriteScalingForceRight);
-		DispTimeAttack2D_SpriteScalingDisable_hk = safetyhook::create_mid((void*)0x4BE4C1, DispTimeAttack2D_SpriteScalingDisable);
-		DispTimeAttack2D_SpriteScalingForceLeft_hk = safetyhook::create_mid((void*)0x4BE4E7, DispTimeAttack2D_SpriteScalingForceLeft);
-		DispTimeAttack2D_SpriteScalingForceEnable_hk = safetyhook::create_mid((void*)0x4BE575, DispTimeAttack2D_SpriteScalingForceEnable);
+		DispTimeAttack2D_SpriteScalingForceRight_hk = safetyhook::create_mid((void*)0x4BE4BC, SpriteSpacingForceRight);
+		DispTimeAttack2D_SpriteScalingDisable_hk = safetyhook::create_mid((void*)0x4BE4C1, SpriteSpacingDisable);
+		DispTimeAttack2D_SpriteScalingForceLeft_hk = safetyhook::create_mid((void*)0x4BE4E7, SpriteSpacingForceLeft);
+		DispTimeAttack2D_SpriteScalingForceEnable_hk = safetyhook::create_mid((void*)0x4BE575, SpriteSpacingEnable);
 
 		DispTimeAttack2D_put_scroll_AdjustPosition_hk = safetyhook::create_mid((void*)0x4BE5CD, DispTimeAttack2D_put_scroll_AdjustPosition);
 		DispTimeAttack2D_put_scroll_AdjustPosition_hk2 = safetyhook::create_mid((void*)0x4BE603, DispTimeAttack2D_put_scroll_AdjustPosition);
@@ -969,13 +941,13 @@ public:
 
 		// Fix ghost car info text positions
 		PutGhostGapInfo_AdjustPosition_hk = safetyhook::create_mid((void*)0x4BDE3A, PutGhostGapInfo_AdjustPosition);
-		DispGhostGap_ForceLeft_hk = safetyhook::create_mid((void*)0x4BE045, DispGhostGap_ForceLeft);
-		DispGhostGap_ForceLeft2_hk = safetyhook::create_mid((void*)0x4BE083, DispGhostGap_ForceLeft2);
-		DispGhostGap_ForceRight_hk = safetyhook::create_mid((void*)0x4BE0A5, DispGhostGap_ForceRight);
+		DispGhostGap_ForceLeft_hk = safetyhook::create_mid((void*)0x4BE045, SpriteSpacingForceLeft);
+		DispGhostGap_ForceLeft2_hk = safetyhook::create_mid((void*)0x4BE083, SpriteSpacingForceLeft);
+		DispGhostGap_ForceRight_hk = safetyhook::create_mid((void*)0x4BE0A5, SpriteSpacingForceRight);
 
 		PutGhostGapInfo_sub_AdjustPosition_hk = safetyhook::create_mid((void*)0x4BDAE8, PutGhostGapInfo_sub_AdjustPosition);
 
-		NaviPub_DispTimeAttackGoal_DisableScaling_hk = safetyhook::create_mid((void*)0x4BEA64, NaviPub_DispTimeAttackGoal_DisableScaling);
+		NaviPub_DispTimeAttackGoal_DisableScaling_hk = safetyhook::create_mid((void*)0x4BEA64, SpriteSpacingDisable);
 
 		return true;
 	}
