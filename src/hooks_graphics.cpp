@@ -473,17 +473,24 @@ enum class ScalingMode
 	Other
 };
 
+#define SCREEN_ONE_THIRD 213
+#define SCREEN_TWO_THIRD 426
+
 class UIScaling : public Hook
 {
 	const static int D3DXMatrixTransformation2D_Addr = 0x39400;
 	const static int draw_sprite_custom_matrix_mid_Addr = 0x2A556;
 	const static int Calc3D2D_Addr = 0x49940;
 
+	static inline bool SpriteScalingEnabled = false;
+
+	// D3DXMatrixTransformation2D hook allows us to change draw_sprite_custom
 	static inline SafetyHookInline D3DXMatrixTransformation2D = {};
 	static int __stdcall D3DXMatrixTransformation2D_dest(D3DMATRIX* pOut, D3DXVECTOR2* pScalingCenter, float pScalingRotation,
 		D3DXVECTOR2* pScaling, D3DXVECTOR2* pRotationCenter, float Rotation, D3DXVECTOR2* pTranslation)
 	{
 		ScalingMode mode = ScalingMode(Settings::UIScalingMode);
+
 		if (mode == ScalingMode::KeepCentered || mode == ScalingMode::OnlineArcade)
 		{
 			// Multiply by the smallest scale factor
@@ -493,25 +500,37 @@ class UIScaling : public Hook
 			pScaling->y = (pScaling->y / Game::screen_scale->y) * scale;
 
 			float origX = (pTranslation->x / Game::screen_scale->x);
-			pTranslation->x = origX * scale;
+
+			// TODO: this allows fixing the race position HUD element to be actually positioned properly
+			// but right now it'd end up breaking some other calls to draw_sprite_custom, like the text for button inputs on menus
+			// would need some way to know that this is actually the position HUD being drawn for us to only apply to that
+			// (alternately: find the code responsible for the position HUD and reposition it when that sets it up?)
+			// 
+			// ...but it turns out online arcade seems to have left the 1st/2nd/3rd HUD semi-broken?
+			// eg. https://youtu.be/-UqxjFgGvhk?t=39 shows it positioned slightly left of the actual "Position" text
+			// which doesn't match how it displays at 4:3 at all...
+			// guess they also ran into the same issue with it applying to other sprites and left it as is?
+#if 0
+			if (mode == ScalingMode::OnlineArcade && SpriteScalingEnabled)
+			{
+				float spacing = -((Game::screen_scale->y * Game::original_resolution.x) - Game::screen_resolution->x) / 2;
+
+				// Space out the UI elements if they're past a certain X position
+				// Seems this is pretty much what online arcade does
+				// TODO: add checks to skip processing non-HUD elements
+
+				float add = 0;
+				if (origX < SCREEN_ONE_THIRD)
+					add = -(spacing / Game::screen_scale->x);
+				if (origX >= SCREEN_TWO_THIRD)
+					add = (spacing / Game::screen_scale->x);
+				origX += add;
+			}
+#endif
+			// Reposition sprite to be centered
+			float centering = (Game::screen_resolution->x - (Game::original_resolution.x * scale)) / 2;
+			pTranslation->x = (origX * scale) + centering;
 			pTranslation->y = (pTranslation->y / Game::screen_scale->y) * scale;
-
-			float add = 0;
-			if (mode == ScalingMode::OnlineArcade)
-			{
-				float spacing = -((Game::screen_scale->y * 640) - Game::screen_resolution->x) / 2;
-
-				if (origX >= 213)
-					add = spacing;
-				if (origX >= 426)
-					add = spacing * 2;
-			}
-			else if (mode == ScalingMode::KeepCentered)
-			{
-				// Amount to add for centering
-				add = (Game::screen_resolution->x - (Game::original_resolution.x * scale)) / 2;
-			}
-			pTranslation->x += add;
 		}
 
 		return D3DXMatrixTransformation2D.stdcall<int>(pOut, pScalingCenter, pScalingRotation, pScaling, pRotationCenter, Rotation, pTranslation);
@@ -521,6 +540,7 @@ class UIScaling : public Hook
 	static void __cdecl draw_sprite_custom_matrix_mid(safetyhook::Context& ctx)
 	{
 		ScalingMode mode = ScalingMode(Settings::UIScalingMode);
+
 		float* g_spriteVertexStream = Module::exe_ptr<float>(0x58B868);
 		SPRARGS2* a1 = (SPRARGS2*)ctx.ebx;
 
@@ -534,12 +554,6 @@ class UIScaling : public Hook
 
 		D3DXVECTOR4 vec;
 
-		// Copies we can modify if needed
-		D3DVECTOR TopLeft = a1->TopLeft_54;
-		D3DVECTOR BottomLeft = a1->BottomLeft_60;
-		D3DVECTOR TopRight = a1->TopRight_6C;
-		D3DVECTOR BottomRight = a1->BottomRight_78;
-
 		D3DXVECTOR4 topLeft{ 0 };
 		D3DXVECTOR4 bottomLeft{ 0 };
 		D3DXVECTOR4 topRight{ 0 };
@@ -548,16 +562,16 @@ class UIScaling : public Hook
 		float scaleY = Game::screen_scale->y;
 
 		// Multiply by the smallest scale factor
-		if (mode == ScalingMode::KeepCentered)
+		if (mode == ScalingMode::KeepCentered || mode == ScalingMode::OnlineArcade)
 			scaleY = min(Game::screen_scale->x, Game::screen_scale->y);
 
 		// TopLeft
-		vec.x = TopLeft.x;
-		vec.y = TopLeft.y;
-		vec.z = TopLeft.z;
+		vec.x = a1->TopLeft_54.x;
+		vec.y = a1->TopLeft_54.y;
+		vec.z = a1->TopLeft_54.z;
 		vec.w = 1.0;
 		Game::D3DXVec4Transform(&topLeft, &vec, &pM);
-		
+
 		g_spriteVertexStream[1] = scaleY * topLeft.y + 0.5;
 		g_spriteVertexStream[2] = topLeft.z;
 		g_spriteVertexStream[3] = 1.0;
@@ -566,12 +580,12 @@ class UIScaling : public Hook
 		g_spriteVertexStream[6] = -v22 + a1->left_A0;
 
 		// BottomLeft
-		vec.x = BottomLeft.x;
-		vec.y = BottomLeft.y;
-		vec.z = BottomLeft.z;
+		vec.x = a1->BottomLeft_60.x;
+		vec.y = a1->BottomLeft_60.y;
+		vec.z = a1->BottomLeft_60.z;
 		vec.w = 1.0;
 		Game::D3DXVec4Transform(&bottomLeft, &vec, &pM);
-		
+
 		g_spriteVertexStream[8] = scaleY * bottomLeft.y + 0.5;
 		g_spriteVertexStream[9] = bottomLeft.z;
 		g_spriteVertexStream[0xA] = 1.0;
@@ -580,9 +594,9 @@ class UIScaling : public Hook
 		g_spriteVertexStream[0xD] = v22 + a1->right_98;
 
 		// TopRight
-		vec.x = TopRight.x;
-		vec.y = TopRight.y;
-		vec.z = TopRight.z;
+		vec.x = a1->TopRight_6C.x;
+		vec.y = a1->TopRight_6C.y;
+		vec.z = a1->TopRight_6C.z;
 		vec.w = 1.0;
 		Game::D3DXVec4Transform(&topRight, &vec, &pM);
 
@@ -594,9 +608,9 @@ class UIScaling : public Hook
 		g_spriteVertexStream[0x14] = -v22 + a1->left_88;
 
 		// BottomRight
-		vec.x = BottomRight.x;
-		vec.y = BottomRight.y;
-		vec.z = BottomRight.z;
+		vec.x = a1->BottomRight_78.x;
+		vec.y = a1->BottomRight_78.y;
+		vec.z = a1->BottomRight_78.z;
 		vec.w = 1.0;
 		Game::D3DXVec4Transform(&bottomRight, &vec, &pM);
 
@@ -607,7 +621,7 @@ class UIScaling : public Hook
 		g_spriteVertexStream[0x1A] = -v21 + a1->bottom_8C;
 		g_spriteVertexStream[0x1B] = v22 + a1->right_90;
 
-		if (mode == ScalingMode::KeepCentered)
+		if (mode == ScalingMode::KeepCentered || mode == ScalingMode::OnlineArcade)
 		{
 			float add = (Game::screen_resolution->x - (Game::original_resolution.x * scaleY)) / 2;
 
@@ -616,30 +630,12 @@ class UIScaling : public Hook
 			g_spriteVertexStream[0xE] = (scaleY * topRight.x) + add;
 			g_spriteVertexStream[0x15] = (scaleY * bottomRight.x) + add;
 		}
-		else if (mode == ScalingMode::OnlineArcade)
-		{
-			float spacing = -((Game::screen_scale->y * 640) - Game::screen_resolution->x) / 2;
-
-			// Space out the UI elements if they're past a certain X position
-			// Seems this is pretty much what online arcade does
-			// TODO: add checks to skip processing non-HUD elements
-			float add = 0;
-			if (topLeft.x > 213)
-				add = spacing;
-			if (topLeft.x > 426)
-				add = spacing * 2;
-
-			g_spriteVertexStream[0] = (scaleY * topLeft.x) + add;
-			g_spriteVertexStream[7] = (scaleY * bottomLeft.x) + add;
-			g_spriteVertexStream[0xE] = (scaleY * topRight.x) + add;
-			g_spriteVertexStream[0x15] = (scaleY * bottomRight.x) + add;
-		}
 		else // if (mode == Mode::Vanilla)
 		{
-			g_spriteVertexStream[0] = (Game::screen_scale->x * topLeft.x);
-			g_spriteVertexStream[7] = (Game::screen_scale->x * bottomLeft.x);
-			g_spriteVertexStream[0xE] = (Game::screen_scale->x * topRight.x);
-			g_spriteVertexStream[0x15] = (Game::screen_scale->x * bottomRight.x);
+			g_spriteVertexStream[0] = (Game::screen_scale->y * topLeft.x);
+			g_spriteVertexStream[7] = (Game::screen_scale->y * bottomLeft.x);
+			g_spriteVertexStream[0xE] = (Game::screen_scale->y * topRight.x);
+			g_spriteVertexStream[0x15] = (Game::screen_scale->y * bottomRight.x);
 		}
 
 		// Game seems to add these, half-pixel offset?
@@ -665,6 +661,106 @@ class UIScaling : public Hook
 			out->x = (out->x / Game::screen_scale->y) * Game::screen_scale->x;
 	};
 
+	static inline SafetyHookMid drawFootage{};
+	static void drawFootage_dest(safetyhook::Context& ctx)
+	{
+		ScalingMode mode = ScalingMode(Settings::UIScalingMode);
+		float* m = *Module::exe_ptr<float*>(0x49B564);
+		if (mode == ScalingMode::OnlineArcade && SpriteScalingEnabled)
+		{
+			float spacing = -((Game::screen_scale->y * Game::original_resolution.x) - Game::screen_resolution->x) / 2;
+
+			// Space out the UI elements if they're past a certain X position
+			// Seems this is pretty much what online arcade does
+			// TODO: add checks to skip processing non-HUD elements
+
+			float x = m[12];
+
+			float add = 0;
+			if (x < SCREEN_ONE_THIRD)
+				add = -(spacing / Game::screen_scale->x);
+			if (x >= SCREEN_TWO_THIRD)
+				add = (spacing / Game::screen_scale->x);
+
+			m[12] = x + add;
+		}
+	}
+
+	static inline SafetyHookMid NaviPub_Disp_SpriteSpacingEnable_hk{};
+	static void NaviPub_Disp_SpriteSpacingEnable(safetyhook::Context& ctx)
+	{
+		SpriteScalingEnabled = true;
+	}
+
+	static inline SafetyHookMid NaviPub_Disp_SpriteSpacingDisable_hk{};
+	static void NaviPub_Disp_SpriteSpacingDisable(safetyhook::Context& ctx)
+	{
+		SpriteScalingEnabled = false;
+	}
+
+	static inline SafetyHookMid NaviPub_Disp_SpriteSpacingDisable2_hk{};
+	static void NaviPub_Disp_SpriteSpacingDisable2(safetyhook::Context& ctx)
+	{
+		SpriteScalingEnabled = false;
+	}
+
+	static inline SafetyHookMid draw_sprite_custom_matrix_multi_CenterSprite_hk{};
+	static void draw_sprite_custom_matrix_multi_CenterSprite(safetyhook::Context& ctx)
+	{
+		float* vtxStream = (float*)(ctx.ecx);
+
+		float scale = min(Game::screen_scale->x, Game::screen_scale->y);
+		float centering = (Game::screen_resolution->x - (Game::original_resolution.x * scale)) / 2;
+
+		float x1 = vtxStream[0];
+		float x2 = vtxStream[9];
+		float x3 = vtxStream[18];
+		float x4 = vtxStream[27];
+
+		vtxStream[0] = ((vtxStream[0] / Game::screen_scale->x) * scale) + centering;
+		vtxStream[9] = ((vtxStream[9] / Game::screen_scale->x) * scale) + centering;
+		vtxStream[18] = ((vtxStream[18] / Game::screen_scale->x) * scale) + centering;
+		vtxStream[27] = ((vtxStream[27] / Game::screen_scale->x) * scale) + centering;
+	}
+
+	static inline SafetyHookMid draw_sprite_custom_matrix_multi_CenterSprite2_hk{};
+	static void draw_sprite_custom_matrix_multi_CenterSprite2(safetyhook::Context& ctx)
+	{
+		float* vtxStream = (float*)(ctx.esp + 0x80);
+
+		float scale = min(Game::screen_scale->x, Game::screen_scale->y);
+		float centering = (Game::screen_resolution->x - (Game::original_resolution.x * scale)) / 2;
+
+		float x1 = vtxStream[0];
+		float x2 = vtxStream[11];
+		float x3 = vtxStream[22];
+		float x4 = vtxStream[33];
+
+		vtxStream[0] = ((vtxStream[0] / Game::screen_scale->x) * scale) + centering;
+		vtxStream[11] = ((vtxStream[11] / Game::screen_scale->x) * scale) + centering;
+		vtxStream[22] = ((vtxStream[22] / Game::screen_scale->x) * scale) + centering;
+		vtxStream[33] = ((vtxStream[33] / Game::screen_scale->x) * scale) + centering;
+	}
+
+	static inline SafetyHookMid draw_sprite_custom_matrix_multi_CenterSprite3_hk{};
+	static void draw_sprite_custom_matrix_multi_CenterSprite3(safetyhook::Context& ctx)
+	{
+		float* vtxStream = (float*)(ctx.edx);
+
+		float scale = min(Game::screen_scale->x, Game::screen_scale->y);
+		float centering = (Game::screen_resolution->x - (Game::original_resolution.x * scale)) / 2;
+
+		float x1 = vtxStream[0];
+		float x2 = vtxStream[13];
+		float x3 = vtxStream[26];
+		float x4 = vtxStream[39];
+
+		vtxStream[0] = ((vtxStream[0] / Game::screen_scale->x) * scale) + centering;
+		vtxStream[13] = ((vtxStream[13] / Game::screen_scale->x) * scale) + centering;
+		vtxStream[26] = ((vtxStream[26] / Game::screen_scale->x) * scale) + centering;
+		vtxStream[39] = ((vtxStream[39] / Game::screen_scale->x) * scale) + centering;
+	}
+
 public:
 	std::string_view description() override
 	{
@@ -687,8 +783,21 @@ public:
 
 		Calc3D2D_hk = safetyhook::create_inline(Module::exe_ptr(Calc3D2D_Addr), Calc3D2D_dest);
 
-		// TODO: there is another func draw_sprite_custom_matrix_multi which some sprites may use
-		// it's a pretty long func though, luckily haven't seen anything that uses it so far
+		NaviPub_Disp_SpriteSpacingEnable_hk = safetyhook::create_mid((void*)0x4BEB31, NaviPub_Disp_SpriteSpacingEnable);
+		//NaviPub_Disp_SpriteSpacingEnable_hk = safetyhook::create_mid((void*)0x4BEDBD, NaviPub_Disp_SpriteSpacingEnable);
+		//NaviPub_Disp_SpriteSpacingEnable_hk = safetyhook::create_mid((void*)0x4BEDB8, NaviPub_Disp_SpriteSpacingEnable);
+
+		NaviPub_Disp_SpriteSpacingDisable_hk = safetyhook::create_mid((void*)0x4BEDE0, NaviPub_Disp_SpriteSpacingDisable);
+		NaviPub_Disp_SpriteSpacingDisable2_hk = safetyhook::create_mid((void*)0x4BEE21, NaviPub_Disp_SpriteSpacingDisable2);
+		//NaviPub_Disp_SpriteSpacingDisable_hk = safetyhook::create_mid((void*)0x4BEDE0, NaviPub_Disp_SpriteSpacingDisable);
+
+		drawFootage = safetyhook::create_mid((void*)0x4293F3, drawFootage_dest);
+
+		// Hook the DrawPrimitiveUP call inside the three custom_matrix_multi cases so we can fix up X position
+		// (except the 2nd case, where DrawPrimitiveUP doesn't point to the scaled-position-array for some reason...)
+		draw_sprite_custom_matrix_multi_CenterSprite_hk = safetyhook::create_mid((void*)0x42B1E2, draw_sprite_custom_matrix_multi_CenterSprite);
+		draw_sprite_custom_matrix_multi_CenterSprite2_hk = safetyhook::create_mid((void*)0x42B53E, draw_sprite_custom_matrix_multi_CenterSprite2);
+		draw_sprite_custom_matrix_multi_CenterSprite3_hk = safetyhook::create_mid((void*)0x42BB2F, draw_sprite_custom_matrix_multi_CenterSprite3);
 
 		return true;
 	}
