@@ -888,6 +888,8 @@ class UIScaling : public Hook
 	static inline SafetyHookMid NaviPub_Disp_HeartDisableScaling_hk{};
 	static inline SafetyHookMid NaviPub_Disp_HeartEnableScaling_hk{};
 	static inline SafetyHookMid NaviPub_Disp_C2CHeartDisableScaling_hk{};
+	static inline SafetyHookMid NaviPub_Disp_C2CHeartEnableScaling_hk{};
+	static inline SafetyHookMid NaviPub_Disp_C2CHeartEnableScaling2_hk{};
 
 public:
 	std::string_view description() override
@@ -917,7 +919,10 @@ public:
 		NaviPub_Disp_SpriteSpacingDisable2_hk = safetyhook::create_mid(Module::exe_ptr(NaviPub_Disp_SpriteScaleDisable2_Addr), SpriteSpacingDisable);
 		NaviPub_Disp_HeartDisableScaling_hk = safetyhook::create_mid((void*)0x4BEBE1, SpriteSpacingDisable);
 		NaviPub_Disp_HeartEnableScaling_hk = safetyhook::create_mid((void*)0x4BEBE6, SpriteSpacingEnable);
-		NaviPub_Disp_C2CHeartDisableScaling_hk = safetyhook::create_mid((void*)0x4BEC9B, SpriteSpacingDisable);
+
+		NaviPub_Disp_C2CHeartDisableScaling_hk = safetyhook::create_mid((void*)0x481B76, SpriteSpacingDisable);
+		NaviPub_Disp_C2CHeartEnableScaling_hk = safetyhook::create_mid((void*)0x4BECBA, SpriteSpacingEnable);
+		NaviPub_Disp_C2CHeartEnableScaling2_hk = safetyhook::create_mid((void*)0x4BECE0, SpriteSpacingEnable);
 
 		// dispMarkerCheck is called by all three rival-marker functions, hopefully can fix them all
 		dispMarkerCheck_SpriteScalingDisable_hk = safetyhook::create_mid((void*)0x4BA0E0, SpriteSpacingDisable);
