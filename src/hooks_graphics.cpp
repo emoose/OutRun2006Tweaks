@@ -959,6 +959,12 @@ class UIScaling : public Hook
 	static inline SafetyHookMid C2CSpeechBubbleGF_AdjustPositionESP0_hk9{};
 	static inline SafetyHookMid C2CSpeechBubbleGF_AdjustPositionESP0_hk10{};
 
+	static inline SafetyHookMid C2CSpeechBubbleGF_AdjustPositionESP0_hk11{};
+	static inline SafetyHookMid C2CSpeechBubbleGF_AdjustPositionESP0_hk12{};
+	static inline SafetyHookMid C2CSpeechBubbleGF_AdjustPositionESP0_hk13{};
+	static inline SafetyHookMid C2CSpeechBubbleGF_AdjustPositionESP0_hk14{};
+	static inline SafetyHookMid C2CSpeechBubbleGF_AdjustPositionESP0_hk15{};
+
 	static void C2CSpeechBubble_AdjustPositionESP0(safetyhook::Context& ctx)
 	{
 		ScalingMode mode = ScalingMode(Settings::UIScalingMode);
@@ -1098,6 +1104,12 @@ public:
 		C2CSpeechBubbleGF_AdjustPositionESP0_hk8 = safetyhook::create_mid((void*)0x4FC84E, C2CSpeechBubble_AdjustPositionESP0);
 		C2CSpeechBubbleGF_AdjustPositionESP0_hk9 = safetyhook::create_mid((void*)0x4FC882, C2CSpeechBubble_AdjustPositionESP0);
 		C2CSpeechBubbleGF_AdjustPositionESP0_hk10 = safetyhook::create_mid((void*)0x4FC8B4, C2CSpeechBubble_AdjustPositionESP0);
+
+		C2CSpeechBubbleGF_AdjustPositionESP0_hk11 = safetyhook::create_mid((void*)0x4FC9EB, C2CSpeechBubble_AdjustPositionESP0);
+		C2CSpeechBubbleGF_AdjustPositionESP0_hk12 = safetyhook::create_mid((void*)0x4FCA1E, C2CSpeechBubble_AdjustPositionESP0);
+		C2CSpeechBubbleGF_AdjustPositionESP0_hk13 = safetyhook::create_mid((void*)0x4FCA51, C2CSpeechBubble_AdjustPositionESP0);
+		C2CSpeechBubbleGF_AdjustPositionESP0_hk14 = safetyhook::create_mid((void*)0x4FCA9E, C2CSpeechBubble_AdjustPositionESP0);
+		C2CSpeechBubbleGF_AdjustPositionESP0_hk15 = safetyhook::create_mid((void*)0x4FCB1E, C2CSpeechBubble_AdjustPositionESP0);
 
 		return true;
 	}
