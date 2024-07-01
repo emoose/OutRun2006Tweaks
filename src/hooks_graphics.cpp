@@ -891,6 +891,9 @@ class UIScaling : public Hook
 	static inline SafetyHookMid NaviPub_Disp_C2CHeartEnableScaling_hk{};
 	static inline SafetyHookMid NaviPub_Disp_C2CHeartEnableScaling2_hk{};
 
+	static inline SafetyHookMid NaviPub_Disp_RivalDisableScaling_hk{};
+	static inline SafetyHookMid NaviPub_Disp_RivalEnableScaling_hk{};
+
 	static inline SafetyHookMid ctrl_icon_work_AdjustPosition_hk{};
 	static void ctrl_icon_work_AdjustPosition(safetyhook::Context& ctx)
 	{
@@ -964,6 +967,9 @@ public:
 		NaviPub_Disp_C2CHeartDisableScaling_hk = safetyhook::create_mid((void*)0x481B76, SpriteSpacingDisable);
 		NaviPub_Disp_C2CHeartEnableScaling_hk = safetyhook::create_mid((void*)0x4BECBA, SpriteSpacingEnable);
 		NaviPub_Disp_C2CHeartEnableScaling2_hk = safetyhook::create_mid((void*)0x4BECE0, SpriteSpacingEnable);
+
+		NaviPub_Disp_RivalDisableScaling_hk = safetyhook::create_mid((void*)0x4BEBAA, SpriteSpacingDisable);
+		NaviPub_Disp_RivalEnableScaling_hk = safetyhook::create_mid((void*)0x4BEBAF, SpriteSpacingEnable);
 
 		// dispMarkerCheck is called by all three rival-marker functions, hopefully can fix them all
 		dispMarkerCheck_SpriteScalingDisable_hk = safetyhook::create_mid((void*)0x4BA0E0, SpriteSpacingDisable);
