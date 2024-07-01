@@ -60,6 +60,7 @@ private:
 
     // Helper functions
     HRESULT DecodeFile();
+    void EnsureBufferSize(size_t requiredSize);
 };
 
 CFLACFile::CFLACFile() : m_pDecoder(NULL), m_dwDecodedDataSize(0), m_dwCurrentPosition(0)
@@ -162,17 +163,34 @@ HRESULT CFLACFile::DecodeFile()
     return S_OK;
 }
 
+void CFLACFile::EnsureBufferSize(size_t requiredSize)
+{
+    if (m_pDecodedData.size() < requiredSize)
+    {
+        size_t newCapacity = m_pDecodedData.size();
+        if (!newCapacity)
+            newCapacity = requiredSize;
+        while (newCapacity < requiredSize)
+            newCapacity *= 2;  // Double the capacity
+        m_pDecodedData.resize(newCapacity);
+    }
+}
+
 FLAC__StreamDecoderWriteStatus CFLACFile::WriteCallback(const FLAC__StreamDecoder* decoder, const FLAC__Frame* frame, const FLAC__int32* const buffer[], void* client_data)
 {
     CFLACFile* pThis = static_cast<CFLACFile*>(client_data);
 
-    DWORD totalSamples = frame->header.blocksize * frame->header.channels * (frame->header.bits_per_sample / 8);
-    if (pThis->m_dwDecodedDataSize + totalSamples > pThis->m_pDecodedData.size())
-    {
-        pThis->m_pDecodedData.resize(pThis->m_dwDecodedDataSize + totalSamples);
-    }
+    const unsigned int bps = frame->header.bits_per_sample;
+    const DWORD totalSamples = frame->header.blocksize * frame->header.channels;
+    const DWORD bytesPerSample = bps / 8;
+    const DWORD totalBytes = totalSamples * bytesPerSample;
+
+    // Ensure buffer is large enough
+    size_t requiredSize = pThis->m_dwDecodedDataSize + totalBytes;
+    pThis->EnsureBufferSize(requiredSize);
 
     // Convert FLAC__int32 to 16-bit PCM and append to m_pDecodedData
+    // TODO: this only works with 16-bit samples, /could/ add some kind of resampling option, but DSound would only work with 16-bit either way...
     for (unsigned int i = 0; i < frame->header.blocksize; i++)
     {
         for (unsigned int channel = 0; channel < frame->header.channels; channel++)
@@ -181,7 +199,7 @@ FLAC__StreamDecoderWriteStatus CFLACFile::WriteCallback(const FLAC__StreamDecode
             INT16 sample = static_cast<INT16>(max(-32768, min(32767, buffer[channel][i])));
 
             // Append to buffer
-            memcpy(pThis->m_pDecodedData.data() + pThis->m_dwDecodedDataSize, &sample, sizeof(INT16));
+            *(INT16*)(pThis->m_pDecodedData.data() + pThis->m_dwDecodedDataSize) = sample;
             pThis->m_dwDecodedDataSize += sizeof(INT16);
         }
     }
@@ -206,8 +224,15 @@ void CFLACFile::MetadataCallback(const FLAC__StreamDecoder* decoder, const FLAC_
         pThis->m_pwfx_4->cbSize = 0;
 
         // Pre-allocate buffer for decoded data
-        //pThis->m_dwDecodedDataSize = metadata->data.stream_info.total_samples * pThis->m_pwfx_4->nBlockAlign;
-        //pThis->m_pDecodedData = new BYTE[pThis->m_dwDecodedDataSize];
+        FLAC__uint64 totalSamples = metadata->data.stream_info.total_samples;
+        unsigned channels = metadata->data.stream_info.channels;
+        unsigned bitsPerSample = metadata->data.stream_info.bits_per_sample;
+
+        // Calculate total buffer size in bytes
+        size_t totalBufferSize = totalSamples * channels * (bitsPerSample / 8);
+
+        // Pre-allocate the buffer
+        pThis->m_pDecodedData.reserve(totalBufferSize);
     }
 }
 
