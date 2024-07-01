@@ -103,6 +103,10 @@ HRESULT CFLACFile::Read(BYTE* pBuffer, DWORD dwSizeToRead, DWORD* pdwSizeRead)
         if (FLAC__stream_decoder_get_state(m_pDecoder) == FLAC__STREAM_DECODER_END_OF_STREAM)
             break;
 
+        // Try to read two frames at a time, hopefully reduce any skipping...
+        if (!FLAC__stream_decoder_process_single(m_pDecoder))
+            break;
+
         if (!FLAC__stream_decoder_process_single(m_pDecoder))
             break;
     }
@@ -191,18 +195,43 @@ FLAC__StreamDecoderWriteStatus CFLACFile::WriteCallback(const FLAC__StreamDecode
 
     // Convert FLAC__int32 to 16-bit PCM and append to m_pDecodedData
     // TODO: this only works with 16-bit samples, /could/ add some kind of resampling option, but DSound would only work with 16-bit either way...
+    unsigned char* outBuffer = pThis->m_pDecodedData.data() + pThis->m_dwDecodedDataSize;
+
     for (unsigned int i = 0; i < frame->header.blocksize; i++)
     {
         for (unsigned int channel = 0; channel < frame->header.channels; channel++)
         {
-            // Convert to 16-bit and clamp
-            INT16 sample = static_cast<INT16>(max(-32768, min(32767, buffer[channel][i])));
+            FLAC__int32 sample = buffer[channel][i];
 
-            // Append to buffer
-            *(INT16*)(pThis->m_pDecodedData.data() + pThis->m_dwDecodedDataSize) = sample;
-            pThis->m_dwDecodedDataSize += sizeof(INT16);
+            // Handle different bit depths
+            switch (bps) {
+            case 16:
+            {
+                INT16 pcm = static_cast<INT16>(max(-32768, min(32767, sample)));
+                *(INT16*)outBuffer = pcm;
+                outBuffer += sizeof(INT16);
+            }
+            break;
+            case 24:
+            {
+                outBuffer[0] = (sample & 0xFF);
+                outBuffer[1] = ((sample >> 8) & 0xFF);
+                outBuffer[2] = ((sample >> 16) & 0xFF);
+                outBuffer += 3;
+            }
+            break;
+            case 32:
+                *(FLAC__int32*)outBuffer = sample;
+                outBuffer += sizeof(FLAC__int32);
+                break;
+            default:
+                // Unsupported bit depth
+                return FLAC__STREAM_DECODER_WRITE_STATUS_ABORT;
+            }
         }
     }
+
+    pThis->m_dwDecodedDataSize += totalBytes;
 
     return FLAC__STREAM_DECODER_WRITE_STATUS_CONTINUE;
 }
