@@ -891,6 +891,9 @@ class UIScaling : public Hook
 	static inline SafetyHookMid NaviPub_Disp_C2CHeartEnableScaling_hk{};
 	static inline SafetyHookMid NaviPub_Disp_C2CHeartEnableScaling2_hk{};
 
+	static inline SafetyHookMid NaviPub_Disp_C2CFruitDisableScaling_hk{};
+	static inline SafetyHookMid NaviPub_Disp_C2CFruitEnableScaling_hk{};
+
 	static inline SafetyHookMid NaviPub_Disp_RivalDisableScaling_hk{};
 	static inline SafetyHookMid NaviPub_Disp_RivalEnableScaling_hk{};
 
@@ -1022,6 +1025,9 @@ public:
 		NaviPub_Disp_C2CHeartDisableScaling_hk = safetyhook::create_mid((void*)0x481B76, SpriteSpacingDisable);
 		NaviPub_Disp_C2CHeartEnableScaling_hk = safetyhook::create_mid((void*)0x4BECBA, SpriteSpacingEnable);
 		NaviPub_Disp_C2CHeartEnableScaling2_hk = safetyhook::create_mid((void*)0x4BECE0, SpriteSpacingEnable);
+
+		NaviPub_Disp_C2CFruitDisableScaling_hk = safetyhook::create_mid((void*)0x481A86, SpriteSpacingDisable);
+		NaviPub_Disp_C2CFruitEnableScaling_hk = safetyhook::create_mid((void*)0x481A8B, SpriteSpacingEnable);
 
 		NaviPub_Disp_RivalDisableScaling_hk = safetyhook::create_mid((void*)0x4BEBAA, SpriteSpacingDisable);
 		NaviPub_Disp_RivalEnableScaling_hk = safetyhook::create_mid((void*)0x4BEBAF, SpriteSpacingEnable);
