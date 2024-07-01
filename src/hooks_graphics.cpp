@@ -963,7 +963,6 @@ class UIScaling : public Hook
 	static inline SafetyHookMid C2CSpeechBubbleGF_AdjustPositionESP0_hk12{};
 	static inline SafetyHookMid C2CSpeechBubbleGF_AdjustPositionESP0_hk13{};
 	static inline SafetyHookMid C2CSpeechBubbleGF_AdjustPositionESP0_hk14{};
-	static inline SafetyHookMid C2CSpeechBubbleGF_AdjustPositionESP0_hk15{};
 
 	static void C2CSpeechBubble_AdjustPositionESP0(safetyhook::Context& ctx)
 	{
@@ -975,6 +974,19 @@ class UIScaling : public Hook
 		spacing = spacing / Game::screen_scale->x;
 
 		float* val = (float*)(ctx.esp);
+		*val = *val + spacing;
+	}
+
+	static void C2CSpeechBubble_AdjustPositionESP4(safetyhook::Context& ctx)
+	{
+		ScalingMode mode = ScalingMode(Settings::UIScalingMode);
+		if (mode != ScalingMode::OnlineArcade)
+			return;
+
+		float spacing = -((Game::screen_scale->y * Game::original_resolution.x) - Game::screen_resolution->x) / 2;
+		spacing = spacing / Game::screen_scale->x;
+
+		float* val = (float*)(ctx.esp + 4);
 		*val = *val + spacing;
 	}
 
@@ -1080,10 +1092,6 @@ public:
 		C2CSpeechBubble_AdjustPositionESP0_hk6 = safetyhook::create_mid((void*)0x496C10, C2CSpeechBubble_AdjustPositionESP0);
 		C2CSpeechBubble_AdjustPositionESP0_hk7 = safetyhook::create_mid((void*)0x496C6A, C2CSpeechBubble_AdjustPositionESP0);
 
-		// TODO: the c2c gf bubble still spawns at original position, but game moves it over to our modified one over the next 2 seconds
-		//  need to find where that initial position gets setup at
-		//  both 180 and 170 seem to be used for the bubble spawn position at least
-		//  (most likely some other piece of code is changing position each frame like "180 + (timePassed * moveSpeed)")
 		C2CSpeechBubbleGF_AdjustPositionESP0_hk1 = safetyhook::create_mid((void*)0x4FCDC1, C2CSpeechBubble_AdjustPositionESP0);
 		C2CSpeechBubbleGF_AdjustPositionESP0_hk2 = safetyhook::create_mid((void*)0x4FCDEA, C2CSpeechBubble_AdjustPositionESP0);
 		C2CSpeechBubbleGF_AdjustPositionESP0_hk3 = safetyhook::create_mid((void*)0x4FCEB0, C2CSpeechBubble_AdjustPositionESP0);
@@ -1100,16 +1108,18 @@ public:
 		C2CSpeechBubbleGFHeart_AdjustPositionESP0_hk3 = safetyhook::create_mid((void*)0x4FD5CD, C2CSpeechBubble_AdjustPositionESP0);
 		C2CSpeechBubbleGFHeart_AdjustPositionESP0_hk4 = safetyhook::create_mid((void*)0x4FD652, C2CSpeechBubble_AdjustPositionESP0);
 
-		// do these do anything?
+		// ranking emoji position
 		C2CSpeechBubbleGF_AdjustPositionESP0_hk8 = safetyhook::create_mid((void*)0x4FC84E, C2CSpeechBubble_AdjustPositionESP0);
 		C2CSpeechBubbleGF_AdjustPositionESP0_hk9 = safetyhook::create_mid((void*)0x4FC882, C2CSpeechBubble_AdjustPositionESP0);
+
+		// "rank: aaa" position
 		C2CSpeechBubbleGF_AdjustPositionESP0_hk10 = safetyhook::create_mid((void*)0x4FC8B4, C2CSpeechBubble_AdjustPositionESP0);
 
+		// speech bubble initial position
 		C2CSpeechBubbleGF_AdjustPositionESP0_hk11 = safetyhook::create_mid((void*)0x4FC9EB, C2CSpeechBubble_AdjustPositionESP0);
 		C2CSpeechBubbleGF_AdjustPositionESP0_hk12 = safetyhook::create_mid((void*)0x4FCA1E, C2CSpeechBubble_AdjustPositionESP0);
 		C2CSpeechBubbleGF_AdjustPositionESP0_hk13 = safetyhook::create_mid((void*)0x4FCA51, C2CSpeechBubble_AdjustPositionESP0);
-		C2CSpeechBubbleGF_AdjustPositionESP0_hk14 = safetyhook::create_mid((void*)0x4FCA9E, C2CSpeechBubble_AdjustPositionESP0);
-		C2CSpeechBubbleGF_AdjustPositionESP0_hk15 = safetyhook::create_mid((void*)0x4FCB1E, C2CSpeechBubble_AdjustPositionESP0);
+		C2CSpeechBubbleGF_AdjustPositionESP0_hk14 = safetyhook::create_mid((void*)0x4FCB20, C2CSpeechBubble_AdjustPositionESP4);
 
 		return true;
 	}
