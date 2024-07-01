@@ -193,8 +193,7 @@ FLAC__StreamDecoderWriteStatus CFLACFile::WriteCallback(const FLAC__StreamDecode
     size_t requiredSize = pThis->m_dwDecodedDataSize + totalBytes;
     pThis->EnsureBufferSize(requiredSize);
 
-    // Convert FLAC__int32 to 16-bit PCM and append to m_pDecodedData
-    // TODO: this only works with 16-bit samples, /could/ add some kind of resampling option, but DSound would only work with 16-bit either way...
+    // Append decoded FLAC samples to m_pDecodedData
     unsigned char* outBuffer = pThis->m_pDecodedData.data() + pThis->m_dwDecodedDataSize;
 
     for (unsigned int i = 0; i < frame->header.blocksize; i++)
