@@ -10,6 +10,13 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MP")
 
 set(ASMJIT_STATIC ON CACHE BOOL "" FORCE)
 
+# disable unneeded FLAC stuff
+set(INSTALL_MANPAGES OFF CACHE BOOL "" FORCE)
+set(BUILD_DOCS OFF CACHE BOOL "" FORCE)
+set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(BUILD_PROGRAMS OFF CACHE BOOL "" FORCE)
+set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
+
 option(ZYDIS_BUILD_TOOLS "" OFF)
 option(ZYDIS_BUILD_EXAMPLES "" OFF)
 
@@ -38,6 +45,8 @@ compile-options = []
 [fetch-content]
 zydis = { git = "https://github.com/zyantific/zydis", tag = "v4.0.0" }
 safetyhook = { git = "https://github.com/cursey/safetyhook", tag = "629558c64009a7291ba6ed5cfb49187086a27a47" }
+ogg = { git = "https://github.com/xiph/ogg", tag = "v1.3.5" }
+flac = { git = "https://github.com/xiph/flac", tag = "1.4.3" }
 
 [target.outrun2006tweaks]
 type = "shared"
@@ -51,6 +60,8 @@ compile-definitions = ["_SILENCE_STDEXT_ARR_ITERS_DEPRECATION_WARNING", "_DISABL
 link-libraries = [
     "spdlog",
     "safetyhook",
+    "ogg",
+    "FLAC",
     "version.lib",
     "xinput9_1_0.lib",
     "Hid.lib"

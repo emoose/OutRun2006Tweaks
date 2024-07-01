@@ -31,6 +31,13 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MP")
 
 set(ASMJIT_STATIC ON CACHE BOOL "" FORCE)
 
+# disable unneeded FLAC stuff
+set(INSTALL_MANPAGES OFF CACHE BOOL "" FORCE)
+set(BUILD_DOCS OFF CACHE BOOL "" FORCE)
+set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(BUILD_PROGRAMS OFF CACHE BOOL "" FORCE)
+set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
+
 option(ZYDIS_BUILD_TOOLS "" OFF)
 option(ZYDIS_BUILD_EXAMPLES "" OFF)
 
@@ -68,6 +75,24 @@ FetchContent_Declare(safetyhook
 )
 FetchContent_MakeAvailable(safetyhook)
 
+message(STATUS "Fetching ogg (v1.3.5)...")
+FetchContent_Declare(ogg
+	GIT_REPOSITORY
+		"https://github.com/xiph/ogg"
+	GIT_TAG
+		v1.3.5
+)
+FetchContent_MakeAvailable(ogg)
+
+message(STATUS "Fetching flac (1.4.3)...")
+FetchContent_Declare(flac
+	GIT_REPOSITORY
+		"https://github.com/xiph/flac"
+	GIT_TAG
+		1.4.3
+)
+FetchContent_MakeAvailable(flac)
+
 # Target: spdlog
 set(spdlog_SOURCES
 	"external/spdlog/src/async.cpp"
@@ -101,6 +126,7 @@ set(outrun2006tweaks_SOURCES
 	"src/hook_mgr.cpp"
 	"src/hooks_audio.cpp"
 	"src/hooks_bugfixes.cpp"
+	"src/hooks_flac.cpp"
 	"src/hooks_forcefeedback.cpp"
 	"src/hooks_framerate.cpp"
 	"src/hooks_graphics.cpp"
@@ -158,6 +184,8 @@ target_include_directories(outrun2006tweaks PUBLIC
 target_link_libraries(outrun2006tweaks PUBLIC
 	spdlog
 	safetyhook
+	ogg
+	FLAC
 	version.lib
 	xinput9_1_0.lib
 	Hid.lib

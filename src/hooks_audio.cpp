@@ -46,6 +46,7 @@ class AllowUncompressedBGM : public Hook
 		// Game hardcodes this to 3, but 1 allows using CWaveFile to load the audio
 		int waveFileType = ctx.eax;
 
+#if 0
 		FILE* file;
 		if (fopen_s(&file, strWaveFileName.string().c_str(), "rb") != 0)
 			return;
@@ -61,9 +62,12 @@ class AllowUncompressedBGM : public Hook
 		if (magic == FOURCC_RIFF || _byteswap_ulong(magic) == FOURCC_RIFF)
 		{
 			waveFileType = 1;
+#endif
+		{
 			// Switch the file game is trying to load to the wav instead
 			if (useWavFile)
 			{
+				waveFileType = 1;
 				strcpy_s(CurWavFilePath, strWaveFileName.string().c_str());
 				*(const char**)(ctx.esp + 0x54) = CurWavFilePath;
 			}
