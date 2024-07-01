@@ -54,6 +54,7 @@ namespace Settings
 	inline bool AutoDetectResolution = true;
 
 	inline bool AllowUncompressedBGM = true;
+	inline bool AllowFLAC = true;
 
 	inline bool CDSwitcherEnable = false;
 	inline bool CDSwitcherDisplayTitle = true;

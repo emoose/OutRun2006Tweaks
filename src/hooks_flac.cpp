@@ -94,8 +94,17 @@ HRESULT CFLACFile::OpenFromMemory(BYTE* pbData, ULONG ulDataSize, WAVEFORMATEX* 
 
 HRESULT CFLACFile::Read(BYTE* pBuffer, DWORD dwSizeToRead, DWORD* pdwSizeRead)
 {
-    if (!m_pDecodedData.size() || m_dwCurrentPosition >= m_dwDecodedDataSize)
+    if (!m_pDecodedData.size())
         return E_FAIL;
+
+    while (m_dwCurrentPosition + dwSizeToRead > m_dwDecodedDataSize)
+    {
+        if (FLAC__stream_decoder_get_state(m_pDecoder) == FLAC__STREAM_DECODER_END_OF_STREAM)
+            break;
+
+        if (!FLAC__stream_decoder_process_single(m_pDecoder))
+            break;
+    }
 
     DWORD dwAvailable = m_dwDecodedDataSize - m_dwCurrentPosition;
     DWORD dwRead = min(dwSizeToRead, dwAvailable);
@@ -144,7 +153,10 @@ HRESULT CFLACFile::ResetFile()
 
 HRESULT CFLACFile::DecodeFile()
 {
-    if (!FLAC__stream_decoder_process_until_end_of_stream(m_pDecoder))
+    if (!FLAC__stream_decoder_process_until_end_of_metadata(m_pDecoder))
+        return E_FAIL;
+
+    if (!FLAC__stream_decoder_process_single(m_pDecoder))
         return E_FAIL;
 
     return S_OK;
@@ -209,12 +221,16 @@ void CFLACFile::ErrorCallback(const FLAC__StreamDecoder* decoder, FLAC__StreamDe
 
 class AllowFLAC : public Hook
 {
-    // Replace CWaveFile init to use our CFLACFile instead
     inline static SafetyHookMid hook = {};
     static void destination(safetyhook::Context& ctx)
     {
-        CFLACFile* file = new CFLACFile();
-        ctx.eax = (uintptr_t)file;
+        if (ctx.eax == 2)
+        {
+            CFLACFile* file = new CFLACFile();
+            ctx.eax = (uintptr_t)file;
+
+            ctx.eip = 0x412008; // the code we hook heads toward end of function, move it back to the file loading part
+        }
     }
 
 public:
@@ -225,13 +241,12 @@ public:
 
     bool validate() override
     {
-        return true;
+        return Settings::AllowFLAC && Settings::AllowUncompressedBGM; // AllowUncompressedBGM hook is required for us to check if FLAC exists...
     }
 
     bool apply() override
     {
-        Memory::VP::Nop(0x411FC0, 0x411FD6 - 0x411FC0);
-        hook = safetyhook::create_mid(Module::exe_ptr(0x11FC0), destination);
+        hook = safetyhook::create_mid(Module::exe_ptr(0x120F4), destination);
         return !!hook;
     }
 

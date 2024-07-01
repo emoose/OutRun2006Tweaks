@@ -38,38 +38,46 @@ class AllowUncompressedBGM : public Hook
 		// If a .wav file exists with the same filename, let's try checking that file instead
 		std::filesystem::path fileNameAsWav = strWaveFileName;
 		fileNameAsWav = fileNameAsWav.replace_extension(".wav");
-
-		bool useWavFile = std::filesystem::exists(fileNameAsWav);
-		if (useWavFile)
-			strWaveFileName = fileNameAsWav;
+		std::filesystem::path fileNameAsFlac = strWaveFileName;
+		fileNameAsFlac = fileNameAsFlac.replace_extension(".flac");
 
 		// Game hardcodes this to 3, but 1 allows using CWaveFile to load the audio
 		int waveFileType = ctx.eax;
-
-#if 0
-		FILE* file;
-		if (fopen_s(&file, strWaveFileName.string().c_str(), "rb") != 0)
-			return;
-
-		uint32_t magic;
-		size_t numRead = fread(&magic, sizeof(uint32_t), 1, file);
-		fclose(file);
-
-		if (numRead != 1)
-			return;
-
-		// If file begins with RIFF magic change to filetype 1 so CWaveFile will be used to read it
-		if (magic == FOURCC_RIFF || _byteswap_ulong(magic) == FOURCC_RIFF)
+		if (Settings::AllowFLAC && std::filesystem::exists(fileNameAsFlac))
 		{
-			waveFileType = 1;
-#endif
+			waveFileType = 2;
+
+			// Switch the file game is trying to load to the flac instead
+			strcpy_s(CurWavFilePath, fileNameAsFlac.string().c_str());
+			*(const char**)(ctx.esp + 0x54) = CurWavFilePath;
+		}
+		else
 		{
-			// Switch the file game is trying to load to the wav instead
+			bool useWavFile = std::filesystem::exists(fileNameAsWav);
 			if (useWavFile)
+				strWaveFileName = fileNameAsWav;
+
+			FILE* file;
+			if (fopen_s(&file, strWaveFileName.string().c_str(), "rb") != 0)
+				return;
+
+			uint32_t magic;
+			size_t numRead = fread(&magic, sizeof(uint32_t), 1, file);
+			fclose(file);
+
+			if (numRead != 1)
+				return;
+
+			// If file begins with RIFF magic change to filetype 1 so CWaveFile will be used to read it
+			if (magic == FOURCC_RIFF || _byteswap_ulong(magic) == FOURCC_RIFF)
 			{
 				waveFileType = 1;
-				strcpy_s(CurWavFilePath, strWaveFileName.string().c_str());
-				*(const char**)(ctx.esp + 0x54) = CurWavFilePath;
+				// Switch the file game is trying to load to the wav instead
+				if (useWavFile)
+				{
+					strcpy_s(CurWavFilePath, strWaveFileName.string().c_str());
+					*(const char**)(ctx.esp + 0x54) = CurWavFilePath;
+				}
 			}
 		}
 
