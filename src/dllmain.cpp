@@ -155,9 +155,8 @@ namespace Settings
 
 		UIScalingMode = ini.Get("Graphics", "UIScalingMode", std::move(UIScalingMode));
 		UIScalingMode = std::clamp(UIScalingMode, 0, 2);
-		// UILetterboxing won't be exposed in INI, but can be added there to disable it if needed
-		// (letterboxing will only be active if UIScalingMode is set)
 		UILetterboxing = ini.Get("Graphics", "UILetterboxing", std::move(UILetterboxing));
+		UILetterboxing = std::clamp(UILetterboxing, 0, 2);
 
 		AnisotropicFiltering = ini.Get("Graphics", "AnisotropicFiltering", std::move(AnisotropicFiltering));
 		AnisotropicFiltering = std::clamp(AnisotropicFiltering, 0, 16);

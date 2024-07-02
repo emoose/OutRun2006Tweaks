@@ -1194,7 +1194,7 @@ class UILetterboxing : public Hook
 			*Game::current_mode == GameState::STATE_SMPAUSEMENU ||
 			(*Game::current_mode == GameState::STATE_START && *Game::game_start_progress_code == 65);
 
-		if (isInGame)
+		if (Settings::UILetterboxing == 1 && isInGame)
 			return; // disable letterboxing while in-game
 
 		// Backup existing cullmode and set to none, otherwise we won't get drawn
@@ -1237,7 +1237,7 @@ public:
 
 	bool validate() override
 	{
-		return Settings::UILetterboxing && Settings::UIScalingMode > 0;
+		return Settings::UILetterboxing > 0 && Settings::UIScalingMode > 0;
 	}
 
 	bool apply() override

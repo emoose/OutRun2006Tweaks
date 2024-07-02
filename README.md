@@ -5,35 +5,36 @@ Latest builds can be found under the releases section: https://github.com/emoose
 
 ### Features
 **Bugfixes:**
-- Prevents the "DEST" save corruption bug when trying to remap controls while having many dinput devices connected
-- Fixes C2C ranking scoreboards not updating on Steam and certain releases due to faulty anti-piracy checks
-- Pegasus animation's clopping sound effect will now end properly, without looping through whole session
-- Game can now load lens flare effect from correct path, restoring lens flare without needing to change game files
+- UI can now scale to different aspect ratios properly without stretching (requires `UIScalingMode = 2` in INI)
+- Prevents save corruption bug when remapping controls with many dinput devices connected
+- Fixed C2C ranking scoreboards not updating on Steam and other releases due to faulty anti-piracy checks
+- Pegasus animation's clopping sound effect will now end correctly
+- Lens flare effect now loads from correct path, without needing to change game files
 - Fixed Z-buffer precision issues that caused heavy z-fighting and distant object pop-in
-- Stage objects such as traffic cones will now only disappear once they're actually off-screen
+- Stage objects such as traffic cones now only disappear once they're actually off-screen
 - Fixes certain effects like engine backfiring which failed to appear when using controllers
-- Can hide text related to the now-defunct online service
+- Text related to the now-defunct online service can be hidden
 
 **Enhancements:**
-- Adds a built-in framelimiter to prevent game from speeding up
-- Textures for the UI and the game scene can be dumped & replaced
+- Built-in framelimiter to prevent the game from speeding up
 - FPS can now be partially unlocked, drawing at unlocked FPS while game runs at 60FPS tickrate
+- UI and game scene textures can be dumped & replaced
 - Allows disabling vehicle LODs, reducing the ugly pop-in as they get closer
-- Restores XInput rumble code from the Xbox release, allowing gear shifts/drifts/crashes/etc to give feedback
+- Restored XInput rumble code from the Xbox release, allowing gear shifts/drifts/crashes/etc to give feedback
 - Xbox Series impulse triggers are supported and can be tweaked inside INI
-- Can force anisotropic filtering & enable transparency supersampling, greatly reducing aliasing around the edges of the track
-- Render resolution of reflections can be increased from the default 128x128
+- Anisotropic filtering & transparency supersampling can be forced, greatly reducing aliasing around the edges of the track
+- Reflection rendering resolution can be increased from the default 128x128
 - Game can now run in borderless windowed mode; mouse cursor will now be hidden while game is active
-- Automatically disables DPI scaling on the game window, fixing scaling issues with certain setups
-- Heavily reduced load times by disabling framelimiter/vsync during load screens
-- Allows skipping intro splash screens
+- Automatically disables DPI scaling on the game window, fixing certain scaling issues
+- Load times heavily reduced by disabling framelimiter/vsync during load screens
+- Music can now be loaded from uncompressed WAV or lossless FLAC files, if they exist with the same filename
+- Allows intro splash screens to be skipped
 - Music track can be changed mid-race via Q and E buttons, or Back/RS+Back on controller (`CDSwitcher` must be enabled in INI first)
 
-All the above can be toggled/customized via the OutRun2006Tweaks.ini file.
+All the above can be customized via the OutRun2006Tweaks.ini file.
 
 FPS can be partially unlocked by increasing the `FramerateLimit` setting above 60 (or disabling it), with `FramerateUnlockExperimental` enabled.  
-This will then lock the games tickrate to 60FPS while draw-rate itself is unlocked.  
-(some things like animated textures & menu text may speed up with this, but the game speed itself will remain the same)
+This will then lock the games tickrate to 60FPS while draw-rate itself is unlocked, allowing game speed to stay consistent.
 
 ### Setup
 Since Steam/DVD releases are packed with ancient DRM that doesn't play well with DLL wrappers, this pack includes a replacement game EXE to run the game with.
@@ -45,8 +46,6 @@ To set it up:
 - Extract the files from the release ZIP into your `Outrun2006 Coast 2 Coast` folder, where `OR2006C2C.EXE` is located, replacing the original EXE.
 - Edit the `Outrun2006Tweaks.ini` to customize the tweaks to your liking (by default all tweaks are enabled)
 - Run the game, your desktop resolution will be used by default if `outrun2006.ini` file isn't present.
-
-**If you have framerate issues where game doesn't run at your full FramerateLimit setting**, try adding `DX/WINDOWED = 1` to your `outrun2006.ini` file and check if it helps.
 
 Steam Deck/Linux users may need to run the game with `WINEDLLOVERRIDES="dinput8=n,b" %command%` launch parameters for the mod to load in.
 
