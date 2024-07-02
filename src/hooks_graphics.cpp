@@ -1190,7 +1190,11 @@ class UILetterboxing : public Hook
 			VertexBuf->Unlock();
 		}
 
-		if (*Game::current_mode == GameState::STATE_GAME || *Game::current_mode == GameState::STATE_SMPAUSEMENU)
+		bool isInGame = *Game::current_mode == GameState::STATE_GAME ||
+			*Game::current_mode == GameState::STATE_SMPAUSEMENU ||
+			(*Game::current_mode == GameState::STATE_START && *Game::game_start_progress_code == 65);
+
+		if (isInGame)
 			return; // disable letterboxing while in-game
 
 		// Backup existing cullmode and set to none, otherwise we won't get drawn
