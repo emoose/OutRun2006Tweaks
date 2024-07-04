@@ -59,4 +59,4 @@ If the batch script succeeds you should see a `build\outrun2006tweaks-proj.sln` 
 ### Thanks
 Thanks to [debugging.games](http://debugging.games) for hosting debug symbols for OutRun 2 SP (Lindburgh), very useful for looking into Outrun2006.
 
-(**if you own any prototype version of Coast 2 Coast** it may also contain debug symbols inside, which would let us improve even more on the C2C side of the game - please consider getting in touch at my email: abc at cock dot li)
+(**if you own any prototype version of Coast 2 Coast or Online Arcade** it may also contain debug symbols inside, which would let us improve even more on the C2C side of the game - please consider getting in touch at my email: abc at cock dot li)
