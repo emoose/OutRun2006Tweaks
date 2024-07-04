@@ -4,28 +4,31 @@ A wrapper DLL that can patch in some minor fixes & tweaks into OutRun 2006: Coas
 Latest builds can be found under the releases section: https://github.com/emoose/OutRun2006Tweaks/releases
 
 ### Features
+**Gameplay:**
+- 120FPS+ support & built-in framelimiter, game can draw at any framerate while game uses 60FPS tickrate
+- Restored XInput rumble code from the Xbox release, allowing gear shifts/drifts/crashes/etc to give feedback
+- Xbox Series impulse triggers are supported and can be tweaked inside INI
+
+**Graphics:**
+- UI can now scale to different aspect ratios without stretching (requires `UIScalingMode = 1` in INI)
+- Game scene & UI textures can be dumped/replaced
+- Allows disabling vehicle LODs, reducing the ugly pop-in as they get closer
+- Fixed Z-buffer precision issues that caused heavy Z-fighting and distant object pop-in
+- Lens flare effect now loads from correct path without needing to change game files
+- Stage objects such as traffic cones now only disappear once they're actually off-screen
+- Fixes certain effects like engine backfiring which failed to appear when using controllers
+- Anisotropic filtering & transparency supersampling can be forced, greatly reducing aliasing around the edges of the track
+- Reflection rendering resolution can be increased from the default 128x128
+
 **Bugfixes:**
-- UI can now scale to different aspect ratios properly without stretching (requires `UIScalingMode = 1` in INI)
 - Prevents save corruption bug when remapping controls with many dinput devices connected
 - Fixed C2C ranking scoreboards not updating on Steam and other releases due to faulty anti-piracy checks
 - Pegasus animation's clopping sound effect will now end correctly
-- Lens flare effect now loads from correct path, without needing to change game files
-- Fixed Z-buffer precision issues that caused heavy z-fighting and distant object pop-in
-- Stage objects such as traffic cones now only disappear once they're actually off-screen
-- Fixes certain effects like engine backfiring which failed to appear when using controllers
 - Text related to the now-defunct online service can be hidden
+- Automatically disables DPI scaling on the game window to fix scaling issues
 
 **Enhancements:**
-- Built-in framelimiter to prevent the game from speeding up
-- FPS can now be partially unlocked, drawing at unlocked FPS while game runs at 60FPS tickrate
-- UI and game scene textures can be dumped & replaced
-- Allows disabling vehicle LODs, reducing the ugly pop-in as they get closer
-- Restored XInput rumble code from the Xbox release, allowing gear shifts/drifts/crashes/etc to give feedback
-- Xbox Series impulse triggers are supported and can be tweaked inside INI
-- Anisotropic filtering & transparency supersampling can be forced, greatly reducing aliasing around the edges of the track
-- Reflection rendering resolution can be increased from the default 128x128
 - Game can now run in borderless windowed mode; mouse cursor will now be hidden while game is active
-- Automatically disables DPI scaling on the game window, fixing certain scaling issues
 - Load times heavily reduced by disabling framelimiter/vsync during load screens
 - Music can now be loaded from uncompressed WAV or lossless FLAC files, if they exist with the same filename
 - Allows intro splash screens to be skipped
@@ -59,4 +62,4 @@ If the batch script succeeds you should see a `build\outrun2006tweaks-proj.sln` 
 ### Thanks
 Thanks to [debugging.games](http://debugging.games) for hosting debug symbols for OutRun 2 SP (Lindburgh), very useful for looking into Outrun2006.
 
-(**if you own any prototype version of Coast 2 Coast or Online Arcade** it may also contain debug symbols inside, which would let us improve even more on the C2C side of the game - please consider getting in touch at my email: abc at cock dot li)
+(**if you own any prototype of Coast 2 Coast or Online Arcade** it may also contain debug symbols inside, which would let us improve even more on the C2C side of the game - please consider getting in touch at my email: abc at cock dot li)
