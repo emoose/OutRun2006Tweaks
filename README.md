@@ -5,7 +5,7 @@ Latest builds can be found under the releases section: https://github.com/emoose
 
 ### Features
 **Bugfixes:**
-- UI can now scale to different aspect ratios properly without stretching (requires `UIScalingMode = 2` in INI)
+- UI can now scale to different aspect ratios properly without stretching (requires `UIScalingMode = 1` in INI)
 - Prevents save corruption bug when remapping controls with many dinput devices connected
 - Fixed C2C ranking scoreboards not updating on Steam and other releases due to faulty anti-piracy checks
 - Pegasus animation's clopping sound effect will now end correctly
@@ -50,20 +50,11 @@ To set it up:
 Steam Deck/Linux users may need to run the game with `WINEDLLOVERRIDES="dinput8=n,b" %command%` launch parameters for the mod to load in.
 
 ### Building
-Building requires Visual Studio 2022, CMake & git to be installed, with those setup just clone this repo and then run `build_2022.bat`.
+Building requires Visual Studio 2022, CMake & git to be installed, with those setup just clone this repo and then run `generate_2022.bat`.
 
 If the batch script succeeds you should see a `build\outrun2006tweaks-proj.sln` solution file, just open that in VS and build it.
 
 (if you have issues building with this setup please let me know)
-
-### TODO
-- even with LODs & culling disabled some distant cars still pop into view, can distance of them loading in be increased?
-- likewise certain parts of the stage have pop-in, usually happens when some part is obscured by some other geometry, occlusion culling maybe?
-- car shadow improvements? seems player car uses different shadowing to other cars, could that be added to those too?
--   (the existing car shadows also seem to disappear after some distance, could it be increased?)
-- input deadzone improvements?
-- fix broken car horn (haven't seen any code for it yet though...)
-- game retiming? probably a pipe dream - seems game is meant for 60.2Hz tickrate, lots of things coded for that & using 0.0166112... frametimes
 
 ### Thanks
 Thanks to [debugging.games](http://debugging.games) for hosting debug symbols for OutRun 2 SP (Lindburgh), very useful for looking into Outrun2006.

@@ -468,8 +468,8 @@ VSyncOverride VSyncOverride::instance;
 enum class ScalingMode
 {
 	Vanilla,
-	KeepCentered,
 	OnlineArcade,
+	KeepCentered,
 	Other
 };
 
@@ -686,10 +686,7 @@ class UIScaling : public Hook
 		{
 			float spacing = -((Game::screen_scale->y * Game::original_resolution.x) - Game::screen_resolution->x) / 2;
 
-			// Space out the UI elements if they're past a certain X position
-			// Seems this is pretty much what online arcade does
-			// TODO: add checks to skip processing non-HUD elements
-
+			// Space out the UI elements if they're in the not in the middle of the screen
 			float* m = *Module::exe_ptr<float*>(0x49B564);
 			float x = m[12];
 
