@@ -374,8 +374,8 @@ class UIScaling : public Hook
 		float spacing = -((Game::screen_scale->y * Game::original_resolution.x) - Game::screen_resolution->x) / 2;
 		spacing = spacing / Game::screen_scale->x;
 
-		int* positionX = (int*)(ctx.esp + 4);
-		*positionX += (int)spacing;
+		int* val = (int*)(ctx.esp + 4);
+		*val = int(float(*val) + spacing);
 	}
 	static void put_scroll_AdjustPosition2(safetyhook::Context& ctx)
 	{
@@ -386,8 +386,8 @@ class UIScaling : public Hook
 		float spacing = -((Game::screen_scale->y * Game::original_resolution.x) - Game::screen_resolution->x) / 2;
 		spacing = spacing / Game::screen_scale->x;
 
-		int* positionX = (int*)(ctx.esp + 4);
-		*positionX -= (int)spacing;
+		int* val = (int*)(ctx.esp + 4);
+		*val = int(float(*val) - spacing);
 	}
 
 	// PutGhostGapInfo
@@ -517,6 +517,10 @@ class UIScaling : public Hook
 	static inline SafetyHookMid C2CSpeechBubbleGF_AdjustPositionESP0_hk12{};
 	static inline SafetyHookMid C2CSpeechBubbleGF_AdjustPositionESP0_hk13{};
 	static inline SafetyHookMid C2CSpeechBubbleGF_AdjustPositionESP0_hk14{};
+
+	static inline SafetyHookMid C2CDontLoseGF_AdjustPosition_hk1{};
+	static inline SafetyHookMid C2CDontLoseGF_AdjustPosition_hk2{};
+	static inline SafetyHookMid C2CDontLoseGF_AdjustPosition_hk3{};
 
 	static void C2CSpeechBubble_AdjustPositionESP0(safetyhook::Context& ctx)
 	{
@@ -683,6 +687,11 @@ public:
 		C2CSpeechBubbleGF_AdjustPositionESP0_hk12 = safetyhook::create_mid((void*)0x4FCA1E, C2CSpeechBubble_AdjustPositionESP0);
 		C2CSpeechBubbleGF_AdjustPositionESP0_hk13 = safetyhook::create_mid((void*)0x4FCA51, C2CSpeechBubble_AdjustPositionESP0);
 		C2CSpeechBubbleGF_AdjustPositionESP0_hk14 = safetyhook::create_mid((void*)0x4FCB20, C2CSpeechBubble_AdjustPositionESP4);
+
+		// "don't lose your girlfriend" UI sprites
+		C2CDontLoseGF_AdjustPosition_hk1 = safetyhook::create_mid((void*)0x4BD397, put_scroll_AdjustPosition);
+		C2CDontLoseGF_AdjustPosition_hk2 = safetyhook::create_mid((void*)0x4BD414, put_scroll_AdjustPosition);
+		C2CDontLoseGF_AdjustPosition_hk3 = safetyhook::create_mid((void*)0x4BD472, put_scroll_AdjustPosition);
 
 		return true;
 	}
