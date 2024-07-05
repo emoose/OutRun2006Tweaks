@@ -5,7 +5,7 @@ Latest builds can be found under the releases section: https://github.com/emoose
 
 ### Features
 **Gameplay:**
-- 120FPS+ support & built-in framelimiter, game can draw at any framerate while game uses 60FPS tickrate
+- 120FPS+ support & built-in framelimiter, allows drawing at any framerate while game uses 60FPS tickrate
 - Restored XInput rumble code from the Xbox release, allowing gear shifts/drifts/crashes/etc to give feedback
 - Xbox Series impulse triggers are supported and can be tweaked inside INI
 
@@ -21,7 +21,7 @@ Latest builds can be found under the releases section: https://github.com/emoose
 - Reflection rendering resolution can be increased from the default 128x128
 
 **Bugfixes:**
-- Prevents save corruption bug when remapping controls with many dinput devices connected
+- Prevents save corruption bug when remapping controls with many input devices connected
 - Fixed C2C ranking scoreboards not updating on Steam and other releases due to faulty anti-piracy checks
 - Pegasus animation's clopping sound effect will now end correctly
 - Text related to the now-defunct online service can be hidden

@@ -361,6 +361,10 @@ class UIScaling : public Hook
 	static inline SafetyHookMid DispRank_put_scroll_AdjustPosition_hk8{};
 	static inline SafetyHookMid DispRank_put_scroll_AdjustPosition_hk9{};
 
+	static inline SafetyHookMid DispGearPosition_put_scroll_AdjustPosition_hk1{};
+	static inline SafetyHookMid DispGearPosition_put_scroll_AdjustPosition_hk2{};
+	static inline SafetyHookMid DispGearPosition_put_scroll_AdjustPosition_hk3{};
+
 	static void put_scroll_AdjustPosition(safetyhook::Context& ctx)
 	{
 		ScalingMode mode = ScalingMode(Settings::UIScalingMode);
@@ -372,6 +376,18 @@ class UIScaling : public Hook
 
 		int* positionX = (int*)(ctx.esp + 4);
 		*positionX += (int)spacing;
+	}
+	static void put_scroll_AdjustPosition2(safetyhook::Context& ctx)
+	{
+		ScalingMode mode = ScalingMode(Settings::UIScalingMode);
+		if (mode != ScalingMode::OnlineArcade)
+			return;
+
+		float spacing = -((Game::screen_scale->y * Game::original_resolution.x) - Game::screen_resolution->x) / 2;
+		spacing = spacing / Game::screen_scale->x;
+
+		int* positionX = (int*)(ctx.esp + 4);
+		*positionX -= (int)spacing;
 	}
 
 	// PutGhostGapInfo
@@ -604,6 +620,11 @@ public:
 		DispRank_put_scroll_AdjustPosition_hk6 = safetyhook::create_mid((void*)0x4BA01E, put_scroll_AdjustPosition);
 		DispRank_put_scroll_AdjustPosition_hk7 = safetyhook::create_mid((void*)0x4BA035, put_scroll_AdjustPosition);
 		DispRank_put_scroll_AdjustPosition_hk8 = safetyhook::create_mid((void*)0x4BA052, put_scroll_AdjustPosition);
+
+		// REV indicator
+		DispGearPosition_put_scroll_AdjustPosition_hk1 = safetyhook::create_mid((void*)0x4B9096, put_scroll_AdjustPosition2);
+		DispGearPosition_put_scroll_AdjustPosition_hk2 = safetyhook::create_mid((void*)0x4B90B3, put_scroll_AdjustPosition2);
+		DispGearPosition_put_scroll_AdjustPosition_hk3 = safetyhook::create_mid((void*)0x4B90F6, put_scroll_AdjustPosition2);
 
 		// Fix ghost car info text positions
 		PutGhostGapInfo_AdjustPosition_hk = safetyhook::create_mid((void*)0x4BDE3A, PutGhostGapInfo_AdjustPosition);
