@@ -747,7 +747,12 @@ class UILetterboxing : public Hook
 			VertexBuf->Unlock();
 		}
 
-		bool isInGame = *Game::current_mode == GameState::STATE_GAME ||
+		bool isInGame =
+			*Game::current_mode == GameState::STATE_GAME ||
+			*Game::current_mode == GameState::STATE_GOAL ||
+			*Game::current_mode == GameState::STATE_TIMEUP ||
+			*Game::current_mode == GameState::STATE_TRYAGAIN ||
+			*Game::current_mode == GameState::STATE_OUTRUNMILES ||
 			*Game::current_mode == GameState::STATE_SMPAUSEMENU ||
 			(*Game::current_mode == GameState::STATE_START && *Game::game_start_progress_code == 65);
 
