@@ -430,6 +430,7 @@ class UIScaling : public Hook
 	static inline SafetyHookMid DispGhostGap_ForceLeft_hk{};
 	static inline SafetyHookMid DispGhostGap_ForceLeft2_hk{};
 	static inline SafetyHookMid DispGhostGap_ForceRight_hk{};
+	static inline SafetyHookMid DispGhostGap_ForceRight2_hk{};
 
 	// NaviPub_DispTimeAttackGoal
 	static inline SafetyHookMid NaviPub_DispTimeAttackGoal_DisableScaling_hk{};
@@ -631,6 +632,7 @@ public:
 		DispGhostGap_ForceLeft_hk = safetyhook::create_mid((void*)0x4BE045, SpriteSpacingForceLeft);
 		DispGhostGap_ForceLeft2_hk = safetyhook::create_mid((void*)0x4BE083, SpriteSpacingForceLeft);
 		DispGhostGap_ForceRight_hk = safetyhook::create_mid((void*)0x4BE0A5, SpriteSpacingForceRight);
+		DispGhostGap_ForceRight2_hk = safetyhook::create_mid((void*)0x4BE067, SpriteSpacingForceRight);
 
 		PutGhostGapInfo_sub_AdjustPosition_hk = safetyhook::create_mid((void*)0x4BDAE8, PutGhostGapInfo_sub_AdjustPosition);
 
