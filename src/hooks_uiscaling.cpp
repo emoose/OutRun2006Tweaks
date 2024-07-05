@@ -45,32 +45,6 @@ class UIScaling : public Hook
 
 			float origX = (pTranslation->x / Game::screen_scale->x);
 
-			// TODO: this allows fixing the race position HUD element to be actually positioned properly
-			// but right now it'd end up breaking some other calls to draw_sprite_custom, like the text for button inputs on menus
-			// would need some way to know that this is actually the position HUD being drawn for us to only apply to that
-			// (alternately: find the code responsible for the position HUD and reposition it when that sets it up?)
-			// 
-			// ...but it turns out online arcade seems to have left the 1st/2nd/3rd HUD semi-broken?
-			// eg. https://youtu.be/-UqxjFgGvhk?t=39 shows it positioned slightly left of the actual "Position" text
-			// which doesn't match how it displays at 4:3 at all...
-			// guess they also ran into the same issue with it applying to other sprites and left it as is?
-#if 0
-			if (mode == ScalingMode::OnlineArcade && SpriteScalingEnabled)
-			{
-				float spacing = -((Game::screen_scale->y * Game::original_resolution.x) - Game::screen_resolution->x) / 2;
-
-				// Space out the UI elements if they're past a certain X position
-				// Seems this is pretty much what online arcade does
-				// TODO: add checks to skip processing non-HUD elements
-
-				float add = 0;
-				if (origX < SCREEN_ONE_THIRD)
-					add = -(spacing / Game::screen_scale->x);
-				if (origX >= SCREEN_TWO_THIRD)
-					add = (spacing / Game::screen_scale->x);
-				origX += add;
-			}
-#endif
 			// Reposition sprite to be centered
 			float centering = (Game::screen_resolution->x - (Game::original_resolution.x * scale)) / 2;
 			pTranslation->x = (origX * scale) + centering;
@@ -365,7 +339,8 @@ class UIScaling : public Hook
 	static inline SafetyHookMid DispGearPosition_put_scroll_AdjustPosition_hk2{};
 	static inline SafetyHookMid DispGearPosition_put_scroll_AdjustPosition_hk3{};
 
-	static void put_scroll_AdjustPosition(safetyhook::Context& ctx)
+	template <typename T>
+	static void AddSpriteSpacing(T* value, bool left)
 	{
 		ScalingMode mode = ScalingMode(Settings::UIScalingMode);
 		if (mode != ScalingMode::OnlineArcade)
@@ -374,38 +349,31 @@ class UIScaling : public Hook
 		float spacing = -((Game::screen_scale->y * Game::original_resolution.x) - Game::screen_resolution->x) / 2;
 		spacing = spacing / Game::screen_scale->x;
 
-		int* val = (int*)(ctx.esp + 4);
-		*val = int(float(*val) + spacing);
+		if(left)
+			*value = T(float(*value) - spacing);
+		else
+			*value = T(float(*value) + spacing);
 	}
-	static void put_scroll_AdjustPosition2(safetyhook::Context& ctx)
+
+	static void put_scroll_AdjustPositionRight(safetyhook::Context& ctx)
 	{
-		ScalingMode mode = ScalingMode(Settings::UIScalingMode);
-		if (mode != ScalingMode::OnlineArcade)
-			return;
-
-		float spacing = -((Game::screen_scale->y * Game::original_resolution.x) - Game::screen_resolution->x) / 2;
-		spacing = spacing / Game::screen_scale->x;
-
-		int* val = (int*)(ctx.esp + 4);
-		*val = int(float(*val) - spacing);
+		AddSpriteSpacing((int*)(ctx.esp + 4), false);
+	}
+	static void put_scroll_AdjustPositionLeft(safetyhook::Context& ctx)
+	{
+		AddSpriteSpacing((int*)(ctx.esp + 4), true);
 	}
 
 	// PutGhostGapInfo
 	static inline SafetyHookMid PutGhostGapInfo_AdjustPosition_hk{};
 	static void PutGhostGapInfo_AdjustPosition(safetyhook::Context& ctx)
 	{
-		ScalingMode mode = ScalingMode(Settings::UIScalingMode);
-		if (mode != ScalingMode::OnlineArcade)
-			return;
-
-		float spacing = -((Game::screen_scale->y * Game::original_resolution.x) - Game::screen_resolution->x) / 2;
-		spacing = spacing / Game::screen_scale->x;
-
+		bool left = false;
 		int* val = (int*)&ctx.ebp;
 		if (*val == 102)
-			spacing = -spacing;
+			left = true;
 
-		*val += (int)spacing;
+		AddSpriteSpacing(val, left);
 	};
 
 	// Fix position of the "Ghost/You/Diff" sprites shown with ghost car info
@@ -413,17 +381,12 @@ class UIScaling : public Hook
 	static inline SafetyHookMid PutGhostGapInfo_sub_AdjustPosition_hk{};
 	static void PutGhostGapInfo_sub_AdjustPosition(safetyhook::Context& ctx)
 	{
-		ScalingMode mode = ScalingMode(Settings::UIScalingMode);
-		if (mode != ScalingMode::OnlineArcade)
-			return;
+		bool left = false;
+		float* val = &ctx.xmm0.f32[0];
+		if (*val == 4.0f)
+			left = true;
 
-		float spacing = -((Game::screen_scale->y * Game::original_resolution.x) - Game::screen_resolution->x) / 2;
-		spacing = spacing / Game::screen_scale->x;
-
-		float val = ctx.xmm0.f32[0];
-		if (val == 4.0f)
-			spacing = -spacing;
-		ctx.xmm0.f32[0] = val + spacing;
+		AddSpriteSpacing(val, left);
 	}
 
 	// DispGhostGap
@@ -451,26 +414,14 @@ class UIScaling : public Hook
 	static inline SafetyHookMid ctrl_icon_work_AdjustPosition_hk{};
 	static void ctrl_icon_work_AdjustPosition(safetyhook::Context& ctx)
 	{
-		ScalingMode mode = ScalingMode(Settings::UIScalingMode);
-		if (mode != ScalingMode::OnlineArcade)
-			return;
-
-		float spacing = -((Game::screen_scale->y * Game::original_resolution.x) - Game::screen_resolution->x) / 2;
-		spacing = spacing / Game::screen_scale->x;
-		ctx.xmm0.f32[0] = ctx.xmm0.f32[0] + spacing;
+		AddSpriteSpacing(&ctx.xmm0.f32[0], false);
 	}
 
 	static inline SafetyHookMid ctrl_icon_work_AdjustPosition2_hk{};
 	static inline SafetyHookMid set_icon_work_AdjustPosition_hk{};
 	static void ctrl_icon_work_AdjustPosition2(safetyhook::Context& ctx)
 	{
-		ScalingMode mode = ScalingMode(Settings::UIScalingMode);
-		if (mode != ScalingMode::OnlineArcade)
-			return;
-
-		float spacing = -((Game::screen_scale->y * Game::original_resolution.x) - Game::screen_resolution->x) / 2;
-		spacing = spacing / Game::screen_scale->x;
-		ctx.xmm0.f32[0] = ctx.xmm0.f32[0] + spacing;
+		AddSpriteSpacing(&ctx.xmm0.f32[0], false);
 
 		*(float*)(ctx.esp) = ctx.xmm0.f32[0];
 	}
@@ -478,15 +429,7 @@ class UIScaling : public Hook
 	static inline SafetyHookMid DispTempHeartNum_AdjustPosition_hk{};
 	static void DispTempHeartNum_AdjustPosition(safetyhook::Context& ctx)
 	{
-		ScalingMode mode = ScalingMode(Settings::UIScalingMode);
-		if (mode != ScalingMode::OnlineArcade)
-			return;
-
-		float spacing = -((Game::screen_scale->y * Game::original_resolution.x) - Game::screen_resolution->x) / 2;
-		spacing = spacing / Game::screen_scale->x;
-
-		int* val = (int*)(ctx.esp);
-		*val = int(float(*val) + spacing);
+		AddSpriteSpacing((int*)(ctx.esp), false);
 	}
 
 	static inline SafetyHookMid C2CSpeechBubble_AdjustPositionESP0_hk1{};
@@ -524,28 +467,12 @@ class UIScaling : public Hook
 
 	static void C2CSpeechBubble_AdjustPositionESP0(safetyhook::Context& ctx)
 	{
-		ScalingMode mode = ScalingMode(Settings::UIScalingMode);
-		if (mode != ScalingMode::OnlineArcade)
-			return;
-
-		float spacing = -((Game::screen_scale->y * Game::original_resolution.x) - Game::screen_resolution->x) / 2;
-		spacing = spacing / Game::screen_scale->x;
-
-		float* val = (float*)(ctx.esp);
-		*val = *val + spacing;
+		AddSpriteSpacing((float*)(ctx.esp), false);
 	}
 
 	static void C2CSpeechBubble_AdjustPositionESP4(safetyhook::Context& ctx)
 	{
-		ScalingMode mode = ScalingMode(Settings::UIScalingMode);
-		if (mode != ScalingMode::OnlineArcade)
-			return;
-
-		float spacing = -((Game::screen_scale->y * Game::original_resolution.x) - Game::screen_resolution->x) / 2;
-		spacing = spacing / Game::screen_scale->x;
-
-		float* val = (float*)(ctx.esp + 4);
-		*val = *val + spacing;
+		AddSpriteSpacing((float*)(ctx.esp + 4), false);
 	}
 
 public:
@@ -604,32 +531,32 @@ public:
 		DispTimeAttack2D_SpriteScalingForceLeft_hk = safetyhook::create_mid((void*)0x4BE4E7, SpriteSpacingForceLeft);
 		DispTimeAttack2D_SpriteScalingForceEnable_hk = safetyhook::create_mid((void*)0x4BE575, SpriteSpacingEnable);
 
-		DispTimeAttack2D_put_scroll_AdjustPosition_hk = safetyhook::create_mid((void*)0x4BE5CD, put_scroll_AdjustPosition);
-		DispTimeAttack2D_put_scroll_AdjustPosition_hk2 = safetyhook::create_mid((void*)0x4BE603, put_scroll_AdjustPosition);
-		DispTimeAttack2D_put_scroll_AdjustPosition_hk3 = safetyhook::create_mid((void*)0x4BE633, put_scroll_AdjustPosition);
-		DispTimeAttack2D_put_scroll_AdjustPosition_hk4 = safetyhook::create_mid((void*)0x4BE66D, put_scroll_AdjustPosition);
-		DispTimeAttack2D_put_scroll_AdjustPosition_hk5 = safetyhook::create_mid((void*)0x4BE690, put_scroll_AdjustPosition);
-		DispTimeAttack2D_put_scroll_AdjustPosition_hk6 = safetyhook::create_mid((void*)0x4BE6B5, put_scroll_AdjustPosition);
-		DispTimeAttack2D_put_scroll_AdjustPosition_hk7 = safetyhook::create_mid((void*)0x4BE6D5, put_scroll_AdjustPosition);
-		DispTimeAttack2D_put_scroll_AdjustPosition_hk8 = safetyhook::create_mid((void*)0x4BE8D8, put_scroll_AdjustPosition);
-		DispTimeAttack2D_put_scroll_AdjustPosition_hk9 = safetyhook::create_mid((void*)0x4BE915, put_scroll_AdjustPosition);
-		DispTimeAttack2D_put_scroll_AdjustPosition_hk10 = safetyhook::create_mid((void*)0x4BE94A, put_scroll_AdjustPosition);
-		DispTimeAttack2D_put_scroll_AdjustPosition_hk11 = safetyhook::create_mid((void*)0x4BE97A, put_scroll_AdjustPosition);
-		DispTimeAttack2D_put_scroll_AdjustPosition_hk12 = safetyhook::create_mid((void*)0x4BE9A3, put_scroll_AdjustPosition);
+		DispTimeAttack2D_put_scroll_AdjustPosition_hk = safetyhook::create_mid((void*)0x4BE5CD, put_scroll_AdjustPositionRight);
+		DispTimeAttack2D_put_scroll_AdjustPosition_hk2 = safetyhook::create_mid((void*)0x4BE603, put_scroll_AdjustPositionRight);
+		DispTimeAttack2D_put_scroll_AdjustPosition_hk3 = safetyhook::create_mid((void*)0x4BE633, put_scroll_AdjustPositionRight);
+		DispTimeAttack2D_put_scroll_AdjustPosition_hk4 = safetyhook::create_mid((void*)0x4BE66D, put_scroll_AdjustPositionRight);
+		DispTimeAttack2D_put_scroll_AdjustPosition_hk5 = safetyhook::create_mid((void*)0x4BE690, put_scroll_AdjustPositionRight);
+		DispTimeAttack2D_put_scroll_AdjustPosition_hk6 = safetyhook::create_mid((void*)0x4BE6B5, put_scroll_AdjustPositionRight);
+		DispTimeAttack2D_put_scroll_AdjustPosition_hk7 = safetyhook::create_mid((void*)0x4BE6D5, put_scroll_AdjustPositionRight);
+		DispTimeAttack2D_put_scroll_AdjustPosition_hk8 = safetyhook::create_mid((void*)0x4BE8D8, put_scroll_AdjustPositionRight);
+		DispTimeAttack2D_put_scroll_AdjustPosition_hk9 = safetyhook::create_mid((void*)0x4BE915, put_scroll_AdjustPositionRight);
+		DispTimeAttack2D_put_scroll_AdjustPosition_hk10 = safetyhook::create_mid((void*)0x4BE94A, put_scroll_AdjustPositionRight);
+		DispTimeAttack2D_put_scroll_AdjustPosition_hk11 = safetyhook::create_mid((void*)0x4BE97A, put_scroll_AdjustPositionRight);
+		DispTimeAttack2D_put_scroll_AdjustPosition_hk12 = safetyhook::create_mid((void*)0x4BE9A3, put_scroll_AdjustPositionRight);
 
-		DispRank_put_scroll_AdjustPosition_hk1 = safetyhook::create_mid((void*)0x4B9F3A, put_scroll_AdjustPosition);
-		DispRank_put_scroll_AdjustPosition_hk2 = safetyhook::create_mid((void*)0x4B9F5E, put_scroll_AdjustPosition);
-		DispRank_put_scroll_AdjustPosition_hk3 = safetyhook::create_mid((void*)0x4B9F81, put_scroll_AdjustPosition);
-		DispRank_put_scroll_AdjustPosition_hk4 = safetyhook::create_mid((void*)0x4B9FD0, put_scroll_AdjustPosition);
-		DispRank_put_scroll_AdjustPosition_hk5 = safetyhook::create_mid((void*)0x4B9FFC, put_scroll_AdjustPosition);
-		DispRank_put_scroll_AdjustPosition_hk6 = safetyhook::create_mid((void*)0x4BA01E, put_scroll_AdjustPosition);
-		DispRank_put_scroll_AdjustPosition_hk7 = safetyhook::create_mid((void*)0x4BA035, put_scroll_AdjustPosition);
-		DispRank_put_scroll_AdjustPosition_hk8 = safetyhook::create_mid((void*)0x4BA052, put_scroll_AdjustPosition);
+		DispRank_put_scroll_AdjustPosition_hk1 = safetyhook::create_mid((void*)0x4B9F3A, put_scroll_AdjustPositionRight);
+		DispRank_put_scroll_AdjustPosition_hk2 = safetyhook::create_mid((void*)0x4B9F5E, put_scroll_AdjustPositionRight);
+		DispRank_put_scroll_AdjustPosition_hk3 = safetyhook::create_mid((void*)0x4B9F81, put_scroll_AdjustPositionRight);
+		DispRank_put_scroll_AdjustPosition_hk4 = safetyhook::create_mid((void*)0x4B9FD0, put_scroll_AdjustPositionRight);
+		DispRank_put_scroll_AdjustPosition_hk5 = safetyhook::create_mid((void*)0x4B9FFC, put_scroll_AdjustPositionRight);
+		DispRank_put_scroll_AdjustPosition_hk6 = safetyhook::create_mid((void*)0x4BA01E, put_scroll_AdjustPositionRight);
+		DispRank_put_scroll_AdjustPosition_hk7 = safetyhook::create_mid((void*)0x4BA035, put_scroll_AdjustPositionRight);
+		DispRank_put_scroll_AdjustPosition_hk8 = safetyhook::create_mid((void*)0x4BA052, put_scroll_AdjustPositionRight);
 
 		// REV indicator
-		DispGearPosition_put_scroll_AdjustPosition_hk1 = safetyhook::create_mid((void*)0x4B9096, put_scroll_AdjustPosition2);
-		DispGearPosition_put_scroll_AdjustPosition_hk2 = safetyhook::create_mid((void*)0x4B90B3, put_scroll_AdjustPosition2);
-		DispGearPosition_put_scroll_AdjustPosition_hk3 = safetyhook::create_mid((void*)0x4B90F6, put_scroll_AdjustPosition2);
+		DispGearPosition_put_scroll_AdjustPosition_hk1 = safetyhook::create_mid((void*)0x4B9096, put_scroll_AdjustPositionLeft);
+		DispGearPosition_put_scroll_AdjustPosition_hk2 = safetyhook::create_mid((void*)0x4B90B3, put_scroll_AdjustPositionLeft);
+		DispGearPosition_put_scroll_AdjustPosition_hk3 = safetyhook::create_mid((void*)0x4B90F6, put_scroll_AdjustPositionLeft);
 
 		// Fix ghost car info text positions
 		PutGhostGapInfo_AdjustPosition_hk = safetyhook::create_mid((void*)0x4BDE3A, PutGhostGapInfo_AdjustPosition);
@@ -689,9 +616,9 @@ public:
 		C2CSpeechBubbleGF_AdjustPositionESP0_hk14 = safetyhook::create_mid((void*)0x4FCB20, C2CSpeechBubble_AdjustPositionESP4);
 
 		// "don't lose your girlfriend" UI sprites
-		C2CDontLoseGF_AdjustPosition_hk1 = safetyhook::create_mid((void*)0x4BD397, put_scroll_AdjustPosition);
-		C2CDontLoseGF_AdjustPosition_hk2 = safetyhook::create_mid((void*)0x4BD414, put_scroll_AdjustPosition);
-		C2CDontLoseGF_AdjustPosition_hk3 = safetyhook::create_mid((void*)0x4BD472, put_scroll_AdjustPosition);
+		C2CDontLoseGF_AdjustPosition_hk1 = safetyhook::create_mid((void*)0x4BD397, put_scroll_AdjustPositionRight);
+		C2CDontLoseGF_AdjustPosition_hk2 = safetyhook::create_mid((void*)0x4BD414, put_scroll_AdjustPositionRight);
+		C2CDontLoseGF_AdjustPosition_hk3 = safetyhook::create_mid((void*)0x4BD472, put_scroll_AdjustPositionRight);
 
 		return true;
 	}
