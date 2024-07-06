@@ -83,14 +83,28 @@ class TextureReplacement : public Hook
 	inline static void* prevTexture = nullptr;
 	inline static int prevTextureId = 0;
 
+	// Mask textures don't get put_sprite_ex2 called for them, instead the next sprite drawn will have ptr_B4 setup to point to it
+	// That next sprite will likely call get_texture_dest with a different sprite ID, so we also have to keep track of the ID used prior
+	inline static void* prevMaskTexture = nullptr;
+	inline static int prevMaskTextureId = 0;
+
 	inline static SafetyHookInline get_texture = {};
 	static void* __cdecl get_texture_dest(int textureId)
 	{
 		auto* ret = get_texture.call<void*>(textureId);
+
+		prevMaskTexture = prevTexture;
+		prevMaskTextureId = prevTextureId;
+
 		if (ret && sprite_scales.contains(textureId))
 		{
 			prevTexture = ret;
 			prevTextureId = textureId;
+		}
+		else
+		{
+			prevTexture = nullptr;
+			prevTextureId = 0;
 		}
 		return ret;
 	}
@@ -129,23 +143,34 @@ class TextureReplacement : public Hook
 	{
 		int xstnum = a1->xstnum_0;
 
-		if (sprite_scales.contains(prevTextureId))
+		if (a1->d3dtexture_ptr_C == prevTexture)
 		{
-			auto scaleX = std::get<0>(sprite_scales[prevTextureId]);
-			auto scaleY = std::get<1>(sprite_scales[prevTextureId]);
-			if (a1->d3dtexture_ptr_C == prevTexture)
+			if (sprite_scales.contains(prevTextureId))
 			{
+				auto scaleX = std::get<0>(sprite_scales[prevTextureId]);
+				auto scaleY = std::get<1>(sprite_scales[prevTextureId]);
 				RescaleSprArgs2(a1, scaleX, scaleY);
-
 				prevTexture = nullptr;
 				prevTextureId = 0;
 			}
-			if (a1->ptr_B4 && a1->ptr_B4->d3dtexture_ptr_C == prevTexture)
-			{
-				RescaleSprArgs2(a1->ptr_B4, scaleX, scaleY);
+		}
 
-				prevTexture = nullptr;
-				prevTextureId = 0;
+		if (a1->child_B4)
+		{
+			int spr_mask_flag = *Module::exe_ptr<int>(0x586B28);
+			if (spr_mask_flag)
+			{
+				if (a1->child_B4->d3dtexture_ptr_C == prevMaskTexture)
+				{
+					if (sprite_scales.contains(prevMaskTextureId))
+					{
+						auto scaleX = std::get<0>(sprite_scales[prevMaskTextureId]);
+						auto scaleY = std::get<1>(sprite_scales[prevMaskTextureId]);
+						RescaleSprArgs2(a1->child_B4, scaleX, scaleY);
+						prevMaskTexture = nullptr;
+						prevMaskTextureId = 0;
+					}
+				}
 			}
 		}
 
