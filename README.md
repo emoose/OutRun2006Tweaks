@@ -4,11 +4,6 @@ A wrapper DLL that can patch in some minor fixes & tweaks into OutRun 2006: Coas
 Latest builds can be found under the releases section: https://github.com/emoose/OutRun2006Tweaks/releases
 
 ### Features
-**Gameplay:**
-- 120FPS+ support & built-in framelimiter, allows drawing at any framerate while game uses 60FPS tickrate
-- Restored XInput rumble code from the Xbox release, allowing gear shifts/drifts/crashes/etc to give feedback
-- Xbox Series impulse triggers are supported and can be tweaked inside INI
-
 **Graphics:**
 - UI can now scale to different aspect ratios without stretching (requires `UIScalingMode = 1` in INI)
 - Game scene & UI textures can be dumped/replaced
@@ -19,6 +14,11 @@ Latest builds can be found under the releases section: https://github.com/emoose
 - Fixes certain effects like engine backfiring which failed to appear when using controllers
 - Anisotropic filtering & transparency supersampling can be forced, greatly reducing aliasing around the edges of the track
 - Reflection rendering resolution can be increased from the default 128x128
+
+**Gameplay:**
+- Built-in framelimiter to prevent speedups, framerate can be partially unlocked with game running at 60FPS internally
+- Restored XInput rumble code from the Xbox release, allowing gear shifts/drifts/crashes/etc to give feedback
+- Xbox Series impulse triggers are supported and can be tweaked inside INI
 
 **Bugfixes:**
 - Prevents save corruption bug when remapping controls with many input devices connected
@@ -36,8 +36,9 @@ Latest builds can be found under the releases section: https://github.com/emoose
 
 All the above can be customized via the OutRun2006Tweaks.ini file.
 
-FPS can be partially unlocked by increasing the `FramerateLimit` setting above 60 (or disabling it), with `FramerateUnlockExperimental` enabled.  
-This will then lock the games tickrate to 60FPS while draw-rate itself is unlocked, allowing game speed to stay consistent.
+The partial FPS unlock allows game to render out at higher FPS, **but will still run at 60FPS internally**.  
+This won't give as much benefit as a true framerate unlock since frames will be repeated, but it can help reduce load times & improve some effects like the reflections update rate.  
+(high refresh rate monitors that have poor 60Hz response times may also benefit from this too)
 
 ### Setup
 Since Steam/DVD releases are packed with ancient DRM that doesn't play well with DLL wrappers, this pack includes a replacement game EXE to run the game with.
