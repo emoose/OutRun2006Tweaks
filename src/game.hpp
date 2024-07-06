@@ -259,7 +259,7 @@ typedef struct tagSPRARGS2
 	float unk_A8;
 	uint32_t unk_AC;
 	uint32_t unk_B0;
-	uint32_t ptr_B4;
+	tagSPRARGS2* ptr_B4;
 } SPRARGS2;
 static_assert(sizeof(SPRARGS2) == 0xB8);
 

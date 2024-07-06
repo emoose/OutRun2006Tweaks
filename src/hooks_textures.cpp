@@ -95,44 +95,60 @@ class TextureReplacement : public Hook
 		return ret;
 	}
 
+	static void RescaleSprArgs2(SPRARGS2* a1, float scaleX, float scaleY)
+	{
+		// left is kept at both unk_88 & unk_A0, we'll do both seperately in case they're different for some reason
+		float origLeft = 1.0f - a1->left_88;
+		origLeft = origLeft * scaleX;
+		a1->left_88 = 1.0f - origLeft;
+
+		origLeft = 1.0f - a1->left_A0;
+		origLeft = origLeft * scaleX;
+		a1->left_A0 = 1.0f - origLeft;
+
+		// right at unk_90 & unk_98
+		float origRight = 1.0f - a1->right_90;
+		origRight = origRight * scaleX;
+		a1->right_90 = 1.0f - origRight;
+
+		origRight = 1.0f - a1->right_98;
+		origRight = origRight * scaleX;
+		a1->right_98 = 1.0f - origRight;
+
+		// bottom?
+		a1->bottom_84 = a1->bottom_84 * scaleY;
+		a1->bottom_8C = a1->bottom_8C * scaleY;
+
+		// top?
+		a1->top_94 = a1->top_94 * scaleY;
+		a1->top_9C = a1->top_9C * scaleY;
+	}
+
 	inline static SafetyHookInline put_sprite_ex2 = {};
 	static int __cdecl put_sprite_ex2_dest(SPRARGS2* a1, float a2)
 	{
 		int xstnum = a1->xstnum_0;
-		if (a1->d3dtexture_ptr_C == prevTexture && sprite_scales.contains(prevTextureId))
+
+		if (sprite_scales.contains(prevTextureId))
 		{
 			auto scaleX = std::get<0>(sprite_scales[prevTextureId]);
 			auto scaleY = std::get<1>(sprite_scales[prevTextureId]);
+			if (a1->d3dtexture_ptr_C == prevTexture)
+			{
+				RescaleSprArgs2(a1, scaleX, scaleY);
 
-			// left is kept at both unk_88 & unk_A0, we'll do both seperately in case they're different for some reason
-			float origLeft = 1.0f - a1->left_88;
-			origLeft = origLeft * scaleX;
-			a1->left_88 = 1.0f - origLeft;
+				prevTexture = nullptr;
+				prevTextureId = 0;
+			}
+			if (a1->ptr_B4 && a1->ptr_B4->d3dtexture_ptr_C == prevTexture)
+			{
+				RescaleSprArgs2(a1->ptr_B4, scaleX, scaleY);
 
-			origLeft = 1.0f - a1->left_A0;
-			origLeft = origLeft * scaleX;
-			a1->left_A0 = 1.0f - origLeft;
-
-			// right at unk_90 & unk_98
-			float origRight = 1.0f - a1->right_90;
-			origRight = origRight * scaleX;
-			a1->right_90 = 1.0f - origRight;
-
-			origRight = 1.0f - a1->right_98;
-			origRight = origRight * scaleX;
-			a1->right_98 = 1.0f - origRight;
-
-			// bottom?
-			a1->bottom_84 = a1->bottom_84 * scaleY;
-			a1->bottom_8C = a1->bottom_8C * scaleY;
-
-			// top?
-			a1->top_94 = a1->top_94 * scaleY;
-			a1->top_9C = a1->top_9C * scaleY;
-
-			prevTexture = nullptr;
-			prevTextureId = 0;
+				prevTexture = nullptr;
+				prevTextureId = 0;
+			}
 		}
+
 		return put_sprite_ex2.call<int>(a1, a2);
 	}
 
