@@ -58,6 +58,32 @@ class TextureReplacement : public Hook
 	inline static std::filesystem::path XmtLoadPath;
 	inline static DirectoryFileCache FileSystem;
 
+	// Remappings for FXT modded sprites, so we can point them toward the vanilla versions
+	inline static std::unordered_map<uint32_t, std::tuple<uint32_t, int, int>> FxtHashRemappings =
+	{
+		// spr_sprani_etc_cvt_Exst
+		{0x8F1D69D3, {0x1F77CB88,128,128}}, // FXT arcade controls
+
+		// spr_sprani_CLAR_RANK_Exst
+		{0x8F663222, {0x4AFC1BED,512,512}}, // uncensored Clarissa
+		{0x469F516D, {0xF043316B,1024,512}}, // uncensored Clarissa
+		{0x86325B15, {0x8B52FEEC,1024,512}}, // uncensored Clarissa
+
+		// spr_sprani_game_cvt_Exst
+		{0x1025284E, {0xC4A2937B,1024,1024}}, // uncensored Clarissa
+		{0xFDC4E73B, {0x39229D64,1024,1024}}, // uncensored Clarissa
+
+		// spr_sprani_sumo_fe_cvt_Exst
+		{0x50D487A9, {0xACF61D7C,1024,512}}, // arcade controls
+		{0x2F7DFED1, {0x31C58963,512,256}}, // removed "press enter" text
+		{0x678170B1, {0x4DC09A74,1024,1024}}, // uncensored Clarissa
+
+		// spr_sprani_selector_cvt_Exst
+		{0x698EEA48, {0x2DA43E41,1024,1024}}, // uncensored Clarissa
+
+		// TODO: there is an FXT spr_sprani_congrats_cvt_exst but not sure how to get game to load that yet..
+	};
+
 	//
 	// UI texture replacement code
 	//
@@ -213,6 +239,14 @@ class TextureReplacement : public Hook
 		int width = header->data.dwWidth;
 		int height = header->data.dwHeight;
 		auto hash = XXH32(*ppSrcData, *pSrcDataSize, 0);
+
+		// Remap some modified FXT textures to their original hashes
+		if (FxtHashRemappings.count(hash))
+		{
+			auto& mapping = FxtHashRemappings[hash];
+			if (std::get<1>(mapping) == width && std::get<2>(mapping) == height) // make sure width/height match expected in case of collision...
+				hash = std::get<0>(mapping);
+		}
 
 		std::string ddsName = std::format("{:X}_{}x{}.dds", hash, width, height);
 
