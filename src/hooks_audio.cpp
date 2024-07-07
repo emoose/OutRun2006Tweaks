@@ -10,9 +10,8 @@ class AllowUncompressedBGM : public Hook
 {
 	// Hook games BGM loader to check the type of the audio file being loaded
 	// Game already has CWaveFile code to load in uncompressed WAV audio, but it goes left unused
-	// We'll just check if the file looks like a WAV, and if so switch to that code
+	// We'll just check if any WAV file exists with the same filename, and switch over to it if so
 	// (fortunately games BGM code seems based on DirectX DXUTsound.cpp sample, which included the CWaveFile class)
-	// This will also check if there's any .wav file with the same filename too, and try switching to that instead
 	const static int CSoundManager__CreateStreaming_HookAddr = 0x11FA3;
 
 	inline static char CurWavFilePath[4096];
@@ -41,47 +40,33 @@ class AllowUncompressedBGM : public Hook
 		std::filesystem::path fileNameAsFlac = strWaveFileName;
 		fileNameAsFlac = fileNameAsFlac.replace_extension(".flac");
 
-		// Game hardcodes this to 3, but 1 allows using CWaveFile to load the audio
-		int waveFileType = ctx.eax;
+		enum class WaveFileType
+		{
+			WAV = 1,
+			FLAC = 2,
+			OGG = 3
+		};
+
+		// Normally hardcoded to 3/OGG, but changing to 1/WAV allows using CWaveFile
+		// 2/FLAC is checked for by our hooks_flac.cpp code
+		WaveFileType waveFileType = WaveFileType(ctx.eax);
 		if (Settings::AllowFLAC && std::filesystem::exists(fileNameAsFlac))
 		{
-			waveFileType = 2;
+			waveFileType = WaveFileType::FLAC;
 
 			// Switch the file game is trying to load to the flac instead
 			strcpy_s(CurWavFilePath, fileNameAsFlac.string().c_str());
 			*(const char**)(ctx.esp + 0x54) = CurWavFilePath;
 		}
-		else
+		else if (Settings::AllowUncompressedBGM && std::filesystem::exists(fileNameAsWav))
 		{
-			bool useWavFile = std::filesystem::exists(fileNameAsWav);
-			if (useWavFile)
-				strWaveFileName = fileNameAsWav;
+			waveFileType = WaveFileType::WAV;
 
-			FILE* file;
-			if (fopen_s(&file, strWaveFileName.string().c_str(), "rb") != 0)
-				return;
-
-			uint32_t magic;
-			size_t numRead = fread(&magic, sizeof(uint32_t), 1, file);
-			fclose(file);
-
-			if (numRead != 1)
-				return;
-
-			// If file begins with RIFF magic change to filetype 1 so CWaveFile will be used to read it
-			if (magic == FOURCC_RIFF || _byteswap_ulong(magic) == FOURCC_RIFF)
-			{
-				waveFileType = 1;
-				// Switch the file game is trying to load to the wav instead
-				if (useWavFile)
-				{
-					strcpy_s(CurWavFilePath, strWaveFileName.string().c_str());
-					*(const char**)(ctx.esp + 0x54) = CurWavFilePath;
-				}
-			}
+			// Switch the file game is trying to load to the wav instead
+			strcpy_s(CurWavFilePath, fileNameAsWav.string().c_str());
+			*(const char**)(ctx.esp + 0x54) = CurWavFilePath;
 		}
-
-		ctx.eax = waveFileType;
+		ctx.eax = int(waveFileType);
 	}
 
 public:

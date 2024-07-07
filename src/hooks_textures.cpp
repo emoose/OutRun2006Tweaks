@@ -143,16 +143,13 @@ class TextureReplacement : public Hook
 	{
 		int xstnum = a1->xstnum_0;
 
-		if (a1->d3dtexture_ptr_C == prevTexture)
+		if (a1->d3dtexture_ptr_C == prevTexture && sprite_scales.contains(prevTextureId))
 		{
-			if (sprite_scales.contains(prevTextureId))
-			{
-				auto scaleX = std::get<0>(sprite_scales[prevTextureId]);
-				auto scaleY = std::get<1>(sprite_scales[prevTextureId]);
-				RescaleSprArgs2(a1, scaleX, scaleY);
-				prevTexture = nullptr;
-				prevTextureId = 0;
-			}
+			auto scaleX = std::get<0>(sprite_scales[prevTextureId]);
+			auto scaleY = std::get<1>(sprite_scales[prevTextureId]);
+			RescaleSprArgs2(a1, scaleX, scaleY);
+			prevTexture = nullptr;
+			prevTextureId = 0;
 		}
 
 		if (a1->child_B4)
@@ -160,16 +157,13 @@ class TextureReplacement : public Hook
 			int spr_mask_flag = *Module::exe_ptr<int>(0x586B28);
 			if (spr_mask_flag)
 			{
-				if (a1->child_B4->d3dtexture_ptr_C == prevMaskTexture)
+				if (a1->child_B4->d3dtexture_ptr_C == prevMaskTexture && sprite_scales.contains(prevMaskTextureId))
 				{
-					if (sprite_scales.contains(prevMaskTextureId))
-					{
-						auto scaleX = std::get<0>(sprite_scales[prevMaskTextureId]);
-						auto scaleY = std::get<1>(sprite_scales[prevMaskTextureId]);
-						RescaleSprArgs2(a1->child_B4, scaleX, scaleY);
-						prevMaskTexture = nullptr;
-						prevMaskTextureId = 0;
-					}
+					auto scaleX = std::get<0>(sprite_scales[prevMaskTextureId]);
+					auto scaleY = std::get<1>(sprite_scales[prevMaskTextureId]);
+					RescaleSprArgs2(a1->child_B4, scaleX, scaleY);
+					prevMaskTexture = nullptr;
+					prevMaskTextureId = 0;
 				}
 			}
 		}
