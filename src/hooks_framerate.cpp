@@ -125,7 +125,7 @@ class ReplaceGameUpdateLoop : public Hook
 		// need to call 43FA10 in order for "extend time" gfx to disappear
 		Game::fn43FA10(numUpdates);
 
-		CDSwitcher_Draw(numUpdates);
+		AudioHooks_Update(numUpdates);
 
 		if (numUpdates > 0)
 		{

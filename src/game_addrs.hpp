@@ -64,6 +64,9 @@ namespace Game
 	inline fn_0args fn4666A0 = nullptr;
 
 	inline fn_1arg PrjSndRequest = nullptr;
+	inline fn_1arg SetSndQueue = nullptr;
+
+	inline fn_1arg_int SwitchNow = nullptr;
 
 	inline fn_1arg_int GetNowStageNum = nullptr;
 	inline fn_1arg_int GetStageUniqueNum = nullptr;
@@ -128,6 +131,9 @@ namespace Game
 		fn4666A0 = Module::fn_ptr<fn_0args>(0x666A0);
 
 		PrjSndRequest = Module::fn_ptr<fn_1arg>(0x249F0);
+		SetSndQueue = Module::fn_ptr<fn_1arg>(0x24940);
+
+		SwitchNow = Module::fn_ptr<fn_1arg_int>(0x536C0);
 
 		GetNowStageNum = Module::fn_ptr<fn_1arg_int>(0x50380);
 		GetStageUniqueNum = Module::fn_ptr<fn_1arg_int>(0x4DC50);

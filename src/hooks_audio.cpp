@@ -243,11 +243,29 @@ public:
 };
 CDSwitcher CDSwitcher::instance;
 
-void CDSwitcher_Draw(int numUpdates)
+void AudioHooks_Update(int numUpdates)
 {
-	if (!Settings::CDSwitcherDisplayTitle)
-		return;
-	CDSwitcher::draw(numUpdates);
+	if (numUpdates > 0 && Settings::AllowHorn)
+	{
+		static bool hornActive = false;
+		if (Game::SwitchNow(0x10) && // Check if horn button is pressed
+			*Game::current_mode == GameState::STATE_GAME)
+		{
+			Game::SetSndQueue(0x1BC | SND_LOOP);
+			hornActive = true;
+		}
+		else
+		{
+			if (hornActive)
+			{
+				Game::SetSndQueue(0x1BC | SND_STOP);
+				hornActive = false;
+			}
+		}
+	}
+
+	if (Settings::CDSwitcherDisplayTitle)
+		CDSwitcher::draw(numUpdates);
 }
 
 void CDSwitcher_ReadIni(const std::filesystem::path& iniPath)

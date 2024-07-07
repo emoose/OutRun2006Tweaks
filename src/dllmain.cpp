@@ -62,6 +62,7 @@ namespace Settings
 		spdlog::info(" - DisableDPIScaling: {}", DisableDPIScaling);
 		spdlog::info(" - AutoDetectResolution: {}", AutoDetectResolution);
 
+		spdlog::info(" - AllowHorn: {}", AllowHorn);
 		spdlog::info(" - AllowUncompressedBGM: {}", AllowUncompressedBGM);
 		spdlog::info(" - AllowFLAC: {}", AllowFLAC);
 
@@ -140,6 +141,7 @@ namespace Settings
 		DisableDPIScaling = ini.Get("Window", "DisableDPIScaling", std::move(DisableDPIScaling));
 		AutoDetectResolution = ini.Get("Window", "AutoDetectResolution", std::move(AutoDetectResolution));
 
+		AllowHorn = ini.Get("Audio", "AllowHorn", std::move(AllowHorn));
 		AllowUncompressedBGM = ini.Get("Audio", "AllowUncompressedBGM", std::move(AllowUncompressedBGM));
 		AllowFLAC = ini.Get("Audio", "AllowFLAC", std::move(AllowFLAC));
 

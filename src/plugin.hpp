@@ -6,7 +6,7 @@
 
 extern void DInput_RegisterNewDevices(); // hooks_input.cpp
 extern void SetVibration(int userId, float leftMotor, float rightMotor); // hooks_forcefeedback.cpp
-extern void CDSwitcher_Draw(int numUpdates); // hooks_audio.cpp
+extern void AudioHooks_Update(int numUpdates); // hooks_audio.cpp
 extern void CDSwitcher_ReadIni(const std::filesystem::path& iniPath);
 
 namespace Module
@@ -53,6 +53,7 @@ namespace Settings
 	inline bool DisableDPIScaling = true;
 	inline bool AutoDetectResolution = true;
 
+	inline bool AllowHorn = true;
 	inline bool AllowUncompressedBGM = true;
 	inline bool AllowFLAC = true;
 
