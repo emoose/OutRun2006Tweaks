@@ -63,6 +63,7 @@ namespace Settings
 	inline float CDSwitcherTitleFontSizeY = 0.5f;
 	inline int CDSwitcherTitlePositionX = 375;
 	inline int CDSwitcherTitlePositionY = 450;
+	inline bool CDSwitcherShuffleTracks = false;
 	inline std::string CDSwitcherTrackNext = "Back";
 	inline std::string CDSwitcherTrackPrevious = "RS+Back";
 

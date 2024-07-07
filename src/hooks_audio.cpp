@@ -3,6 +3,8 @@
 #include "game_addrs.hpp"
 #include <mmiscapi.h>
 #include <fstream>
+#include <algorithm>
+#include <random>
 
 std::string BGMOverridePath;
 
@@ -150,8 +152,8 @@ class CDSwitcher : public Hook
 				PadStatePrev = false;
 		}
 
-		bool KeyStateNext = (GetAsyncKeyState('E') || PadStateNext);
-		bool KeyStatePrev = (GetAsyncKeyState('Q') || PadStatePrev);
+		bool KeyStateNext = (GetAsyncKeyState('X') || PadStateNext);
+		bool KeyStatePrev = (GetAsyncKeyState('Z') || PadStatePrev);
 
 		bool BGMChanged = false;
 
@@ -291,5 +293,14 @@ void CDSwitcher_ReadIni(const std::filesystem::path& iniPath)
 		}
 
 		file.close();
+	}
+
+	if (Settings::CDSwitcherShuffleTracks)
+	{
+		std::random_device rd;
+		std::mt19937 g(rd());
+
+		// Use std::shuffle to shuffle the vector
+		std::shuffle(Settings::CDTracks.begin(), Settings::CDTracks.end(), g);
 	}
 }
