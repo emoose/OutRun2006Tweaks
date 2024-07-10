@@ -85,7 +85,7 @@ namespace Settings
 		spdlog::info(" - DisableVehicleLODs: {}", DisableVehicleLODs);
 		spdlog::info(" - DisableStageCulling: {}", DisableStageCulling);
 		spdlog::info(" - FixZBufferPrecision: {}", FixZBufferPrecision);
-		spdlog::info(" - RestoreCarBaseShadow: {}", RestoreCarBaseShadow);
+		spdlog::info(" - CarBaseShadowOpacity: {}", CarBaseShadowOpacity);
 
 		spdlog::info(" - SceneTextureReplacement: {}", SceneTextureReplacement);
 		spdlog::info(" - SceneTextureDump: {}", SceneTextureDump);
@@ -172,7 +172,7 @@ namespace Settings
 		DisableVehicleLODs = ini.Get("Graphics", "DisableVehicleLODs", std::move(DisableVehicleLODs));
 		DisableStageCulling = ini.Get("Graphics", "DisableStageCulling", std::move(DisableStageCulling));
 		FixZBufferPrecision = ini.Get("Graphics", "FixZBufferPrecision", std::move(FixZBufferPrecision));
-		RestoreCarBaseShadow = ini.Get("Graphics", "RestoreCarBaseShadow", std::move(RestoreCarBaseShadow));
+		CarBaseShadowOpacity = ini.Get("Graphics", "CarBaseShadowOpacity", std::move(CarBaseShadowOpacity));
 
 		SceneTextureReplacement = ini.Get("Graphics", "SceneTextureReplacement", std::move(SceneTextureReplacement));
 		SceneTextureDump = ini.Get("Graphics", "SceneTextureDump", std::move(SceneTextureDump));

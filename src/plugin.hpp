@@ -79,7 +79,7 @@ namespace Settings
 	inline bool DisableVehicleLODs = true;
 	inline bool DisableStageCulling = true;
 	inline bool FixZBufferPrecision = true;
-	inline bool RestoreCarBaseShadow = true;
+	inline float CarBaseShadowOpacity = 1.0f;
 
 	inline bool SceneTextureReplacement = true;
 	inline bool SceneTextureDump = false;

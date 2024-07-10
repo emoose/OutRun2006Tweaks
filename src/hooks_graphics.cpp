@@ -15,7 +15,7 @@ class RestoreCarBaseShadow : public Hook
 
 		// Xbox C2C would multiply a4 by 0.5, halving the opacity, which on PC made it almost invisible..
 		// Using the original a4 value untouched seems to work well
-		Game::DrawObjectAlpha_Internal(a1, a4, 0, -1);
+		Game::DrawObjectAlpha_Internal(a1, a4 * Settings::CarBaseShadowOpacity, 0, -1);
 		Game::mxPopMatrix();
 	}
 
@@ -27,7 +27,7 @@ public:
 
 	bool validate() override
 	{
-		return Settings::RestoreCarBaseShadow;
+		return Settings::CarBaseShadowOpacity > 0;
 	}
 
 	bool apply() override
