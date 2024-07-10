@@ -183,7 +183,7 @@ class CDSwitcher : public Hook
 		if (BGMChanged)
 		{
 			BGMOverridePath = Settings::CDTracks[*Game::sel_bgm_kind_buf].first;
-			Game::adxPlay(0, 0);
+			Game::adxPlay(0, 0, 0);
 
 			SongTitleDisplayTimer = SongTitleDisplayFrames;
 		}
@@ -302,6 +302,7 @@ void CDSwitcher_ReadIni(const std::filesystem::path& iniPath)
 					std::string key = Util::trim(line.substr(0, delimiterPos));
 					std::string value = Util::trim(line.substr(delimiterPos + 1));
 					Settings::CDTracks.emplace_back(key, value);
+					spdlog::info(" - CDTracks: Added track {} ({})", value, key);
 				}
 			}
 			else if (line == "[CDTracks]")

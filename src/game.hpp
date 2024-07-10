@@ -7,6 +7,7 @@
 typedef void (*fn_0args)();
 typedef void (*fn_1arg)(int);
 typedef void (*fn_2args)(int, int);
+typedef void (*fn_3args)(int, int, int);
 typedef int (*fn_1arg_int)(int);
 typedef void (*fn_2floats)(float, float);
 typedef void (*fn_printf)(const char*, ...);
@@ -197,7 +198,11 @@ typedef struct tagEVWORK_CAR
 {
 	uint8_t unk_0[0x5C];
 	OnRoadPlace OnRoadPlace_5C;
-	uint8_t unk_6C[0x10F0 - 0x6C];
+	uint8_t unk_6C[4];
+	D3DMATRIX matrix_70;
+	D3DMATRIX matrix_B0;
+	D3DMATRIX matrix_F0;
+	uint8_t unk_130[0x10F0 - 0x130];
 } EVWORK_CAR;
 static_assert(sizeof(EVWORK_CAR) == 0x10F0);
 // car0 = 0x7804B0

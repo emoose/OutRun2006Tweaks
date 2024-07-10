@@ -6,6 +6,11 @@
 
 typedef void(__stdcall* D3DXVec4Transform_fn)(D3DXVECTOR4*, D3DXVECTOR4*, D3DMATRIX*);
 
+typedef void(__cdecl* mxPushLoadMatrix_fn)(D3DMATRIX*);
+typedef void(__cdecl* mxTranslate_fn)(float, float, float);
+typedef void(__cdecl* DrawObjectAlpha_Internal_fn)(int, float, void*, int);
+typedef void(__cdecl* mxPopMatrix_fn)();
+
 namespace Game
 {
 	inline D3DXVECTOR2 original_resolution{ 640, 480 };
@@ -79,8 +84,17 @@ namespace Game
 	inline fn_2args sprLocateP = nullptr;
 	inline fn_printf sprPrintf = nullptr;
 
+	// 3d drawing
+	inline DrawObjectAlpha_Internal_fn DrawObjectAlpha_Internal = nullptr;
+
+	// math
+	inline mxPushLoadMatrix_fn mxPushLoadMatrix = (mxPushLoadMatrix_fn)0x409F90;
+	inline mxTranslate_fn mxTranslate = (mxTranslate_fn)0x40A290;
+	inline mxPopMatrix_fn mxPopMatrix = (mxPopMatrix_fn)0x40A010;
+
 	// audio
-	inline fn_2args adxPlay = nullptr;
+	inline fn_3args adxPlay = nullptr;
+	inline fn_0args adxStopAll = nullptr;
 
 	// D3DX
 	inline D3DXVec4Transform_fn D3DXVec4Transform = nullptr;
@@ -145,7 +159,14 @@ namespace Game
 		sprLocateP = Module::fn_ptr<fn_2args>(0x2CC00);
 		sprPrintf = Module::fn_ptr<fn_printf>(0x2CCE0);
 
-		adxPlay = Module::fn_ptr<fn_2args>(0x1000);
+		DrawObjectAlpha_Internal = Module::fn_ptr<DrawObjectAlpha_Internal_fn>(0x56D0);
+
+		mxPushLoadMatrix = Module::fn_ptr<mxPushLoadMatrix_fn>(0x9F90);
+		mxTranslate = Module::fn_ptr<mxTranslate_fn>(0xA290);
+		mxPopMatrix = Module::fn_ptr<mxPopMatrix_fn>(0xA010);
+
+		adxPlay = Module::fn_ptr<fn_3args>(0x1000);
+		adxStopAll = Module::fn_ptr<fn_0args>(0x1050);
 
 		D3DXVec4Transform = Module::fn_ptr<D3DXVec4Transform_fn>(0x393B2);
 	}

@@ -3,6 +3,52 @@
 #include "game_addrs.hpp"
 #include <array>
 
+class RestoreCarBaseShadow : public Hook
+{
+	static void __cdecl CalcPeraShadow(int a1, int a2, int a3, float a4)
+	{
+		// CalcPeraShadow code from C2C Xbox
+		EVWORK_CAR* car0 = *Module::exe_ptr<EVWORK_CAR*>(0x399D18); // s_EventWork[8].event_data_8
+
+		Game::mxPushLoadMatrix(&car0->matrix_B0);
+		Game::mxTranslate(0.0f, 0.05f, 0.0f);
+
+		// Xbox C2C would multiply a4 by 0.5, halving the opacity, which on PC made it almost invisible..
+		// Using the original a4 value untouched seems to work well
+		Game::DrawObjectAlpha_Internal(a1, a4, 0, -1);
+		Game::mxPopMatrix();
+	}
+
+public:
+	std::string_view description() override
+	{
+		return "RestoreCarBaseShadow";
+	}
+
+	bool validate() override
+	{
+		return Settings::RestoreCarBaseShadow;
+	}
+
+	bool apply() override
+	{
+		constexpr int DispCarModel_Common_HookAddr = 0x69EB4;
+		constexpr int DispSelCarModel_HookAddr = 0x6AC76; // O2SP car selection
+		constexpr int Sumo_DispSelCarModel_HookAddr = 0x6B766; // C2C car selection
+
+		// These three funcs contain nullsub_1 calls which were CalcPeraShadow calls in O2SP / C2CXbox
+		// We can't just hook nullsub_1 since a bunch of other nulled out code also calls it, instead we'll rewrite them to call our CalcPeraShadow func
+		Memory::VP::InjectHook(Module::exe_ptr(DispCarModel_Common_HookAddr), CalcPeraShadow, Memory::HookType::Call);
+		Memory::VP::InjectHook(Module::exe_ptr(DispSelCarModel_HookAddr), CalcPeraShadow, Memory::HookType::Call);
+		Memory::VP::InjectHook(Module::exe_ptr(Sumo_DispSelCarModel_HookAddr), CalcPeraShadow, Memory::HookType::Call);
+
+		return true;
+	}
+
+	static RestoreCarBaseShadow instance;
+};
+RestoreCarBaseShadow RestoreCarBaseShadow::instance;
+
 class ReflectionResolution : public Hook
 {
 	inline static std::array<int, 6> ReflectionResolution_Addrs = 
