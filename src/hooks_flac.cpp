@@ -53,6 +53,12 @@ private:
     DWORD m_dwDecodedDataSize;
     DWORD m_dwCurrentPosition;
 
+    FLAC__uint64 m_currentSample;
+
+    bool m_loopEnabled;
+    FLAC__uint64 m_loopStart;
+    FLAC__uint64 m_loopEnd;
+
     // FLAC callbacks
     static FLAC__StreamDecoderWriteStatus WriteCallback(const FLAC__StreamDecoder* decoder, const FLAC__Frame* frame, const FLAC__int32* const buffer[], void* client_data);
     static void MetadataCallback(const FLAC__StreamDecoder* decoder, const FLAC__StreamMetadata* metadata, void* client_data);
@@ -61,9 +67,10 @@ private:
     // Helper functions
     HRESULT DecodeFile();
     void EnsureBufferSize(size_t requiredSize);
+    bool SeekToSample(FLAC__uint64 sample);
 };
 
-CFLACFile::CFLACFile() : m_pDecoder(NULL), m_dwDecodedDataSize(0), m_dwCurrentPosition(0)
+CFLACFile::CFLACFile() : m_pDecoder(NULL), m_dwDecodedDataSize(0), m_dwCurrentPosition(0), m_loopEnabled(false)
 {
 }
 
@@ -80,7 +87,9 @@ HRESULT CFLACFile::Open(LPSTR strFileName, WAVEFORMATEX* pwfx, DWORD dwFlags)
         return E_FAIL;
 
     // Set up callbacks
+    FLAC__stream_decoder_set_metadata_ignore_all(m_pDecoder);
     FLAC__stream_decoder_set_metadata_respond(m_pDecoder, FLAC__METADATA_TYPE_STREAMINFO);
+    FLAC__stream_decoder_set_metadata_respond(m_pDecoder, FLAC__METADATA_TYPE_VORBIS_COMMENT);
     FLAC__stream_decoder_init_file(m_pDecoder, strFileName, WriteCallback, MetadataCallback, ErrorCallback, this);
 
     // Decode the entire file
@@ -98,29 +107,57 @@ HRESULT CFLACFile::Read(BYTE* pBuffer, DWORD dwSizeToRead, DWORD* pdwSizeRead)
     if (!m_pDecodedData.size())
         return E_FAIL;
 
-    while (m_dwCurrentPosition + dwSizeToRead > m_dwDecodedDataSize)
+    DWORD dwRead = 0;
+    DWORD dwRemaining = dwSizeToRead;
+
+    while (dwRemaining > 0)
     {
-        if (FLAC__stream_decoder_get_state(m_pDecoder) == FLAC__STREAM_DECODER_END_OF_STREAM)
-            break;
+        // Check if we've reached the loop end
+        if (m_loopEnabled && m_currentSample >= m_loopEnd)
+        {
+            // Seek back to loop start
+            if (!SeekToSample(m_loopStart))
+                break;
+        }
 
-        // Try to read two frames at a time, hopefully reduce any skipping...
-        if (!FLAC__stream_decoder_process_single(m_pDecoder))
-            break;
+        // Calculate how many bytes we can read before potentially hitting the loop end
+        DWORD dwAvailable = m_dwDecodedDataSize - m_dwCurrentPosition;
+        if (m_loopEnabled)
+        {
+            FLAC__uint64 samplesUntilLoopEnd = m_loopEnd - m_currentSample;
+            DWORD bytesUntilLoopEnd = static_cast<DWORD>(samplesUntilLoopEnd * m_pwfx_4->nBlockAlign);
+            dwAvailable = min(dwAvailable, bytesUntilLoopEnd);
+        }
 
-        if (!FLAC__stream_decoder_process_single(m_pDecoder))
-            break;
+        DWORD dwToRead = min(dwRemaining, dwAvailable);
+
+        memcpy(pBuffer + dwRead, m_pDecodedData.data() + m_dwCurrentPosition, dwToRead);
+        m_dwCurrentPosition += dwToRead;
+        m_currentSample += dwToRead / m_pwfx_4->nBlockAlign;
+        dwRead += dwToRead;
+        dwRemaining -= dwToRead;
+
+        if (dwToRead < dwRemaining)
+        {
+            // We need more data, try to decode more
+            if (!FLAC__stream_decoder_process_single(m_pDecoder))
+                break;
+            if (!FLAC__stream_decoder_process_single(m_pDecoder))
+                break;
+        }
     }
-
-    DWORD dwAvailable = m_dwDecodedDataSize - m_dwCurrentPosition;
-    DWORD dwRead = min(dwSizeToRead, dwAvailable);
-
-    memcpy(pBuffer, m_pDecodedData.data() + m_dwCurrentPosition, dwRead);
-    m_dwCurrentPosition += dwRead;
 
     if (pdwSizeRead)
         *pdwSizeRead = dwRead;
 
     return S_OK;
+}
+
+bool CFLACFile::SeekToSample(FLAC__uint64 sample)
+{
+    m_currentSample = sample;
+    m_dwCurrentPosition = static_cast<DWORD>(sample * m_pwfx_4->nBlockAlign);
+    return true;
 }
 
 HRESULT CFLACFile::Write(UINT nSizeToWrite, BYTE* pbSrcData, UINT* pnSizeWrote)
@@ -261,6 +298,36 @@ void CFLACFile::MetadataCallback(const FLAC__StreamDecoder* decoder, const FLAC_
 
         // Pre-allocate the buffer
         pThis->m_pDecodedData.reserve(totalBufferSize);
+    }
+    else if (metadata->type == FLAC__METADATA_TYPE_VORBIS_COMMENT)
+    {
+        std::optional<FLAC__uint64> loop_start;
+        std::optional<FLAC__uint64> loop_length;
+        std::optional<FLAC__uint64> loop_end;
+        for (unsigned int i = 0; i < metadata->data.vorbis_comment.num_comments; i++)
+        {
+            const char* tag = (const char*)metadata->data.vorbis_comment.comments[i].entry;
+            unsigned int length = metadata->data.vorbis_comment.comments[i].length;
+            spdlog::debug("FLAC comment: size {}, {}", length, tag);
+
+            if (length > 10 && !_strnicmp(tag, "LOOPSTART=", 10))
+                loop_start = std::stoull(tag + 10, NULL, 10);
+            else if (length > 11 && !_strnicmp(tag, "LOOPLENGTH=", 11))
+                loop_length = std::stoull(tag + 11, NULL, 10);
+            else if (length > 8 && !_strnicmp(tag, "LOOPEND=", 8))
+                loop_end = std::stoull(tag + 8, NULL, 10);
+        }
+
+        if (loop_start.has_value() && loop_length.has_value())
+            loop_end = loop_start.value() + loop_length.value() - 1;
+
+        if (loop_start.has_value() && loop_end.has_value())
+        {
+            spdlog::info("FLAC loop: {} - {}", loop_start.value(), loop_end.value());
+            pThis->m_loopStart = loop_start.value();
+            pThis->m_loopEnd = loop_end.value();
+            pThis->m_loopEnabled = true;
+        }
     }
 }
 
