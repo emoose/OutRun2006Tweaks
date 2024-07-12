@@ -42,7 +42,7 @@ namespace Settings
 {
 	inline int FramerateLimit = 60;
 	inline bool FramerateLimitMode = 0;
-	inline int FramerateFastLoad = 1;
+	inline int FramerateFastLoad = 3;
 	inline bool FramerateUnlockExperimental = true;
 	inline int VSync = 1;
 

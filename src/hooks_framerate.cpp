@@ -6,10 +6,6 @@
 
 class ReplaceGameUpdateLoop : public Hook
 {
-	const static int HookAddr = 0x17C7B;
-	const static int GameLoopFrameLimiterAddr = 0x17DD3;
-	const static int SetTweeningTable_Addr = 0xED60;
-
 	inline static double FramelimiterFrequency = 0;
 	inline static double FramelimiterPrevCounter = 0;
 
@@ -27,49 +23,52 @@ class ReplaceGameUpdateLoop : public Hook
 		bool skipFrameLimiter = Settings::FramerateLimit == 0;
 		if (Settings::FramerateFastLoad > 0 && !skipFrameLimiter)
 		{
-			static bool isLoadScreenStarted = false;
-			bool isLoadScreen = false;
-
-			// Check if we're on load screen, if we are then disable framelimiter while game hasn't started (progress_code 65)
-			if (CurGameState == STATE_START)
+			if (Settings::FramerateFastLoad != 3)
 			{
-				isLoadScreen = *Game::game_start_progress_code != 65;
-			}
+				static bool isLoadScreenStarted = false;
+				bool isLoadScreen = false;
 
-			skipFrameLimiter = isLoadScreen;
-
-			// Toggle vsync if load screen state changed
-			if (Settings::FramerateFastLoad > 1)
-			{
-				if (Game::D3DPresentParams->PresentationInterval != 0 && Game::D3DPresentParams->PresentationInterval != D3DPRESENT_INTERVAL_IMMEDIATE)
+				// Check if we're on load screen, if we are then disable framelimiter while game hasn't started (progress_code 65)
+				if (CurGameState == STATE_START)
 				{
-					if (!isLoadScreenStarted && isLoadScreen)
+					isLoadScreen = *Game::game_start_progress_code != 65;
+				}
+
+				skipFrameLimiter = isLoadScreen;
+
+				// Toggle vsync if load screen state changed
+				if (Settings::FramerateFastLoad > 1)
+				{
+					if (Game::D3DPresentParams->PresentationInterval != 0 && Game::D3DPresentParams->PresentationInterval != D3DPRESENT_INTERVAL_IMMEDIATE)
 					{
-						auto NewParams = *Game::D3DPresentParams;
-						NewParams.PresentationInterval = D3DPRESENT_INTERVAL_IMMEDIATE;
+						if (!isLoadScreenStarted && isLoadScreen)
+						{
+							auto NewParams = *Game::D3DPresentParams;
+							NewParams.PresentationInterval = D3DPRESENT_INTERVAL_IMMEDIATE;
 
-						Game::Sumo_D3DResourcesRelease();
-						Game::D3DDevice()->Reset(&NewParams);
-						Game::Sumo_D3DResourcesCreate();
+							Game::Sumo_D3DResourcesRelease();
+							Game::D3DDevice()->Reset(&NewParams);
+							Game::Sumo_D3DResourcesCreate();
 
-						isLoadScreenStarted = true;
-					}
+							isLoadScreenStarted = true;
+						}
 
-					if (isLoadScreenStarted && !isLoadScreen)
-					{
-						Game::Sumo_D3DResourcesRelease();
-						Game::D3DDevice()->Reset(Game::D3DPresentParams);
-						Game::Sumo_D3DResourcesCreate();
+						if (isLoadScreenStarted && !isLoadScreen)
+						{
+							Game::Sumo_D3DResourcesRelease();
+							Game::D3DDevice()->Reset(Game::D3DPresentParams);
+							Game::Sumo_D3DResourcesCreate();
 
-						isLoadScreenStarted = false;
+							isLoadScreenStarted = false;
+						}
 					}
 				}
 			}
 		}
 
-		// Framelimiter
 		if (!skipFrameLimiter)
 		{
+			// Framelimiter
 			double timeElapsed = 0;
 			double timeCurrent = 0;
 			LARGE_INTEGER counter;
@@ -79,6 +78,9 @@ class ReplaceGameUpdateLoop : public Hook
 				QueryPerformanceCounter(&counter);
 				timeCurrent = double(counter.QuadPart) / FramelimiterFrequency;
 				timeElapsed = timeCurrent - FramelimiterPrevCounter;
+
+				if (Settings::FramerateFastLoad == 3)
+					Game::FileLoad_Ctrl();
 
 				if (Settings::FramerateLimitMode == 0) // "efficient" mode
 				{
@@ -107,6 +109,12 @@ class ReplaceGameUpdateLoop : public Hook
 #endif
 
 			FramelimiterPrevCounter = timeCurrent;
+		}
+		else
+		{
+			// Framelimiter is disabled, make sure to call FileLoad_Ctrl if we're using fastload3
+			if (Settings::FramerateFastLoad == 3)
+				Game::FileLoad_Ctrl();
 		}
 
 		Game::SetFrameStartCpuTime();
@@ -196,12 +204,21 @@ public:
 			FramelimiterMaxDeviation = FramelimiterTargetFrametime / 160.f;
 		}
 
+		constexpr int HookAddr = 0x17C7B;
+		constexpr int GameLoopFrameLimiterAddr = 0x17DD3;
+		constexpr int SetTweeningTable_Addr = 0xED60;
+		constexpr int GameLoopFileLoad_CtrlCaller = 0x17D8D;
+
 		// disable broken framelimiter
 		Memory::VP::Nop(Module::exe_ptr(GameLoopFrameLimiterAddr), 2);
 
 		// replace game update loop with custom version
 		Memory::VP::Nop(Module::exe_ptr<uint8_t>(HookAddr), 0xA3);
 		dest_hook = safetyhook::create_mid(Module::exe_ptr<uint8_t>(HookAddr), destination);
+
+		// Disable FileLoad_Ctrl call, we'll handle it above ourselves
+		if (Settings::FramerateFastLoad == 3)
+			Memory::VP::Nop(Module::exe_ptr(GameLoopFileLoad_CtrlCaller), 5);
 
 		if (Settings::FramerateUnlockExperimental)
 			SetTweeningTable = safetyhook::create_inline(Module::exe_ptr<uint8_t>(SetTweeningTable_Addr), SetTweeningTable_dest);
