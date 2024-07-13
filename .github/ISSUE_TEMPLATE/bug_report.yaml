@@ -1,0 +1,24 @@
+name: Bug report
+description: Let us know about bugs found with the game/tweaks
+title: "[Bug]: "
+labels: bug
+body:
+  - id: disclaimer
+    type: markdown
+    attributes:
+      value: |
+        If you've ran into an issue with the game or tweaks let us know about it here.
+  - id: version
+    type: input
+    attributes:
+      label: Tweaks version
+      description: Which version of OutRun2006Tweaks were you using? (you can usually find this by looking at the filename of ZIP you downloaded)
+      placeholder: outrun2006tweaks-abcdefghijklmnopqrstuvwxyz
+    validations:
+      required: true
+  - id: problem
+    type: textarea
+    attributes:
+      label: Describe your issue here (please attach the OutRun2006Tweaks.log file with your report, you can drag+drop it into the text area)
+    validations:
+      required: true
