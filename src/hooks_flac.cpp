@@ -120,31 +120,37 @@ HRESULT CFLACFile::Read(BYTE* pBuffer, DWORD dwSizeToRead, DWORD* pdwSizeRead)
                 break;
         }
 
-        // Calculate how many bytes we can read before potentially hitting the loop end
-        DWORD dwAvailable = m_dwDecodedDataSize - m_dwCurrentPosition;
+        DWORD numRead = dwRemaining;
         if (m_loopEnabled)
         {
             FLAC__uint64 samplesUntilLoopEnd = m_loopEnd - m_currentSample;
             DWORD bytesUntilLoopEnd = static_cast<DWORD>(samplesUntilLoopEnd * m_pwfx_4->nBlockAlign);
-            dwAvailable = min(dwAvailable, bytesUntilLoopEnd);
+            numRead = min(bytesUntilLoopEnd, numRead);
         }
 
-        DWORD dwToRead = min(dwRemaining, dwAvailable);
+        while (m_dwCurrentPosition + numRead > m_dwDecodedDataSize)
+        {
+            if (FLAC__stream_decoder_get_state(m_pDecoder) == FLAC__STREAM_DECODER_END_OF_STREAM)
+                break;
+
+            // Try to read two frames at a time, hopefully reduce any skipping...
+            if (!FLAC__stream_decoder_process_single(m_pDecoder))
+                break;
+
+            if (!FLAC__stream_decoder_process_single(m_pDecoder))
+                break;
+        }
+
+        DWORD dwAvailable = m_dwDecodedDataSize - m_dwCurrentPosition;
+        DWORD dwToRead = min(dwAvailable, numRead);
+        if (dwToRead == 0)
+            break;
 
         memcpy(pBuffer + dwRead, m_pDecodedData.data() + m_dwCurrentPosition, dwToRead);
         m_dwCurrentPosition += dwToRead;
         m_currentSample += dwToRead / m_pwfx_4->nBlockAlign;
         dwRead += dwToRead;
         dwRemaining -= dwToRead;
-
-        if (dwToRead < dwRemaining)
-        {
-            // We need more data, try to decode more
-            if (!FLAC__stream_decoder_process_single(m_pDecoder))
-                break;
-            if (!FLAC__stream_decoder_process_single(m_pDecoder))
-                break;
-        }
     }
 
     if (pdwSizeRead)
