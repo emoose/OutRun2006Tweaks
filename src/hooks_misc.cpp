@@ -12,10 +12,11 @@ class RandomHighwayAnimSets : public Hook
 	static void GetBranchRenditionType_dest(SafetyHookContext& ctx)
 	{
 		constexpr int br_step_tbl_Count = 15;
+		constexpr int UniqueSetCount = 4;
 
 		std::random_device rd;
 		std::mt19937 g(rd());
-		std::uniform_int_distribution<> distrib(0, br_step_tbl_Count - 1);
+		std::uniform_int_distribution<> distrib(0, UniqueSetCount - 1);
 
 		ctx.eax = int(distrib(g));
 		spdlog::debug("GetBranchRenditionType_dest: using set {}", int(ctx.eax));
