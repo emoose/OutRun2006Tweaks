@@ -124,8 +124,6 @@ class CDSwitcher : public Hook
 	constexpr static float SongTitleFadeBeginSeconds = 0.75;
 	constexpr static int SongTitleFadeBeginFrame = int(SongTitleFadeBeginSeconds * 60.f);
 
-	const static int Game_Ctrl_Addr = 0x9C840;
-
 	inline static int SongTitleDisplayTimer = 0;
 	inline static bool PrevKeyStatePrev = false;
 	inline static bool PrevKeyStateNext = false;
@@ -189,6 +187,14 @@ class CDSwitcher : public Hook
 		}
 	}
 
+	static void __cdecl PettyAutosceneCmdTblAnalysis_adxPlay_dest(int a1, uint32_t bgmIdx, int a3)
+	{
+		if (bgmIdx >= Settings::CDTracks.size())
+			bgmIdx = 0;
+		BGMOverridePath = Settings::CDTracks[bgmIdx].first;
+		Game::adxPlay(0, 0, 0);
+	}
+
 public:
 	static void draw(int numUpdates)
 	{
@@ -230,10 +236,17 @@ public:
 
 	bool apply() override
 	{
+		constexpr int Game_Ctrl_Addr = 0x9C840;
+		constexpr int PettyAutosceneCmdTblAnalysis_adxPlay_CallAddr1 = 0x8687F;
+		constexpr int PettyAutosceneCmdTblAnalysis_adxPlay_CallAddr2 = 0x868D3;
+
 		PadButtonCombo_Next = ParseButtonCombination(Settings::CDSwitcherTrackNext);
 		PadButtonCombo_Prev = ParseButtonCombination(Settings::CDSwitcherTrackPrevious);
 		PadButtonCombo_Next_BitCount = Util::BitCount(PadButtonCombo_Next);
 		PadButtonCombo_Prev_BitCount = Util::BitCount(PadButtonCombo_Prev);
+
+		Memory::VP::InjectHook(Module::exe_ptr(PettyAutosceneCmdTblAnalysis_adxPlay_CallAddr1), PettyAutosceneCmdTblAnalysis_adxPlay_dest, Memory::HookType::Call);
+		Memory::VP::InjectHook(Module::exe_ptr(PettyAutosceneCmdTblAnalysis_adxPlay_CallAddr2), PettyAutosceneCmdTblAnalysis_adxPlay_dest, Memory::HookType::Call);
 
 		Game_Ctrl = safetyhook::create_inline(Module::exe_ptr(Game_Ctrl_Addr), destination);
 		return !!Game_Ctrl;
