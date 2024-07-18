@@ -217,27 +217,33 @@ class HideOnlineSigninText : public Hook
 	// Online mode is no longer active, let's try to clean up the remnants of it
 
 	inline static SafetyHookInline Sumo_DrawActionButtonName = {};
-	static bool __fastcall Sumo_DrawActionButtonName_dest(void* thisptr, int unused, int buttonId)
+	static bool __fastcall Sumo_DrawActionButtonName_dest(uint8_t* thisptr, int unused, int buttonId)
 	{
-		if (buttonId == 1)
+		int num = buttonId + (8 * *(DWORD*)(thisptr + 0x408));
+		int buttonStringId = *(DWORD*)(thisptr + (4 * num) + 0x18);
+		if (buttonStringId == 664)
 			return true;
 
 		return Sumo_DrawActionButtonName.thiscall<bool>(thisptr, buttonId);
 	}
 
 	inline static SafetyHookInline Sumo_DrawActionButtonIcon1 = {};
-	static bool __fastcall Sumo_DrawActionButtonIcon1_dest(void* thisptr, int unused, int buttonId)
+	static bool __fastcall Sumo_DrawActionButtonIcon1_dest(uint8_t* thisptr, int unused, int buttonId)
 	{
-		if (buttonId == 1)
+		int num = buttonId + (8 * *(DWORD*)(thisptr + 0x408));
+		int buttonStringId = *(DWORD*)(thisptr + (4 * num) + 0x18);
+		if (buttonStringId == 664)
 			return true;
 
 		return Sumo_DrawActionButtonIcon1.thiscall<bool>(thisptr, buttonId);
 	}
 
 	inline static SafetyHookInline Sumo_DrawActionButtonIcon2 = {};
-	static bool __fastcall Sumo_DrawActionButtonIcon2_dest(void* thisptr, int unused, int buttonId)
+	static bool __fastcall Sumo_DrawActionButtonIcon2_dest(uint8_t* thisptr, int unused, int buttonId)
 	{
-		if (buttonId == 1)
+		int num = buttonId + (8 * *(DWORD*)(thisptr + 0x408));
+		int buttonStringId = *(DWORD*)(thisptr + (4 * num) + 0x18);
+		if (buttonStringId == 664)
 			return true;
 
 		return Sumo_DrawActionButtonIcon2.thiscall<bool>(thisptr, buttonId);
@@ -268,10 +274,8 @@ public:
 		// Hide box that contains the message above
 		Memory::VP::Patch(Module::exe_ptr(Sumo_DrawSignedInStatusBox_PatchAddr), { 0xEB });
 
-		// Don't allow "sign in" action button text to show
-		// TODO: disabled for now until we can also hide the F1 button prompt for it, doesn't seem handled by the same code as this...
+		// Don't allow "sign in" action button text/icon to show
 		Sumo_DrawActionButtonName = safetyhook::create_inline(Module::exe_ptr(Sumo_DrawActionButtonName_Addr), Sumo_DrawActionButtonName_dest);
-
 		Sumo_DrawActionButtonIcon1 = safetyhook::create_inline(Module::exe_ptr(Sumo_DrawActionButtonIcon1_Addr), Sumo_DrawActionButtonIcon1_dest);
 		Sumo_DrawActionButtonIcon2 = safetyhook::create_inline(Module::exe_ptr(Sumo_DrawActionButtonIcon2_Addr), Sumo_DrawActionButtonIcon2_dest);
 
