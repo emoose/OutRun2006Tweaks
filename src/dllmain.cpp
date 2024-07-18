@@ -123,10 +123,23 @@ namespace Settings
 		errno_t result = _wfopen_s(&iniFile, iniPathStr.c_str(), L"r");
 		if (result != 0 || !iniFile)
 		{
-			spdlog::error("Settings::read - INI read failed, error code {}", result);
+			spdlog::error("Settings::read - INI read failed! Error code {}", result);
+			spdlog::error("Settings::read - Launching game with default INI settings!");
 			return false;
 		}
-		inih::INIReader ini(iniFile);
+
+		inih::INIReader ini;
+		try
+		{
+			ini = inih::INIReader(iniFile);
+		}
+		catch (...)
+		{
+			spdlog::error("Settings::read - INI read failed! The file may be invalid or have duplicate settings inside");
+			spdlog::error("Settings::read - Launching game with default INI settings!");
+			fclose(iniFile);
+			return false;
+		}
 		fclose(iniFile);
 
 		FramerateLimit = ini.Get("Performance", "FramerateLimit", std::move(FramerateLimit));
