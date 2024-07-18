@@ -324,6 +324,9 @@ class UIScaling : public Hook
 	static inline SafetyHookMid DispTimeAttack2D_put_scroll_AdjustPosition_hk10{};
 	static inline SafetyHookMid DispTimeAttack2D_put_scroll_AdjustPosition_hk11{};
 	static inline SafetyHookMid DispTimeAttack2D_put_scroll_AdjustPosition_hk12{};
+	static inline SafetyHookMid DispTimeAttack2D_put_scroll_AdjustPosition_hk13{};
+	static inline SafetyHookMid DispTimeAttack2D_put_scroll_AdjustPosition_hk14{};
+	static inline SafetyHookMid DispTimeAttack2D_put_scroll_AdjustPosition_hk15{};
 
 	static inline SafetyHookMid DispRank_put_scroll_AdjustPosition_hk1{};
 	static inline SafetyHookMid DispRank_put_scroll_AdjustPosition_hk2{};
@@ -543,6 +546,9 @@ public:
 		DispTimeAttack2D_put_scroll_AdjustPosition_hk10 = safetyhook::create_mid((void*)0x4BE94A, put_scroll_AdjustPositionRight);
 		DispTimeAttack2D_put_scroll_AdjustPosition_hk11 = safetyhook::create_mid((void*)0x4BE97A, put_scroll_AdjustPositionRight);
 		DispTimeAttack2D_put_scroll_AdjustPosition_hk12 = safetyhook::create_mid((void*)0x4BE9A3, put_scroll_AdjustPositionRight);
+		DispTimeAttack2D_put_scroll_AdjustPosition_hk13 = safetyhook::create_mid((void*)0x4BE7E8, put_scroll_AdjustPositionRight);
+		DispTimeAttack2D_put_scroll_AdjustPosition_hk14 = safetyhook::create_mid((void*)0x4BE802, put_scroll_AdjustPositionRight);
+		DispTimeAttack2D_put_scroll_AdjustPosition_hk15 = safetyhook::create_mid((void*)0x4BE81C, put_scroll_AdjustPositionRight);
 
 		DispRank_put_scroll_AdjustPosition_hk1 = safetyhook::create_mid((void*)0x4B9F3A, put_scroll_AdjustPositionRight);
 		DispRank_put_scroll_AdjustPosition_hk2 = safetyhook::create_mid((void*)0x4B9F5E, put_scroll_AdjustPositionRight);
