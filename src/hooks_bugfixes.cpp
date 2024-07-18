@@ -215,9 +215,6 @@ FixFullPedalChecks FixFullPedalChecks::instance;
 class HideOnlineSigninText : public Hook
 {
 	// Online mode is no longer active, let's try to clean up the remnants of it
-	const static int Sumo_PrintSignedInStatus_Addr = 0x41370;
-	const static int Sumo_DrawSignedInStatusBox_PatchAddr = 0x43256;
-	const static int Sumo_DrawActionButtonName_Addr = 0x46510;
 
 	inline static SafetyHookInline Sumo_DrawActionButtonName = {};
 	static bool __fastcall Sumo_DrawActionButtonName_dest(void* thisptr, int unused, int buttonId)
@@ -226,6 +223,24 @@ class HideOnlineSigninText : public Hook
 			return true;
 
 		return Sumo_DrawActionButtonName.thiscall<bool>(thisptr, buttonId);
+	}
+
+	inline static SafetyHookInline Sumo_DrawActionButtonIcon1 = {};
+	static bool __fastcall Sumo_DrawActionButtonIcon1_dest(void* thisptr, int unused, int buttonId)
+	{
+		if (buttonId == 1)
+			return true;
+
+		return Sumo_DrawActionButtonIcon1.thiscall<bool>(thisptr, buttonId);
+	}
+
+	inline static SafetyHookInline Sumo_DrawActionButtonIcon2 = {};
+	static bool __fastcall Sumo_DrawActionButtonIcon2_dest(void* thisptr, int unused, int buttonId)
+	{
+		if (buttonId == 1)
+			return true;
+
+		return Sumo_DrawActionButtonIcon2.thiscall<bool>(thisptr, buttonId);
 	}
 
 public:
@@ -241,6 +256,12 @@ public:
 
 	bool apply() override
 	{
+		constexpr int Sumo_PrintSignedInStatus_Addr = 0x41370;
+		constexpr int Sumo_DrawSignedInStatusBox_PatchAddr = 0x43256;
+		constexpr int Sumo_DrawActionButtonName_Addr = 0x46510;
+		constexpr int Sumo_DrawActionButtonIcon1_Addr = 0x46A80;
+		constexpr int Sumo_DrawActionButtonIcon2_Addr = 0x46B20;
+
 		// Hide "Not Signed In" text
 		Memory::VP::Patch(Module::exe_ptr(Sumo_PrintSignedInStatus_Addr), { 0xC3 });
 
@@ -249,7 +270,10 @@ public:
 
 		// Don't allow "sign in" action button text to show
 		// TODO: disabled for now until we can also hide the F1 button prompt for it, doesn't seem handled by the same code as this...
-		// Sumo_DrawActionButtonName = safetyhook::create_inline(Module::exe_ptr(Sumo_DrawActionButtonName_Addr), Sumo_DrawActionButtonName_dest);
+		Sumo_DrawActionButtonName = safetyhook::create_inline(Module::exe_ptr(Sumo_DrawActionButtonName_Addr), Sumo_DrawActionButtonName_dest);
+
+		Sumo_DrawActionButtonIcon1 = safetyhook::create_inline(Module::exe_ptr(Sumo_DrawActionButtonIcon1_Addr), Sumo_DrawActionButtonIcon1_dest);
+		Sumo_DrawActionButtonIcon2 = safetyhook::create_inline(Module::exe_ptr(Sumo_DrawActionButtonIcon2_Addr), Sumo_DrawActionButtonIcon2_dest);
 
 		return !!Sumo_DrawActionButtonName;
 	}
