@@ -5,6 +5,30 @@
 #include "plugin.hpp"
 #include "game_addrs.hpp"
 
+class SingleCoreAffinity : public Hook
+{
+public:
+	std::string_view description() override
+	{
+		return "SingleCoreAffinity";
+	}
+
+	bool validate() override
+	{
+		return Settings::SingleCoreAffinity;
+	}
+
+	bool apply() override
+	{
+		DWORD_PTR processAffinityMask = 1;
+		SetProcessAffinityMask(GetCurrentProcess(), processAffinityMask);
+		return true;
+	}
+
+	static SingleCoreAffinity instance;
+};
+SingleCoreAffinity SingleCoreAffinity::instance;
+
 class RestoreJPClarissa : public Hook
 {
 	// Patch get_load_heroine_chrset to use the non-USA models

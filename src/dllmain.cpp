@@ -55,6 +55,7 @@ namespace Settings
 		spdlog::info(" - FramerateFastLoad: {}", FramerateFastLoad);
 		spdlog::info(" - FramerateUnlockExperimental: {}", FramerateUnlockExperimental);
 		spdlog::info(" - VSync: {}", VSync);
+		spdlog::info(" - SingleCoreAffinity: {}", SingleCoreAffinity);
 
 		spdlog::info(" - WindowedBorderless: {}", WindowedBorderless);
 		spdlog::info(" - WindowPosition: {}x{}", WindowPositionX, WindowPositionY);
@@ -147,6 +148,7 @@ namespace Settings
 		FramerateFastLoad = ini.Get("Performance", "FramerateFastLoad", std::move(FramerateFastLoad));
 		FramerateUnlockExperimental = ini.Get("Performance", "FramerateUnlockExperimental", std::move(FramerateUnlockExperimental));
 		VSync = ini.Get("Performance", "VSync", std::move(VSync));
+		SingleCoreAffinity = ini.Get("Performance", "SingleCoreAffinity", std::move(SingleCoreAffinity));
 
 		WindowedBorderless = ini.Get("Window", "WindowedBorderless", std::move(WindowedBorderless));
 		WindowPositionX = ini.Get("Window", "WindowPositionX", std::move(WindowPositionX));

@@ -45,6 +45,7 @@ namespace Settings
 	inline int FramerateFastLoad = 3;
 	inline bool FramerateUnlockExperimental = true;
 	inline int VSync = 1;
+	inline bool SingleCoreAffinity = false;
 
 	inline bool WindowedBorderless = true;
 	inline int WindowPositionX = 0;
