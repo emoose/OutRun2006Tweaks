@@ -4,6 +4,45 @@
 #include "hook_mgr.hpp"
 #include "plugin.hpp"
 #include "game_addrs.hpp"
+#include <random>
+
+class RandomHighwayAnimSets : public Hook
+{
+	inline static SafetyHookMid GetBranchRenditionType_midhook = {};
+	static void GetBranchRenditionType_dest(SafetyHookContext& ctx)
+	{
+		constexpr int br_step_tbl_Count = 15;
+
+		std::random_device rd;
+		std::mt19937 g(rd());
+		std::uniform_int_distribution<> distrib(0, br_step_tbl_Count - 1);
+
+		ctx.eax = int(distrib(g));
+		spdlog::debug("GetBranchRenditionType_dest: using set {}", int(ctx.eax));
+	}
+
+public:
+	std::string_view description() override
+	{
+		return "RandomHighwayAnimSets";
+	}
+
+	bool validate() override
+	{
+		return Settings::RandomHighwayAnimSets;
+	}
+
+	bool apply() override
+	{
+		constexpr int GetBranchRenditionType_HookAddr = 0x4D429;
+
+		GetBranchRenditionType_midhook = safetyhook::create_mid(Module::exe_ptr(GetBranchRenditionType_HookAddr), GetBranchRenditionType_dest);
+		return !!GetBranchRenditionType_midhook;
+	}
+
+	static RandomHighwayAnimSets instance;
+};
+RandomHighwayAnimSets RandomHighwayAnimSets::instance;
 
 class SingleCoreAffinity : public Hook
 {
