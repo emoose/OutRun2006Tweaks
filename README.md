@@ -1,4 +1,6 @@
 # OutRun2006Tweaks
+[![GitHub Downloads](https://img.shields.io/github/downloads/emoose/OutRun2006Tweaks/total)](https://github.com/emoose/OutRun2006Tweaks/releases)
+
 A wrapper DLL that can patch in some minor fixes & tweaks into OutRun 2006: Coast 2 Coast.
 
 Latest builds can be found under the releases section: https://github.com/emoose/OutRun2006Tweaks/releases
@@ -6,7 +8,7 @@ Latest builds can be found under the releases section: https://github.com/emoose
 ### Features
 **Graphics:**
 - UI can now scale to different aspect ratios without stretching (requires `UIScalingMode = 1` in INI)
-- Game scene & UI textures can be dumped/replaced
+- Game scene & UI textures can be dumped out, and replaced with higher-resolution versions
 - Allows disabling vehicle LODs, reducing the ugly pop-in as they get closer
 - Fixed Z-buffer precision issues that caused heavy Z-fighting and distant object pop-in
 - Lens flare effect now loads from correct path without needing to change game files
@@ -14,11 +16,14 @@ Latest builds can be found under the releases section: https://github.com/emoose
 - Fixes certain effects like engine backfiring which failed to appear when using controllers
 - Anisotropic filtering & transparency supersampling can be forced, greatly reducing aliasing around the edges of the track
 - Reflection rendering resolution can be increased from the default 128x128
+- Restores the car base shadow from the C2C console ports, which was missing on PC for some reason
 
 **Gameplay:**
 - Built-in framelimiter to prevent speedups, framerate can be partially unlocked with game running at 60FPS internally
 - Restored XInput rumble code from the Xbox release, allowing gear shifts/drifts/crashes/etc to give feedback
 - Xbox Series impulse triggers are supported and can be tweaked inside INI
+- Horn button can be made functional during normal gameplay, outside of the "honk your horn!" girl requests
+- Allows randomizing the set of highway animations to use, instead of only using the set for the game mode being played
 
 **Bugfixes:**
 - Prevents save corruption bug when remapping controls with many input devices connected
@@ -26,13 +31,14 @@ Latest builds can be found under the releases section: https://github.com/emoose
 - Pegasus animation's clopping sound effect will now end correctly
 - Text related to the now-defunct online service can be hidden
 - Automatically disables DPI scaling on the game window to fix scaling issues
+- Game can be forced to run on a single core, to help with freezing issues on some modern systems
 
 **Enhancements:**
 - Game can now run in borderless windowed mode; mouse cursor will now be hidden while game is active
 - Load times heavily reduced by disabling framelimiter/vsync during load screens
 - Music can now be loaded from uncompressed WAV or lossless FLAC files, if they exist with the same filename
 - Allows intro splash screens to be skipped
-- Music track can be changed mid-race via Q and E buttons, or Back/RS+Back on controller (`CDSwitcher` must be enabled in INI first)
+- Music track can be changed mid-race via Z and X buttons, or Back/RS+Back on controller (`CDSwitcher` must be enabled in INI first)
 
 All the above can be customized via the OutRun2006Tweaks.ini file.
 
