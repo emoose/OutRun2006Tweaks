@@ -55,7 +55,7 @@ namespace Settings
 	inline bool AutoDetectResolution = true;
 
 	inline bool AllowHorn = true;
-	inline bool AllowUncompressedBGM = true;
+	inline bool AllowWAV = true;
 	inline bool AllowFLAC = true;
 
 	inline bool CDSwitcherEnable = false;

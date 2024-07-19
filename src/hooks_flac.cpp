@@ -367,7 +367,7 @@ public:
 
     bool validate() override
     {
-        return Settings::AllowFLAC && Settings::AllowUncompressedBGM; // AllowUncompressedBGM hook is required for us to check if FLAC exists...
+        return Settings::AllowFLAC;
     }
 
     bool apply() override

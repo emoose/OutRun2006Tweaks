@@ -64,7 +64,7 @@ namespace Settings
 		spdlog::info(" - AutoDetectResolution: {}", AutoDetectResolution);
 
 		spdlog::info(" - AllowHorn: {}", AllowHorn);
-		spdlog::info(" - AllowUncompressedBGM: {}", AllowUncompressedBGM);
+		spdlog::info(" - AllowWAV: {}", AllowWAV);
 		spdlog::info(" - AllowFLAC: {}", AllowFLAC);
 
 		spdlog::info(" - CDSwitcherEnable: {}", CDSwitcherEnable);
@@ -159,7 +159,7 @@ namespace Settings
 		AutoDetectResolution = ini.Get("Window", "AutoDetectResolution", std::move(AutoDetectResolution));
 
 		AllowHorn = ini.Get("Audio", "AllowHorn", std::move(AllowHorn));
-		AllowUncompressedBGM = ini.Get("Audio", "AllowUncompressedBGM", std::move(AllowUncompressedBGM));
+		AllowWAV = ini.Get("Audio", "AllowWAV", std::move(AllowWAV));
 		AllowFLAC = ini.Get("Audio", "AllowFLAC", std::move(AllowFLAC));
 
 		CDSwitcherEnable = ini.Get("CDSwitcher", "SwitcherEnable", std::move(CDSwitcherEnable));

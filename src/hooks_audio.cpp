@@ -8,7 +8,7 @@
 
 std::string BGMOverridePath;
 
-class AllowUncompressedBGM : public Hook
+class BGMLoaderHook : public Hook
 {
 	// Hook games BGM loader to check the type of the audio file being loaded
 	// Game already has CWaveFile code to load in uncompressed WAV audio, but it goes left unused
@@ -60,7 +60,7 @@ class AllowUncompressedBGM : public Hook
 			strcpy_s(CurWavFilePath, fileNameAsFlac.string().c_str());
 			*(const char**)(ctx.esp + 0x54) = CurWavFilePath;
 		}
-		else if (Settings::AllowUncompressedBGM && std::filesystem::exists(fileNameAsWav))
+		else if (Settings::AllowWAV && std::filesystem::exists(fileNameAsWav))
 		{
 			waveFileType = WaveFileType::WAV;
 
@@ -74,12 +74,12 @@ class AllowUncompressedBGM : public Hook
 public:
 	std::string_view description() override
 	{
-		return "AllowUncompressedBGM";
+		return "BGMLoaderHook";
 	}
 
 	bool validate() override
 	{
-		return Settings::AllowUncompressedBGM;
+		return (Settings::AllowWAV || Settings::AllowFLAC || Settings::CDSwitcherEnable);
 	}
 
 	bool apply() override
@@ -88,9 +88,9 @@ public:
 		return !!hook;
 	}
 
-	static AllowUncompressedBGM instance;
+	static BGMLoaderHook instance;
 };
-AllowUncompressedBGM AllowUncompressedBGM::instance;
+BGMLoaderHook BGMLoaderHook::instance;
 
 uint32_t ParseButtonCombination(std::string_view combo)
 {
