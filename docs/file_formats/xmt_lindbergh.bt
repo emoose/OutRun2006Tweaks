@@ -1,0 +1,278 @@
+//------------------------------------------------
+//--- 010 Editor v14.0.1 Binary Template
+//
+//      File: OutRun 2 SP SDX (Lindbergh) XMT model package
+//   Authors: emoose
+//   Version: 1.0
+//   Purpose: Decode structures used in XMT model packages
+//  Category: 
+// File Mask: mdl.bin
+//  ID Bytes: 
+//   History: 
+//------------------------------------------------
+
+// TODO: unsure how XMTHEAD is used, model files seem to start with XMDLHEAD header instead
+// looks like carview reads this from the start of the compressed GZ but that doesn't seem to give valid data?
+// maybe it's a struct constructed at runtime...
+struct XMTHEAD
+{
+    unsigned int flag;
+    unsigned int objnum;
+    unsigned int texnum;
+    unsigned int mdldata; // offset
+    unsigned int texdata; // offset
+};
+
+struct XMDLHEAD
+{
+    unsigned int flag;
+    unsigned int mdlnum;
+    unsigned int mdldata_table;
+    unsigned int mdlname_table;
+};
+
+struct CullingNode
+{
+    unsigned int flags;
+    float center[3];
+    float radius;
+    int offset_lod;
+    unsigned int tweening_factor;
+    int index_matrix;
+    int index_child;
+    int index_sibling;
+    int index_model[4];
+};
+
+struct ModelHeader
+{
+    int index_vtx_groups;
+    int numof_vtx_groups;
+};
+
+struct VtxGroupInfo
+{
+    int index_vtxfmt;
+    unsigned int index_mat_groups[2];
+    int numof_mat_groups[2];
+};
+
+struct MatGroupInfo
+{
+    unsigned int base_index;
+    int index_material;
+    int index_primitives;
+    int numof_primitives;
+    float center[3];
+    float radius;
+};
+
+struct PrimitiveList
+{
+    unsigned int primitive_type;
+    unsigned int start_index;
+    unsigned int primitive_count;
+    unsigned int polygon_count;
+};
+
+enum<int> VertexShaderType
+{
+    VSTYPE_FIXED_FUNCTION = 0x0,
+    VSTYPE_BUMPDOTMAP = 0x1,
+    VSTYPE_TWEENING = 0x2,
+    VSTYPE_BUMPCUBEMAP = 0x3,
+    VSTYPE_MAX = 0x4,
+};
+
+enum<int> FvfTbl_xyz
+{
+     D3DFVF_XYZ = 1,
+     D3DFVF_XYZRHW = 2,
+     D3DFVF_XYZB1 = 3,
+     D3DFVF_XYZB2 = 4,
+     D3DFVF_XYZB3 = 5,
+     D3DFVF_XYZB4 = 6
+};
+
+enum<int> FvfTbl_tex
+{
+    D3DFVF_TEX1 = 1,
+    D3DFVF_TEX2 = 2,
+    D3DFVF_TEX3 = 3,
+    D3DFVF_TEX4 = 4
+};
+
+struct vertex_format_member // custom
+{
+    int unk_0 : 1;
+    FvfTbl_xyz vtxType_1 : 3;
+    int fvf_normal_4 : 1; // uses D3DFVF_NORMAL
+    int fvf_diffuse_5 : 1; // uses D3DFVF_DIFFUSE
+    int fvf_specular_6 : 1; // uses D3DFVF_SPECULAR
+    int unk_7 : 1;
+    FvfTbl_tex texType_8 : 4;
+};
+
+union vertex_format_bf
+{
+    vertex_format_member m;
+    unsigned int w;
+};
+
+struct VtxFormatList(int header_offset)
+{
+    int numof_stream;
+    unsigned int offset_indices;
+    unsigned int offset_vertices[4];
+    unsigned int index_buffer_size;
+    unsigned int vertex_buffer_size;
+    vertex_format_bf vertex_format;
+    unsigned int vertex_format_size;
+    VertexShaderType vertex_shader_type;
+    
+    local long pos = FTell();
+    
+    FSeek(header_offset + offset_indices);
+    char index_buffer_data[index_buffer_size]<optimize=false>;
+    
+    // TODO: theres sometimes data between offset_indices & offset_vertices[0], what is it?
+    // TODO: offset_vertices has 4 entries, but only a single vertex_buffer_size, how should it be handled?
+    
+    FSeek(header_offset + offset_vertices[0]);
+    char vertex_buffer_data[vertex_buffer_size]<optimize=false>;
+    
+    FSeek(pos);    
+};
+
+struct MatAttrib_member
+{
+    unsigned int flags : 8;
+    unsigned int src_blend_factor : 4;
+    unsigned int dst_blend_factor : 4;
+    unsigned int blend_operation : 3;
+    unsigned int pixelshader : 4;
+    unsigned int zbias : 4;
+    unsigned int ftype : 2;
+};
+
+union MatAttrib
+{
+    MatAttrib_member m;
+    unsigned int w;
+};
+
+struct TexAttrib_member
+{
+    unsigned int flags : 10;
+    unsigned int addr_u : 3;
+    unsigned int addr_v : 3;
+    unsigned int filter : 3;
+    unsigned int mipmap : 2;
+    unsigned int blend : 5;
+    unsigned int alpha_blend : 2;
+    unsigned int coord_index : 4;
+};
+
+union TexAttrib
+{
+    TexAttrib_member m;
+    unsigned int w;
+};
+
+struct MatTexInfo
+{
+    TexAttrib attrib;
+    unsigned int blendcolor;
+    float mipmap_bias;
+    float bump_depth;
+    int index;
+};
+
+struct MaterialList
+{
+    int index_color;
+    MatAttrib attrib;
+    MatTexInfo texture[4];
+};
+
+struct MaterialColor
+{
+    float diffuse[4];
+    float ambient[4];
+    float specular[4];
+    float emissive[4];
+    float power;
+    float intensity;
+};
+
+struct ObjectHeader
+{
+    unsigned int offset_cull_nodes;
+    unsigned int offset_matrices;
+    unsigned int offset_models;
+    unsigned int offset_vtx_groups;
+    unsigned int offset_mat_groups;
+    unsigned int offset_primitives;
+    unsigned int offset_vtx_formats;
+    unsigned int offset_materials;
+    unsigned int offset_mat_colors;
+    int numof_vtx_formats;
+    int numof_mat_groups;
+    int numof_materials;
+    int numof_mat_colors;
+};
+
+struct OBJECT(int namePos)
+{
+    local long pos = FTell();
+    
+    FSeek(namePos);
+    string Name;
+    
+    FSeek(pos);
+    
+    ObjectHeader Header;
+    
+    // At runtime the game takes all the offsets from ObjectHeader and sets up pointers to each section
+    // Those pointers just point to the start of the data for that section, and doesn't try to work out any kind of count
+    // For loading into 010 Editor we can kinda work out the count by doing math against the next sections offset
+    // but there's a good chance some malformed file could break this...
+        
+    FSeek(pos + Header.offset_cull_nodes);
+    CullingNode CullingNodes[(Header.offset_matrices - Header.offset_cull_nodes) / 0x38];
+    
+    FSeek(pos + Header.offset_models);
+    ModelHeader ModelHeaders[(Header.offset_vtx_groups - Header.offset_models) / 8];
+    
+    FSeek(pos + Header.offset_vtx_groups);
+    VtxGroupInfo VtxGroups[(Header.offset_mat_groups - Header.offset_vtx_groups) / 0x14];
+    
+    FSeek(pos + Header.offset_mat_groups);
+    MatGroupInfo MatGroups[Header.numof_mat_groups]; //[(Header.offset_primitives - Header.offset_mat_groups) / 0x20];
+    
+    FSeek(pos + Header.offset_primitives);
+    PrimitiveList Primitives[Header.numof_mat_groups]; //[(Header.offset_vtx_formats - Header.offset_primitives) / 0x10];
+    
+    FSeek(pos + Header.offset_vtx_formats);
+    VtxFormatList VtxFormats(pos)[Header.numof_vtx_formats]<optimize=false>; //[(Header.offset_materials - Header.offset_vtx_formats) / 0x2C];
+    
+    FSeek(pos + Header.offset_materials);
+    MaterialList Materials[Header.numof_materials]; //[(Header.offset_mat_colors - Header.offset_materials) / 0x58];
+    
+    FSeek(pos + Header.offset_mat_colors);
+    MaterialColor MaterialColors[Header.numof_mat_colors]; 
+};
+
+XMDLHEAD XMdlHead;
+
+FSeek(XMdlHead.mdldata_table);
+int MdlDataOffsets[XMdlHead.mdlnum]<hidden=true>;
+FSeek(XMdlHead.mdlname_table);
+int MdlNameOffsets[XMdlHead.mdlnum]<hidden=true>;
+
+local int i = 0;
+for(i = 0; i < XMdlHead.mdlnum; i++)
+{
+    FSeek(MdlDataOffsets[i]);
+    OBJECT Objects(MdlNameOffsets[i]);
+}

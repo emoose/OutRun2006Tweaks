@@ -1,0 +1,79 @@
+//------------------------------------------------
+//--- 010 Editor v14.0.1 Binary Template
+//
+//      File: OutRun 2 SP SDX (Lindbergh) XST sprite package
+//   Authors: emoose
+//   Version: 1.0
+//   Purpose: Decode structures used in XST sprite packages
+//  Category: 
+// File Mask: *.xst
+//  ID Bytes: 
+//   History: 
+//------------------------------------------------
+
+struct DSPDATA
+{
+    unsigned int scr_idx;
+    unsigned short sx;
+    unsigned short sy;
+    unsigned short rot;
+    unsigned short flip;
+    float scale;
+};
+
+struct DSPTBL
+{
+    unsigned int nb_dspdata;
+    int dspdata; // DSPDATA *
+    
+    FSeek(dspdata);
+    DSPDATA DspData[nb_dspdata];    
+};
+
+struct SCRTBL
+{
+    unsigned int spr_idx;
+    float su; // start
+    float sv;
+    float eu; // end
+    float ev;
+    unsigned short sx; // start
+    unsigned short sy;
+    unsigned short ex; // end
+    unsigned short ey;
+};
+
+struct SCRTBL2 // unused?
+{
+    unsigned int spr_idx;
+    unsigned int rotate;
+    float su;
+    float sv;
+    float eu;
+    float ev;
+    unsigned short sx;
+    unsigned short sy;
+    unsigned short ex;
+    unsigned short ey;
+};
+
+struct XSTHEAD
+{
+    unsigned int flag;
+    unsigned int tex_ofs;
+    unsigned int nb_tex;
+    int dummy;
+    unsigned int nb_dsptbl;
+    int dsptbl;
+    unsigned int nb_scrtbl;
+    int scrtbl;
+};
+
+local long xstPos = FTell();
+XSTHEAD Head;
+
+FSeek(xstPos + Head.dsptbl);
+DSPTBL DspTbl[Head.nb_dsptbl]<optimize=false>;
+
+FSeek(xstPos + Head.scrtbl);
+SCRTBL ScrTbl[Head.nb_scrtbl];
