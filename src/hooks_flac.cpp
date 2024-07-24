@@ -70,7 +70,7 @@ private:
     bool SeekToSample(FLAC__uint64 sample);
 };
 
-CFLACFile::CFLACFile() : m_pDecoder(NULL), m_dwDecodedDataSize(0), m_dwCurrentPosition(0), m_loopEnabled(false)
+CFLACFile::CFLACFile() : m_pDecoder(NULL), m_dwDecodedDataSize(0), m_dwCurrentPosition(0), m_loopEnabled(false), m_currentSample(0)
 {
 }
 
