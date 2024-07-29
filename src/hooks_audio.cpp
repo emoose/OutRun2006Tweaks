@@ -312,10 +312,14 @@ void CDSwitcher_ReadIni(const std::filesystem::path& iniPath)
 				auto delimiterPos = line.find('=');
 				if (delimiterPos != std::string::npos)
 				{
-					std::string key = Util::trim(line.substr(0, delimiterPos));
-					std::string value = Util::trim(line.substr(delimiterPos + 1));
-					Settings::CDTracks.emplace_back(key, value);
-					spdlog::info(" - CDTracks: Added track {} ({})", value, key);
+					std::string path = Util::trim(line.substr(0, delimiterPos));
+					std::string name = Util::trim(line.substr(delimiterPos + 1));
+					Settings::CDTracks.emplace_back(path, name);
+					spdlog::info(" - CDTracks: Added track {} ({})", name, path);
+
+					// Check both paths that the CDSwitcher code looks in
+					if (!std::filesystem::exists(path) && !std::filesystem::exists(".\\Sound\\" + path))
+						spdlog::warn("^ File \"{}\" not found for track, likely won't play properly in-game!", path);
 				}
 			}
 			else if (line == "[CDTracks]")
