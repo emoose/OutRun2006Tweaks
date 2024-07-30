@@ -8,6 +8,7 @@ typedef void(__stdcall* D3DXVec4Transform_fn)(D3DXVECTOR4*, D3DXVECTOR4*, D3DMAT
 
 typedef void(__cdecl* mxPushLoadMatrix_fn)(D3DMATRIX*);
 typedef void(__cdecl* mxTranslate_fn)(float, float, float);
+typedef void(__cdecl* DrawObject_Internal_fn)(int, int, uint16_t*, int, int, int);
 typedef void(__cdecl* DrawObjectAlpha_Internal_fn)(int, float, void*, int);
 typedef void(__cdecl* mxPopMatrix_fn)();
 
@@ -76,6 +77,7 @@ namespace Game
 
 	inline fn_1arg_int GetNowStageNum = nullptr;
 	inline fn_1arg_int GetStageUniqueNum = nullptr;
+	inline fn_1arg_int GetMaxCsLen = nullptr;
 
 	// 2d sprite drawing
 	inline fn_1arg sprSetFontPriority = nullptr;
@@ -86,6 +88,7 @@ namespace Game
 	inline fn_printf sprPrintf = nullptr;
 
 	// 3d drawing
+	inline DrawObject_Internal_fn DrawObject_Internal = nullptr;
 	inline DrawObjectAlpha_Internal_fn DrawObjectAlpha_Internal = nullptr;
 
 	// math
@@ -153,6 +156,7 @@ namespace Game
 
 		GetNowStageNum = Module::fn_ptr<fn_1arg_int>(0x50380);
 		GetStageUniqueNum = Module::fn_ptr<fn_1arg_int>(0x4DC50);
+		GetMaxCsLen = Module::fn_ptr<fn_1arg_int>(0x3D470);
 
 		sprSetFontPriority = Module::fn_ptr<fn_1arg>(0x2CCB0);
 		sprSetPrintFont = Module::fn_ptr<fn_1arg>(0x2CA60);
@@ -161,6 +165,7 @@ namespace Game
 		sprLocateP = Module::fn_ptr<fn_2args>(0x2CC00);
 		sprPrintf = Module::fn_ptr<fn_printf>(0x2CCE0);
 
+		DrawObject_Internal = Module::fn_ptr<DrawObject_Internal_fn>(0x5360);
 		DrawObjectAlpha_Internal = Module::fn_ptr<DrawObjectAlpha_Internal_fn>(0x56D0);
 
 		mxPushLoadMatrix = Module::fn_ptr<mxPushLoadMatrix_fn>(0x9F90);

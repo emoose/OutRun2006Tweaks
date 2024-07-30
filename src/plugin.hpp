@@ -81,6 +81,8 @@ namespace Settings
 	inline bool DisableStageCulling = true;
 	inline bool FixZBufferPrecision = true;
 	inline float CarBaseShadowOpacity = 1.0f;
+	inline int DrawDistanceIncrease = 0;
+	inline int DrawDistanceBehind = 0;
 
 	inline bool SceneTextureReplacement = true;
 	inline bool SceneTextureDump = false;

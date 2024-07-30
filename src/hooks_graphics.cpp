@@ -2,6 +2,174 @@
 #include "plugin.hpp"
 #include "game_addrs.hpp"
 #include <array>
+#include <bitset>
+#include <iostream>
+
+#ifdef _DEBUG
+#define ENABLE_NODE_ID_TESTER 1
+#endif
+
+#ifdef ENABLE_NODE_ID_TESTER
+// creates a list of which CullingNode IDs were added by the last distance increase loop
+// and allow testing the distance increase with a given CullingNode skipped
+// can help us to find which CullingNodes cause ugly LOD issues, and hopefully add them to filter list eventually
+std::vector<uint16_t> lastAdds; // list of IDs added
+uint16_t* lastAddsPtr = 0; // ptr to the lastAdds data, for ease of use with CE
+int lastAddsNum = 0; // ObjectNum that we want to populate lastAdds for
+int skipAddNum = -1; // if set, skips drawing this CullingNode ID, can be used to find which specific ID is troublesome
+int skipObjNum = -1; // skips distance-increase for this ObjectNum, can be used to find which ObjectNum is troublesome
+#endif
+
+class DrawDistanceIncrease : public Hook
+{
+	// Stage drawing/culling is based on the player cars position in the stage
+	// Each ~1m of track has an ID, which indexes data inside the cs_CS_[stg]_bin.sz file
+	// This data contains a list of CullingNode indexes pointing to matrices and model pointers for drawing
+	//
+	// The first attempt to increase draw distance looped the existing draw code, incrementing the track ID up to a specified max-distance-increase variable
+	// This seemed effective but would cause some darker stage shadowing and duplicate sprites to show
+	// Appears that some of the track-ID lists shared CullingNode IDs inside them, leading to models being drawn multiple times
+	//
+	// After learning more about the CullingNode setup, a second attempt instead tried to loop over each CullingNode list and add unique entries to a list
+	// (via a statically allocated unique-CullingNode-ID array and std::bitset to track seen IDs)
+	// With this the distance could be increased without the duplicate model issues, and without affecting performance too heavily
+	//
+	// ---
+	// 
+	// There are a couple issues with this setup right now though, fortunately they only really appear when distance is increased quite far (>64):
+	// 
+	// - Some CullingNode lists meant for later in the stage may contain LOD models for earlier parts
+	//   eg. Palm Beach has turns later on where LOD models for the beginning section appear (sometimes overwriting the non-LOD models somehow?)
+	//   Some kind of filter-list that defines those LOD models and only allows the default csOffset = 0 to draw them might help this
+	//
+	// - Maps like Canyon with vertical progression can show higher-up parts of the track early, which vanilla game wouldn't display until they were close by.
+	//   With increased draw distance, those sections then appear in the sky without any connecting textures...
+	//   May need to add per-stage / per-section distance limits to workaround this
+	//
+	// - Increasing DrawDistanceBehind and using a camera mod to view behind the car reveals backface-culling issues, since those faces were never visible in the vanilla game.
+	//   Wonder how the attract videos for the game were able to use other camera angles without any backface-culling showing up...
+	//   Those videos seem to be captured in-engine, were they using special versions of the map that included all faces?
+	//   (or possibly all the faces are already included in the current maps, and it's something CullingNode-related which skips drawing them?
+	//    I'm not hopeful about that though, doubt they would have included data for parts that wouldn't be shown)
+
+	// Known bad CullingNode IDs:
+	//  Palm Beach
+	//   (obj4,node0xF1) = breaks railings at the beginning
+	//  Metropolis
+	//   ??? = breaks trees
+
+	inline static uint16_t CollisionNodeIdxArray[4096];
+	inline static std::bitset<4096> CollisionNodesToDisplay;
+
+	inline static SafetyHookMid dest_hook = {};
+	static void destination(safetyhook::Context& ctx)
+	{
+		int xmtSetShifted = *(int*)(ctx.esp + 0x14); // XMTSET num shifted left by 16
+		uint8_t* a2 = *(uint8_t**)(ctx.esp + 0x24);
+		int a4 = *(int*)(a2 + 0x70);
+		int a5 = ctx.edx;
+
+		int CsMaxLength = Game::GetMaxCsLen(0);
+		int CsLengthNum = ctx.ebp;
+
+		int v6 = ctx.ebx;
+		uint32_t* v11 = (uint32_t*)(v6 + 8);
+
+		int NumObjects = *(int*)(ctx.esp + 0x18);
+		for (int ObjectNum = 0; ObjectNum < NumObjects; ObjectNum++)
+		{
+			CollisionNodesToDisplay.reset();
+			uint16_t* cur = CollisionNodeIdxArray;
+
+			for (int csOffset = -Settings::DrawDistanceBehind; csOffset < (Settings::DrawDistanceIncrease + 1); csOffset++)
+			{
+				if (csOffset != 0)
+				{
+					// If current offset is below idx 0 skip to next one
+					if (CsLengthNum + csOffset < 0)
+						continue;
+
+					// If we're past the max entries for the stage then break out
+					if (CsLengthNum + csOffset >= (CsMaxLength - 1))
+						break;
+				}
+
+#ifdef ENABLE_NODE_ID_TESTER
+				if (ObjectNum == lastAddsNum && csOffset == Settings::DrawDistanceIncrease)
+				{
+					lastAdds.clear();
+				}
+#endif
+				uint32_t sectionCollListOffset = *(uint32_t*)(v6 + *v11 + ((CsLengthNum + csOffset) * 4));
+				uint16_t* sectionCollList = (uint16_t*)(v6 + *v11 + sectionCollListOffset);
+				while (*sectionCollList != 0xFFFF)
+				{
+					// If we haven't seen this CollisionNode idx already lets add it to our IdxArray
+					if (!CollisionNodesToDisplay[*sectionCollList])
+					{
+#ifdef ENABLE_NODE_ID_TESTER
+						if (skipObjNum != ObjectNum || csOffset == 0)
+							if (skipAddNum != *sectionCollList || skipAddNum < 0 || csOffset == 0)
+#endif
+							{
+								CollisionNodesToDisplay[*sectionCollList] = true;
+								*cur = *sectionCollList;
+
+#ifdef ENABLE_NODE_ID_TESTER
+								if (ObjectNum == lastAddsNum && csOffset == Settings::DrawDistanceIncrease)
+									lastAdds.push_back(*cur);
+#endif
+								cur++;
+							}
+					}
+
+					sectionCollList++;
+				}
+
+#ifdef ENABLE_NODE_ID_TESTER
+				if (ObjectNum == lastAddsNum && csOffset == Settings::DrawDistanceIncrease)
+				{
+					lastAddsPtr = lastAdds.data();
+				}
+#endif
+			}
+
+			*cur = 0xFFFF;
+
+			Game::DrawObject_Internal(xmtSetShifted | ObjectNum, 0, CollisionNodeIdxArray, a4, a5, 0);
+
+			v11++;
+		}
+	}
+
+public:
+	std::string_view description() override
+	{
+		return "DrawDistanceIncrease";
+	}
+
+	bool validate() override
+	{
+		return Settings::DrawDistanceIncrease > 0 || Settings::DrawDistanceBehind > 0;
+	}
+
+	bool apply() override
+	{
+#ifdef ENABLE_NODE_ID_TESTER
+		lastAdds.reserve(100);
+#endif
+
+		constexpr int DispStage_HookAddr = 0x4DF6D;
+
+		Memory::VP::Nop(Module::exe_ptr(DispStage_HookAddr), 0x4B);
+		dest_hook = safetyhook::create_mid(Module::exe_ptr(DispStage_HookAddr), destination);
+
+		return true;
+	}
+
+	static DrawDistanceIncrease instance;
+};
+DrawDistanceIncrease DrawDistanceIncrease::instance;
 
 class RestoreCarBaseShadow : public Hook
 {
