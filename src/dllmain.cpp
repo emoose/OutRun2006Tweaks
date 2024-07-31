@@ -94,6 +94,8 @@ namespace Settings
 		spdlog::info(" - SceneTextureDump: {}", SceneTextureDump);
 		spdlog::info(" - UITextureReplacement: {}", UITextureReplacement);
 		spdlog::info(" - UITextureDump: {}", UITextureDump);
+		spdlog::info(" - EnableTextureCache: {}", EnableTextureCache);
+		spdlog::info(" - UseNewTextureAllocator: {}", UseNewTextureAllocator);
 
 		spdlog::info(" - VibrationMode: {}", VibrationMode);
 		spdlog::info(" - VibrationStrength: {}", VibrationStrength);
@@ -198,6 +200,8 @@ namespace Settings
 		SceneTextureDump = ini.Get("Graphics", "SceneTextureDump", std::move(SceneTextureDump));
 		UITextureReplacement = ini.Get("Graphics", "UITextureReplacement", std::move(UITextureReplacement));
 		UITextureDump = ini.Get("Graphics", "UITextureDump", std::move(UITextureDump));
+		EnableTextureCache = ini.Get("Graphics", "EnableTextureCache", std::move(EnableTextureCache));
+		UseNewTextureAllocator = ini.Get("Graphics", "UseNewTextureAllocator", std::move(UseNewTextureAllocator));
 
 		VibrationMode = ini.Get("Vibration", "VibrationMode", std::move(VibrationMode));
 		VibrationMode = std::clamp(VibrationMode, 0, 3);

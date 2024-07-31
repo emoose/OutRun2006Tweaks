@@ -88,6 +88,8 @@ namespace Settings
 	inline bool SceneTextureDump = false;
 	inline bool UITextureReplacement = true;
 	inline bool UITextureDump = false;
+	inline bool EnableTextureCache = true;
+	inline bool UseNewTextureAllocator = true;
 
 	inline int VibrationMode = 0;
 	inline int VibrationStrength = 10;
