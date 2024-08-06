@@ -57,6 +57,10 @@ endif()
 
 include(FetchContent)
 
+# Fix warnings about DOWNLOAD_EXTRACT_TIMESTAMP
+if(POLICY CMP0135)
+	cmake_policy(SET CMP0135 NEW)
+endif()
 message(STATUS "Fetching zydis (v4.0.0)...")
 FetchContent_Declare(zydis
 	GIT_REPOSITORY
@@ -93,8 +97,20 @@ FetchContent_Declare(flac
 )
 FetchContent_MakeAvailable(flac)
 
+message(STATUS "Fetching miniupnpc (miniupnpd_2_3_7)...")
+FetchContent_Declare(miniupnpc
+	GIT_REPOSITORY
+		"https://github.com/miniupnp/miniupnp"
+	GIT_TAG
+		miniupnpd_2_3_7
+	SOURCE_SUBDIR
+		miniupnpc
+)
+FetchContent_MakeAvailable(miniupnpc)
+
 # Target: spdlog
 set(spdlog_SOURCES
+	cmake.toml
 	"external/spdlog/src/async.cpp"
 	"external/spdlog/src/bundled_fmtlib_format.cpp"
 	"external/spdlog/src/cfg.cpp"
@@ -102,7 +118,6 @@ set(spdlog_SOURCES
 	"external/spdlog/src/file_sinks.cpp"
 	"external/spdlog/src/spdlog.cpp"
 	"external/spdlog/src/stdout_sinks.cpp"
-	cmake.toml
 )
 
 add_library(spdlog STATIC)
@@ -121,9 +136,21 @@ target_include_directories(spdlog PUBLIC
 
 # Target: outrun2006tweaks
 set(outrun2006tweaks_SOURCES
+	cmake.toml
+	"external/ModUtils/MemoryMgr.h"
+	"external/ModUtils/Patterns.cpp"
+	"external/ModUtils/Patterns.h"
+	"external/xxHash/xxhash.c"
+	"external/xxHash/xxhash.h"
 	"src/Proxy.cpp"
+	"src/Proxy.def"
+	"src/Proxy.hpp"
+	"src/Resource.rc"
 	"src/dllmain.cpp"
+	"src/game.hpp"
+	"src/game_addrs.hpp"
 	"src/hook_mgr.cpp"
+	"src/hook_mgr.hpp"
 	"src/hooks_audio.cpp"
 	"src/hooks_bugfixes.cpp"
 	"src/hooks_flac.cpp"
@@ -134,20 +161,8 @@ set(outrun2006tweaks_SOURCES
 	"src/hooks_misc.cpp"
 	"src/hooks_textures.cpp"
 	"src/hooks_uiscaling.cpp"
-	"src/Proxy.def"
-	"src/Resource.rc"
-	"external/ModUtils/Patterns.cpp"
-	"external/xxHash/xxhash.c"
-	"src/Proxy.hpp"
-	"src/game.hpp"
-	"src/game_addrs.hpp"
-	"src/hook_mgr.hpp"
 	"src/plugin.hpp"
 	"src/resource.h"
-	"external/ModUtils/Patterns.h"
-	"external/ModUtils/MemoryMgr.h"
-	"external/xxHash/xxhash.h"
-	cmake.toml
 )
 
 add_library(outrun2006tweaks SHARED)
@@ -190,6 +205,7 @@ target_link_libraries(outrun2006tweaks PUBLIC
 	version.lib
 	xinput9_1_0.lib
 	Hid.lib
+	libminiupnpc-static
 )
 
 target_link_options(outrun2006tweaks PUBLIC
@@ -216,4 +232,3 @@ set_target_properties(outrun2006tweaks PROPERTIES
 	ARCHIVE_OUTPUT_DIRECTORY_RELWITHDEBINFO
 		"${CMAKE_BINARY_DIR}/lib/${CMKR_TARGET}"
 )
-

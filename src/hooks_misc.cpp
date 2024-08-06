@@ -5,6 +5,9 @@
 #include "plugin.hpp"
 #include "game_addrs.hpp"
 #include <random>
+#include <miniupnpc.h>
+#include <upnpcommands.h>
+#include <WinSock2.h>
 
 class DemonwareServerOverride : public Hook
 {
@@ -14,6 +17,60 @@ class DemonwareServerOverride : public Hook
 		spdlog::debug("getHostByName: overriding host {} to {}", name, Settings::DemonwareServerOverride);
 		auto ret = bdPlatformSocket__getHostByName_hook.ccall<uint32_t>(Settings::DemonwareServerOverride.c_str(), a2, a3);
 		return ret;
+	}
+
+	inline static SafetyHookInline InitNetwork = {};
+	static void __cdecl InitNetwork_dest()
+	{
+		InitNetwork.call();
+
+		WSADATA tmp;
+		WSAStartup(0x202, &tmp);
+
+		int upnpError = UPNPDISCOVER_SUCCESS;
+		UPNPDev* upnpDevice = upnpDiscover(2000, NULL, NULL, 0, 0, 2, &upnpError);
+
+		bool anyError = false;
+		int ret = 0;
+		if (upnpError != UPNPDISCOVER_SUCCESS || !upnpDevice)
+		{
+			spdlog::error("UPnP: upnpDiscover failed with error {}", upnpError);
+			return;
+		}
+
+		struct UPNPUrls urls;
+		struct IGDdatas data;
+		char lanaddr[16];
+		char wanaddr[16];
+
+		ret = UPNP_GetValidIGD(upnpDevice, &urls, &data, lanaddr, sizeof(lanaddr), wanaddr, sizeof(wanaddr));
+		if (ret != 1 && ret != 2 && ret != 3) // UPNP_GetValidIGD returning 1/2/3 should be fine
+		{
+			spdlog::error("UPnP: UPNP_GetValidIGD failed with error {}", ret);
+			return;
+		}
+
+		std::list<int> portNums = { 41455, 41456, 41457 };
+
+		for (auto port : portNums)
+		{
+			for (int i = 0; i < 2; i++)
+			{
+				ret = UPNP_AddPortMapping(urls.controlURL, data.first.servicetype,
+					std::to_string(port).c_str(), std::to_string(port).c_str(),
+					lanaddr, "OutRun2006", i == 0 ? "TCP" : "UDP", NULL, NULL);
+				if (ret != UPNPCOMMAND_SUCCESS)
+				{
+					spdlog::error("UPnP: UPNP_AddPortMapping failed for port {}/{}, error code {}", port, i, ret);
+					anyError = true;
+				}
+			}
+		}
+
+		if (ret == 0 && !anyError)
+		{
+			spdlog::info("UPnP: port mappings succeeded");
+		}
 	}
 
 public:
@@ -29,8 +86,10 @@ public:
 
 	bool apply() override
 	{
-		constexpr int bdPlatformSocket__getHostByName_Addr = 0x1349B0;
+		constexpr int InitNetwork_Addr = 0x5ACB0;
+		InitNetwork = safetyhook::create_inline(Module::exe_ptr(InitNetwork_Addr), InitNetwork_dest);
 
+		constexpr int bdPlatformSocket__getHostByName_Addr = 0x1349B0;
 		bdPlatformSocket__getHostByName_hook = safetyhook::create_inline(Module::exe_ptr(bdPlatformSocket__getHostByName_Addr), destination);
 
 		// DW has a very simple check to see if hostname is an IP: if first digit is a number, it's an IP addr

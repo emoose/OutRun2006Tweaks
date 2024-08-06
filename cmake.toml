@@ -47,6 +47,7 @@ zydis = { git = "https://github.com/zyantific/zydis", tag = "v4.0.0" }
 safetyhook = { git = "https://github.com/cursey/safetyhook", tag = "629558c64009a7291ba6ed5cfb49187086a27a47" }
 ogg = { git = "https://github.com/xiph/ogg", tag = "v1.3.5" }
 flac = { git = "https://github.com/xiph/flac", tag = "1.4.3" }
+miniupnpc = { git = "https://github.com/miniupnp/miniupnp", tag = "miniupnpd_2_3_7", subdir = "miniupnpc" }
 
 [target.outrun2006tweaks]
 type = "shared"
@@ -64,7 +65,8 @@ link-libraries = [
     "FLAC",
     "version.lib",
     "xinput9_1_0.lib",
-    "Hid.lib"
+    "Hid.lib",
+	"libminiupnpc-static"
 ]
 
 [target.outrun2006tweaks.properties]
