@@ -6,6 +6,58 @@
 #include "game_addrs.hpp"
 #include <random>
 
+class DemonwareServerOverride : public Hook
+{
+	inline static SafetyHookInline bdPlatformSocket__getHostByName_hook = {};
+	static uint32_t __cdecl destination(const char* name, void* a2, int a3)
+	{
+		spdlog::debug("getHostByName: overriding host {} to {}", name, Settings::DemonwareServerOverride);
+		auto ret = bdPlatformSocket__getHostByName_hook.ccall<uint32_t>(Settings::DemonwareServerOverride.c_str(), a2, a3);
+		return ret;
+	}
+
+public:
+	std::string_view description() override
+	{
+		return "DemonwareServerOverride";
+	}
+
+	bool validate() override
+	{
+		return !Settings::DemonwareServerOverride.empty();
+	}
+
+	bool apply() override
+	{
+		constexpr int bdPlatformSocket__getHostByName_Addr = 0x1349B0;
+
+		bdPlatformSocket__getHostByName_hook = safetyhook::create_inline(Module::exe_ptr(bdPlatformSocket__getHostByName_Addr), destination);
+
+		// DW has a very simple check to see if hostname is an IP: if first digit is a number, it's an IP addr
+		// this is unfortunate when google cloud gives hostnames that start with a number...
+		// Disable isalpha check if our override isn't an IP address
+		{
+			constexpr int bdPlatformSocket__getHostByName_isalpha_Addr = 0x1349C7;
+
+			bool isIPAddr = true;
+			for (auto c : Settings::DemonwareServerOverride)
+				if (isalpha(c))
+				{
+					isIPAddr = false;
+					break;
+				}
+
+			if (!isIPAddr)
+				Memory::VP::Nop(Module::exe_ptr(bdPlatformSocket__getHostByName_isalpha_Addr), 2);
+		}
+
+		return !!bdPlatformSocket__getHostByName_hook;
+	}
+
+	static DemonwareServerOverride instance;
+};
+DemonwareServerOverride DemonwareServerOverride::instance;
+
 class RandomHighwayAnimSets : public Hook
 {
 	inline static SafetyHookMid GetBranchRenditionType_midhook = {};

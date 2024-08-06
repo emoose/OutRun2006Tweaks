@@ -102,6 +102,7 @@ namespace Settings
 	inline bool DisableCountdownTimer = false;
 	inline bool RestoreJPClarissa = false;
 	inline bool RandomHighwayAnimSets = false;
+	inline std::string DemonwareServerOverride = "7.176.116.34.bc.googleusercontent.com";
 
 	inline bool FixPegasusClopping = true;
 	inline bool FixC2CRankings = true;

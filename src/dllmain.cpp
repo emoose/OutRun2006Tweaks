@@ -108,6 +108,7 @@ namespace Settings
 		spdlog::info(" - DisableCountdownTimer: {}", DisableCountdownTimer);
 		spdlog::info(" - RestoreJPClarissa: {}", RestoreJPClarissa);
 		spdlog::info(" - RandomHighwayAnimSets: {}", RandomHighwayAnimSets);
+		spdlog::info(" - DemonwareServerOverride: {}", DemonwareServerOverride);
 
 		spdlog::info(" - FixPegasusClopping: {}", FixPegasusClopping);
 		spdlog::info(" - FixC2CRankings: {}", FixC2CRankings);
@@ -221,6 +222,7 @@ namespace Settings
 		DisableCountdownTimer = ini.Get("Misc", "DisableCountdownTimer", std::move(DisableCountdownTimer));
 		RestoreJPClarissa = ini.Get("Misc", "RestoreJPClarissa", std::move(RestoreJPClarissa));
 		RandomHighwayAnimSets = ini.Get("Misc", "RandomHighwayAnimSets", std::move(RandomHighwayAnimSets));
+		DemonwareServerOverride = ini.Get("Misc", "DemonwareServerOverride", std::move(DemonwareServerOverride));
 
 		FixPegasusClopping = ini.Get("Bugfixes", "FixPegasusClopping", std::move(FixPegasusClopping));
 		FixC2CRankings = ini.Get("Bugfixes", "FixC2CRankings", std::move(FixC2CRankings));
