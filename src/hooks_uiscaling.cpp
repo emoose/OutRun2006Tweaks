@@ -413,6 +413,8 @@ class UIScaling : public Hook
 
 	static inline SafetyHookMid NaviPub_Disp_RivalDisableScaling_hk{};
 	static inline SafetyHookMid NaviPub_Disp_RivalEnableScaling_hk{};
+	static inline SafetyHookMid NaviPub_Disp_RivalOnlineDisableScaling_hk{};
+	static inline SafetyHookMid NaviPub_Disp_RivalOnlineEnableScaling_hk{};
 
 	static inline SafetyHookMid ctrl_icon_work_AdjustPosition_hk{};
 	static void ctrl_icon_work_AdjustPosition(safetyhook::Context& ctx)
@@ -514,8 +516,10 @@ public:
 		NaviPub_Disp_C2CFruitDisableScaling_hk = safetyhook::create_mid((void*)0x481A86, SpriteSpacingDisable);
 		NaviPub_Disp_C2CFruitEnableScaling_hk = safetyhook::create_mid((void*)0x481A8B, SpriteSpacingEnable);
 
-		NaviPub_Disp_RivalDisableScaling_hk = safetyhook::create_mid((void*)0x4BEBAA, SpriteSpacingDisable);
+		NaviPub_Disp_RivalDisableScaling_hk = safetyhook::create_mid((void*)0x4BEB8E, SpriteSpacingDisable);
 		NaviPub_Disp_RivalEnableScaling_hk = safetyhook::create_mid((void*)0x4BEBAF, SpriteSpacingEnable);
+		NaviPub_Disp_RivalOnlineDisableScaling_hk = safetyhook::create_mid((void*)0x4BEC83, SpriteSpacingDisable);
+		NaviPub_Disp_RivalOnlineEnableScaling_hk = safetyhook::create_mid((void*)0x4BEC88, SpriteSpacingEnable);
 
 		// dispMarkerCheck is called by all three rival-marker functions, hopefully can fix them all
 		dispMarkerCheck_SpriteScalingDisable_hk = safetyhook::create_mid((void*)0x4BA0E0, SpriteSpacingDisable);
