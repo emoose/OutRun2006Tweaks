@@ -165,8 +165,6 @@ HRESULT D3DXCreateTextureFromFileInMemoryEx_Custom(
 	if (MipLevels > header->data.dwMipMapCount)
 		MipLevels = header->data.dwMipMapCount;
 
-	MipLevels = 1;
-
 	D3DFORMAT format_orig = GetD3DFormatFromPixelFormat(header->data.ddpfPixelFormat);
 	if (format_orig == D3DFMT_UNKNOWN)
 		return E_FAIL;
@@ -235,7 +233,9 @@ HRESULT D3DXCreateTextureFromFileInMemoryEx_Custom(
 		srcData += mipSize;
 	}
 
-	// Apply filtering modes
+	// Apply filtering modes (just the ones used by C2C)
+	// TODO: this likely isn't applying filtering properly, we probably need to gen mipmaps & use D3DXFilterTexture...
+
 	if (Filter != 0) {
 		if (Filter == D3DX_FILTER_NONE)
 			Filter = D3DTEXF_NONE;
