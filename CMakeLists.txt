@@ -140,6 +140,8 @@ set(outrun2006tweaks_SOURCES
 	"external/ModUtils/MemoryMgr.h"
 	"external/ModUtils/Patterns.cpp"
 	"external/ModUtils/Patterns.h"
+	"external/miniz/miniz.c"
+	"external/miniz/miniz.h"
 	"external/xxHash/xxhash.c"
 	"external/xxHash/xxhash.h"
 	"src/Proxy.cpp"
@@ -147,12 +149,14 @@ set(outrun2006tweaks_SOURCES
 	"src/Proxy.hpp"
 	"src/Resource.rc"
 	"src/dllmain.cpp"
+	"src/exception.hpp"
 	"src/game.hpp"
 	"src/game_addrs.hpp"
 	"src/hook_mgr.cpp"
 	"src/hook_mgr.hpp"
 	"src/hooks_audio.cpp"
 	"src/hooks_bugfixes.cpp"
+	"src/hooks_exceptions.cpp"
 	"src/hooks_flac.cpp"
 	"src/hooks_forcefeedback.cpp"
 	"src/hooks_framerate.cpp"
@@ -195,6 +199,7 @@ target_include_directories(outrun2006tweaks PUBLIC
 	"external/ModUtils/"
 	"external/ini-cpp/ini/"
 	"external/xxHash/"
+	"external/miniz/"
 )
 
 target_link_libraries(outrun2006tweaks PUBLIC

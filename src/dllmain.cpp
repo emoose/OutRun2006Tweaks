@@ -8,6 +8,8 @@
 #include "plugin.hpp"
 #include "game_addrs.hpp"
 
+void InitExceptionHandler(); // hooks_exceptions.cpp
+
 namespace Module
 {
 	constexpr std::string_view TargetFilename = "OR2006C2C.exe";
@@ -277,6 +279,8 @@ void Plugin_Init()
 	Settings::to_log();
 
 	Game::StartupTime = std::chrono::system_clock::now();
+
+	InitExceptionHandler();
 
 	HookManager::ApplyHooks();
 }
