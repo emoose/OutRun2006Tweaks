@@ -165,6 +165,11 @@ HRESULT D3DXCreateTextureFromFileInMemoryEx_Custom(
 	if (MipLevels > header->data.dwMipMapCount)
 		MipLevels = header->data.dwMipMapCount;
 
+	// MipLevels = 0 means caller is asking us to gen mips, the only caller that sets MipLevels = 0 is UI related though, which doesn't really need any
+	// (though mip gen is still needed when caller asks for more mips than the texture file contains...)
+	if (MipLevels == 0)
+		MipLevels = 1; 
+
 	D3DFORMAT format_orig = GetD3DFormatFromPixelFormat(header->data.ddpfPixelFormat);
 	if (format_orig == D3DFMT_UNKNOWN)
 		return E_FAIL;
@@ -172,6 +177,10 @@ HRESULT D3DXCreateTextureFromFileInMemoryEx_Custom(
 	D3DFORMAT format_present = format_orig;
 	if (format_orig == D3DFMT_A8B8G8R8)
 		format_present = D3DFMT_A8R8G8B8;
+
+#ifdef _DEBUG
+	spdlog::info("Texture {}x{} mips {} fmt {}", Width, Height, MipLevels, (int)format_orig);
+#endif
 
 	// Create the texture
 	HRESULT hr = pDevice->CreateTexture(
