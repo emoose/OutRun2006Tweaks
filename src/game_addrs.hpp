@@ -90,6 +90,7 @@ namespace Game
 	// 3d drawing
 	inline DrawObject_Internal_fn DrawObject_Internal = nullptr;
 	inline DrawObjectAlpha_Internal_fn DrawObjectAlpha_Internal = nullptr;
+	inline int* power_on_timer = nullptr;
 
 	// math
 	inline mxPushLoadMatrix_fn mxPushLoadMatrix = (mxPushLoadMatrix_fn)0x409F90;
@@ -167,6 +168,7 @@ namespace Game
 
 		DrawObject_Internal = Module::fn_ptr<DrawObject_Internal_fn>(0x5360);
 		DrawObjectAlpha_Internal = Module::fn_ptr<DrawObjectAlpha_Internal_fn>(0x56D0);
+		power_on_timer = Module::exe_ptr<int>(0x55AF0C);
 
 		mxPushLoadMatrix = Module::fn_ptr<mxPushLoadMatrix_fn>(0x9F90);
 		mxTranslate = Module::fn_ptr<mxTranslate_fn>(0xA290);

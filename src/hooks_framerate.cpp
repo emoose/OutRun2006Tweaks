@@ -133,6 +133,11 @@ class ReplaceGameUpdateLoop : public Hook
 		// need to call 43FA10 in order for "extend time" gfx to disappear
 		Game::fn43FA10(numUpdates);
 
+		// Increment power_on_timer based on numUpdates value, fixes above-60-fps animation issues such as water anims
+		// This should be incremented at the end of the games main loop, but we don't have any hook near the end
+		// Incrementing at the beginning before the main loop body should be equivalent
+		*Game::power_on_timer = *Game::power_on_timer + numUpdates;
+
 		AudioHooks_Update(numUpdates);
 
 		if (numUpdates > 0)
@@ -215,6 +220,9 @@ public:
 		// replace game update loop with custom version
 		Memory::VP::Nop(Module::exe_ptr<uint8_t>(HookAddr), 0xA3);
 		dest_hook = safetyhook::create_mid(Module::exe_ptr<uint8_t>(HookAddr), destination);
+
+		// disable power_on_timer increment so we can handle it
+		Memory::VP::Nop(Module::exe_ptr<uint8_t>(0x17D87), 6);
 
 		// Disable FileLoad_Ctrl call, we'll handle it above ourselves
 		if (Settings::FramerateFastLoad == 3)

@@ -20,6 +20,7 @@ Latest builds can be found under the releases section: https://github.com/emoose
 
 **Gameplay:**
 - Built-in framelimiter to prevent speedups, framerate can be partially unlocked with game running at 60FPS internally
+- Points game toward new online servers, restoring the online multiplayer modes
 - Restored XInput rumble code from the Xbox release, allowing gear shifts/drifts/crashes/etc to give feedback
 - Xbox Series impulse triggers are supported and can be tweaked inside INI
 - Horn button can be made functional during normal gameplay, outside of the "honk your horn!" girl requests
@@ -36,6 +37,7 @@ Latest builds can be found under the releases section: https://github.com/emoose
 **Enhancements:**
 - Game can now run in borderless windowed mode; mouse cursor will now be hidden while game is active
 - Load times heavily reduced by disabling framelimiter/vsync during load screens
+- Draw distance for the stage can be increased, greatly reducing pop-in/fade-ins on the level
 - Music can now be loaded from uncompressed WAV or lossless FLAC files, if they exist with the same filename
 - Allows intro splash screens to be skipped
 - Music track can be changed mid-race via Z and X buttons, or Back/RS+Back on controller (`CDSwitcher` must be enabled in INI first)
@@ -53,9 +55,12 @@ This EXE should be compatible with both the Steam release & the original DVD ver
 
 To set it up:
 
-- Extract the files from the release ZIP into your `Outrun2006 Coast 2 Coast` folder, where `OR2006C2C.EXE` is located, replacing the original EXE.
-- Edit the `Outrun2006Tweaks.ini` to customize the tweaks to your liking (by default all tweaks are enabled)
+- Extract the files from the release ZIP into your **Outrun2006 Coast 2 Coast** folder, where **OR2006C2C.EXE** is located, replacing the original EXE.
+- Edit **OutRun2006Tweaks.ini** to customize the tweaks to your liking (by default all tweaks are enabled, other than `CDSwitcher`)
+- **Important:** Install the latest x86 VC redist from (https://aka.ms/vs/17/release/vc_redist.x86.exe), a redist from 2024 is needed for Tweaks to launch correctly (**even if you already have it installed please try installing it again**)
 - Run the game, your desktop resolution will be used by default if `outrun2006.ini` file isn't present.
+- (optional) the [SoundtrackFix package](https://github.com/emoose/OutRun2006Tweaks/releases/download/v0.3.0-release/OutRun2006Tweaks-SoundtrackFix-1.0.zip) can be applied to fix the missing first 2 seconds in "Rush a Difficulty"
+- (optional) texture improvements can be found in the texture pack releases thread (please feel free to create your own too!): https://github.com/emoose/OutRun2006Tweaks/issues/20
 
 Steam Deck/Linux users may need to run the game with `WINEDLLOVERRIDES="dinput8=n,b" %command%` launch parameters for the mod to load in.
 
