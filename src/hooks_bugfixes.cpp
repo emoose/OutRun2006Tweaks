@@ -5,6 +5,60 @@
 #include "plugin.hpp"
 #include "game_addrs.hpp"
 
+class FixBinkLargeMovies : public Hook
+{
+	// Most cards don't support creating textures that aren't exact powers of 2, so game tries to find closest pow2 that would fit the movie
+	// Sadly the function they use only goes up to 1024 max, anything larger will just use 1024 and cause a crash later
+	// We'll just replace their AlignToPow2 func so we can work it out ourselves
+
+	inline static SafetyHookMid Sumo_BinkGetPow2 = {};
+	static void destination(SafetyHookContext& ctx)
+	{
+		int n = ctx.eax;
+		// Handle the case where n is already a power of 2
+		if (n && !(n & (n - 1))) {
+			return;
+		}
+
+		// Set all bits after the most significant bit
+		n--;
+		n |= n >> 1;
+		n |= n >> 2;
+		n |= n >> 4;
+		n |= n >> 8;
+		n |= n >> 16;
+
+		// Increment n to get the next power of 2
+		ctx.eax = n;
+	}
+
+public:
+	std::string_view description() override
+	{
+		return "FixBinkLargeMovies";
+	}
+
+	bool validate() override
+	{
+		return true;
+	}
+
+	bool apply() override
+	{
+		constexpr int Sumo_BinkGetPow2_Addr = 0x14730;
+
+		// patch start of func to 5 nops + ret
+		Memory::VP::Patch(Module::exe_ptr(Sumo_BinkGetPow2_Addr), { 0x90, 0x90, 0x90, 0x90, 0x90, 0xC3 });
+
+		// midhook func
+		Sumo_BinkGetPow2 = safetyhook::create_mid(Module::exe_ptr(Sumo_BinkGetPow2_Addr), destination);
+		return !!Sumo_BinkGetPow2;
+	}
+
+	static FixBinkLargeMovies instance;
+};
+FixBinkLargeMovies FixBinkLargeMovies::instance;
+
 class FixPegasusClopping : public Hook
 {
 	const static int SndOff_PEGA_Addr = 0x4BCC0;
