@@ -92,10 +92,11 @@ namespace Settings
 		spdlog::info(" - DrawDistanceIncrease: {}", DrawDistanceIncrease);
 		spdlog::info(" - DrawDistanceBehind: {}", DrawDistanceBehind);
 
+		spdlog::info(" - TextureBaseFolder: {}", TextureBaseFolder);
 		spdlog::info(" - SceneTextureReplacement: {}", SceneTextureReplacement);
-		spdlog::info(" - SceneTextureDump: {}", SceneTextureDump);
+		spdlog::info(" - SceneTextureExtract: {}", SceneTextureExtract);
 		spdlog::info(" - UITextureReplacement: {}", UITextureReplacement);
-		spdlog::info(" - UITextureDump: {}", UITextureDump);
+		spdlog::info(" - UITextureExtract: {}", UITextureExtract);
 		spdlog::info(" - EnableTextureCache: {}", EnableTextureCache);
 		spdlog::info(" - UseNewTextureAllocator: {}", UseNewTextureAllocator);
 
@@ -199,10 +200,11 @@ namespace Settings
 		DrawDistanceIncrease = ini.Get("Graphics", "DrawDistanceIncrease", std::move(DrawDistanceIncrease));
 		DrawDistanceBehind = ini.Get("Graphics", "DrawDistanceBehind", std::move(DrawDistanceBehind));
 
+		TextureBaseFolder = ini.Get("Graphics", "TextureBaseFolder", std::move(TextureBaseFolder));
 		SceneTextureReplacement = ini.Get("Graphics", "SceneTextureReplacement", std::move(SceneTextureReplacement));
-		SceneTextureDump = ini.Get("Graphics", "SceneTextureDump", std::move(SceneTextureDump));
+		SceneTextureExtract = ini.Get("Graphics", "SceneTextureExtract", std::move(SceneTextureExtract));
 		UITextureReplacement = ini.Get("Graphics", "UITextureReplacement", std::move(UITextureReplacement));
-		UITextureDump = ini.Get("Graphics", "UITextureDump", std::move(UITextureDump));
+		UITextureExtract = ini.Get("Graphics", "UITextureExtract", std::move(UITextureExtract));
 		EnableTextureCache = ini.Get("Graphics", "EnableTextureCache", std::move(EnableTextureCache));
 		UseNewTextureAllocator = ini.Get("Graphics", "UseNewTextureAllocator", std::move(UseNewTextureAllocator));
 

@@ -586,7 +586,7 @@ class TextureReplacement : public Hook
 			return;
 
 		bool allowReplacement = isUITexture ? Settings::UITextureReplacement : Settings::SceneTextureReplacement;
-		bool allowDump = isUITexture ? Settings::UITextureDump : Settings::SceneTextureDump;
+		bool allowExtract = isUITexture ? Settings::UITextureExtract : Settings::SceneTextureExtract;
 
 		const DDS_FILE* header = (const DDS_FILE*)*ppSrcData;
 		if (header->magic != DDS_MAGIC)
@@ -646,7 +646,7 @@ class TextureReplacement : public Hook
 			}
 		}
 
-		if (allowDump && dumpTexture)
+		if (allowExtract && dumpTexture)
 		{
 			auto path_dump = XmtDumpPath / texturePackName.filename().stem();
 			if (!FileSystem.exists(path_dump))
@@ -701,7 +701,7 @@ class TextureReplacement : public Hook
 	inline static SafetyHookInline D3DXCreateTextureFromFileInMemoryEx = {};
 	static HRESULT __stdcall D3DXCreateTextureFromFileInMemoryEx_Custom_dest(LPDIRECT3DDEVICE9 pDevice, void* pSrcData, UINT SrcDataSize, UINT Width, UINT Height, UINT MipLevels, DWORD Usage, D3DFORMAT Format, D3DPOOL Pool, DWORD Filter, DWORD MipFilter, D3DCOLOR ColorKey, void* pSrcInfo, PALETTEENTRY* pPalette, LPDIRECT3DTEXTURE9* ppTexture)
 	{
-		if ((Settings::SceneTextureReplacement || Settings::SceneTextureDump) && pSrcData && SrcDataSize)
+		if ((Settings::SceneTextureReplacement || Settings::SceneTextureExtract) && pSrcData && SrcDataSize)
 		{
 			HandleTexture(&pSrcData, &SrcDataSize, CurrentXmtsetFilename, false);
 		}
@@ -710,7 +710,7 @@ class TextureReplacement : public Hook
 	}
 	static HRESULT __stdcall D3DXCreateTextureFromFileInMemoryEx_Orig_dest(LPDIRECT3DDEVICE9 pDevice, void* pSrcData, UINT SrcDataSize, UINT Width, UINT Height, UINT MipLevels, DWORD Usage, D3DFORMAT Format, D3DPOOL Pool, DWORD Filter, DWORD MipFilter, D3DCOLOR ColorKey, void* pSrcInfo, PALETTEENTRY* pPalette, LPDIRECT3DTEXTURE9* ppTexture)
 	{
-		if ((Settings::SceneTextureReplacement || Settings::SceneTextureDump) && pSrcData && SrcDataSize)
+		if ((Settings::SceneTextureReplacement || Settings::SceneTextureExtract) && pSrcData && SrcDataSize)
 		{
 			HandleTexture(&pSrcData, &SrcDataSize, CurrentXmtsetFilename, false);
 		}
@@ -774,7 +774,7 @@ public:
 
 	bool validate() override
 	{
-		return (Settings::SceneTextureReplacement || Settings::SceneTextureDump) || (Settings::UITextureReplacement || Settings::UITextureDump);
+		return (Settings::SceneTextureReplacement || Settings::SceneTextureExtract) || (Settings::UITextureReplacement || Settings::UITextureExtract);
 	}
 
 	bool apply() override
@@ -791,8 +791,12 @@ public:
 		const static int LoadXmtsetObject_Step1_HookAddr = 0x2E169;
 		const static int LoadXmtsetObject_Step3_HookAddr = 0x2E304;
 
-		XmtDumpPath = "textures\\dump";
-		XmtLoadPath = "textures\\load";
+		std::filesystem::path textureBaseDir = "textures";
+		if (!Settings::TextureBaseFolder.empty())
+			textureBaseDir = Settings::TextureBaseFolder;
+		
+		XmtDumpPath = textureBaseDir / "dump";
+		XmtLoadPath = textureBaseDir / "load";
 
 		// Startup texture cache, causes game to take a while to boot, disabled for now...
 #if 0
@@ -811,8 +815,8 @@ public:
 
 		FileSystem = DirectoryFileCache(XmtLoadPath);
 
-		bool ApplyUIHooks = Settings::UITextureReplacement || Settings::UITextureDump;
-		bool ApplySceneHooks = Settings::SceneTextureReplacement || Settings::SceneTextureDump;
+		bool ApplyUIHooks = Settings::UITextureReplacement || Settings::UITextureExtract;
+		bool ApplySceneHooks = Settings::SceneTextureReplacement || Settings::SceneTextureExtract;
 
 		// Scene hooks are applied through D3DXCreateTextureFromFileInMemoryEx
 		// But our UI code also calls D3DXCreateTextureFromFileInMemoryEx to allow loading textures slightly faster

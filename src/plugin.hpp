@@ -84,10 +84,11 @@ namespace Settings
 	inline int DrawDistanceIncrease = 0;
 	inline int DrawDistanceBehind = 0;
 
+	inline std::string TextureBaseFolder = "textures";
 	inline bool SceneTextureReplacement = true;
-	inline bool SceneTextureDump = false;
+	inline bool SceneTextureExtract = false;
 	inline bool UITextureReplacement = true;
-	inline bool UITextureDump = false;
+	inline bool UITextureExtract = false;
 	inline bool EnableTextureCache = true;
 	inline bool UseNewTextureAllocator = true;
 
