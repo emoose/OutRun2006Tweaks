@@ -29,6 +29,8 @@ class FixBinkLargeMovies : public Hook
 		n |= n >> 16;
 
 		// Increment n to get the next power of 2
+		n++;
+
 		ctx.eax = n;
 	}
 
