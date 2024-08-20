@@ -15,6 +15,7 @@ namespace Module
 	constexpr std::string_view TargetFilename = "OR2006C2C.exe";
 
 	constexpr std::string_view IniFileName = "OutRun2006Tweaks.ini";
+	constexpr std::string_view UserIniFileName = "OutRun2006Tweaks.user.ini";
 	constexpr std::string_view LogFileName = "OutRun2006Tweaks.log";
 
 	void init()
@@ -32,6 +33,7 @@ namespace Module
 		auto dllParent = DllPath.parent_path();
 		LogPath = dllParent / LogFileName;
 		IniPath = dllParent / IniFileName;
+		UserIniPath = dllParent / UserIniFileName;
 
 		Game::init();
 	}
@@ -135,7 +137,6 @@ namespace Settings
 		if (result != 0 || !iniFile)
 		{
 			spdlog::error("Settings::read - INI read failed! Error code {}", result);
-			spdlog::error("Settings::read - Launching game with default INI settings!");
 			return false;
 		}
 
@@ -147,7 +148,6 @@ namespace Settings
 		catch (...)
 		{
 			spdlog::error("Settings::read - INI read failed! The file may be invalid or have duplicate settings inside");
-			spdlog::error("Settings::read - Launching game with default INI settings!");
 			fclose(iniFile);
 			return false;
 		}
@@ -279,7 +279,12 @@ void Plugin_Init()
 	spdlog::info("OutRun2006Tweaks v{} - github.com/emoose/OutRun2006Tweaks", MODULE_VERSION_STR);
 	Module::to_log();
 
-	Settings::read(Module::IniPath);
+	if (!Settings::read(Module::IniPath))
+		spdlog::error("Settings::read - Launching game with default OR2006Tweaks INI settings!");
+
+	if (std::filesystem::exists(Module::UserIniPath))
+		Settings::read(Module::UserIniPath);
+
 	Settings::to_log();
 
 	Game::StartupTime = std::chrono::system_clock::now();
