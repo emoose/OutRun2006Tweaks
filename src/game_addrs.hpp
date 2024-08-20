@@ -87,6 +87,9 @@ namespace Game
 	inline fn_2args sprLocateP = nullptr;
 	inline fn_printf sprPrintf = nullptr;
 
+	inline fn_1arg_char Sumo_GetStringFromId = nullptr;
+	inline fn_printf Sumo_Printf = nullptr;
+
 	// 3d drawing
 	inline DrawObject_Internal_fn DrawObject_Internal = nullptr;
 	inline DrawObjectAlpha_Internal_fn DrawObjectAlpha_Internal = nullptr;
@@ -165,6 +168,9 @@ namespace Game
 		sprSetFontScale = Module::fn_ptr<fn_2floats>(0x2CC60);
 		sprLocateP = Module::fn_ptr<fn_2args>(0x2CC00);
 		sprPrintf = Module::fn_ptr<fn_printf>(0x2CCE0);
+
+		Sumo_GetStringFromId = Module::fn_ptr<fn_1arg_char>(0x65EB0);
+		Sumo_Printf = Module::fn_ptr<fn_printf>(0x2CDD0);
 
 		DrawObject_Internal = Module::fn_ptr<DrawObject_Internal_fn>(0x5360);
 		DrawObjectAlpha_Internal = Module::fn_ptr<DrawObjectAlpha_Internal_fn>(0x56D0);

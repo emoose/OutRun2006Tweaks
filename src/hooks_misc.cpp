@@ -9,6 +9,43 @@
 #include <upnpcommands.h>
 #include <WinSock2.h>
 
+class ShowOutRunMilesOnMenu : public Hook
+{
+	inline static SafetyHookMid midhook = {};
+	static void destination(SafetyHookContext& ctx)
+	{
+		char* text_NotSignedIn = (char*)(ctx.eax);
+		char* text_OutRunMiles = Game::Sumo_GetStringFromId(0x21D);
+		int numMiles = (int)*Module::exe_ptr<float>(0x3C2404);
+
+		Game::Sumo_Printf("%s - %s %d", text_NotSignedIn, text_OutRunMiles, numMiles);
+	}
+
+public:
+	std::string_view description() override
+	{
+		return "ShowOutRunMilesOnMenu";
+	}
+
+	bool validate() override
+	{
+		return Settings::ShowOutRunMilesOnMenu;
+	}
+
+	bool apply() override
+	{
+		constexpr int PrintSignedInStatus_NotLoggedIn_Addr = 0x413E2;
+
+		Memory::VP::Nop(Module::exe_ptr(PrintSignedInStatus_NotLoggedIn_Addr), 5);
+		midhook = safetyhook::create_mid(Module::exe_ptr(PrintSignedInStatus_NotLoggedIn_Addr), destination);
+
+		return !!midhook;
+	}
+
+	static ShowOutRunMilesOnMenu instance;
+};
+ShowOutRunMilesOnMenu ShowOutRunMilesOnMenu::instance;
+
 class DemonwareServerOverride : public Hook
 {
 	inline static SafetyHookInline bdPlatformSocket__getHostByName_hook = {};

@@ -10,6 +10,8 @@ typedef void (*fn_1arg)(int);
 typedef void (*fn_2args)(int, int);
 typedef void (*fn_3args)(int, int, int);
 typedef int (*fn_1arg_int)(int);
+typedef void* (*fn_1arg_void)(int);
+typedef char* (*fn_1arg_char)(int);
 typedef void (*fn_2floats)(float, float);
 typedef void (*fn_printf)(const char*, ...);
 typedef void (__fastcall *fn_0args_class)(void* thisptr, void* unused);

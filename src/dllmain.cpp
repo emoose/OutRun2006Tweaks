@@ -110,6 +110,7 @@ namespace Settings
 		spdlog::info(" - SkipIntroLogos: {}", SkipIntroLogos);
 		spdlog::info(" - DisableCountdownTimer: {}", DisableCountdownTimer);
 		spdlog::info(" - RestoreJPClarissa: {}", RestoreJPClarissa);
+		spdlog::info(" - ShowOutRunMilesOnMenu: {}", ShowOutRunMilesOnMenu);
 		spdlog::info(" - RandomHighwayAnimSets: {}", RandomHighwayAnimSets);
 		spdlog::info(" - DemonwareServerOverride: {}", DemonwareServerOverride);
 
@@ -225,6 +226,7 @@ namespace Settings
 		SkipIntroLogos = ini.Get("Misc", "SkipIntroLogos", std::move(SkipIntroLogos));
 		DisableCountdownTimer = ini.Get("Misc", "DisableCountdownTimer", std::move(DisableCountdownTimer));
 		RestoreJPClarissa = ini.Get("Misc", "RestoreJPClarissa", std::move(RestoreJPClarissa));
+		ShowOutRunMilesOnMenu = ini.Get("Misc", "ShowOutRunMilesOnMenu", std::move(ShowOutRunMilesOnMenu));
 		RandomHighwayAnimSets = ini.Get("Misc", "RandomHighwayAnimSets", std::move(RandomHighwayAnimSets));
 		DemonwareServerOverride = ini.Get("Misc", "DemonwareServerOverride", std::move(DemonwareServerOverride));
 
