@@ -50,6 +50,9 @@ namespace Game
 	inline uint8_t* D3DWindowed = nullptr;
 	inline int* CfgLanguage = nullptr;
 
+	// player data
+	inline float* Sumo_NumOutRunMiles = nullptr;
+
 	// game functions
 	inline fn_0args SetFrameStartCpuTime = nullptr;
 	inline fn_1arg_int CalcNumUpdatesToRun = nullptr;
@@ -133,6 +136,8 @@ namespace Game
 		D3DAntialiasing = Module::exe_ptr<int>(0x55AF04);
 		D3DWindowed = Module::exe_ptr<uint8_t>(0x55AF08);
 		CfgLanguage = Module::exe_ptr<int>(0x340CA0);
+
+		Sumo_NumOutRunMiles = Module::exe_ptr<float>(0x3C2404);
 
 		SetFrameStartCpuTime = Module::fn_ptr<fn_0args>(0x49430);
 		CalcNumUpdatesToRun = Module::fn_ptr<fn_1arg_int>(0x17890);

@@ -16,7 +16,7 @@ class ShowOutRunMilesOnMenu : public Hook
 	{
 		char* text_NotSignedIn = (char*)(ctx.eax);
 		char* text_OutRunMiles = Game::Sumo_GetStringFromId(0x21D);
-		int numMiles = (int)*Module::exe_ptr<float>(0x3C2404);
+		int numMiles = (int)*Game::Sumo_NumOutRunMiles;
 
 		Game::Sumo_Printf("%s - %s %d", text_NotSignedIn, text_OutRunMiles, numMiles);
 	}
