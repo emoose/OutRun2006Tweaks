@@ -4,6 +4,59 @@
 
 #include <d3d9.h>
 
+class SumoUIFlashingTextFix : public Hook
+{
+	inline static fn_0args_void SumoFrontEnd_GetSingleton = nullptr;
+	inline static fn_0args_class SumoFrontEnd_animate = nullptr;
+
+	// Hacky fix for the flashing "Not Signed In" / "Signed In As" text when playing above 60FPS
+	// Normally SumoFrontEndEvent_Ctrl calls into SumoFrontEnd_animate function, which then handles drawing the text
+	// SumoFrontEndEvent_Ctrl is only ran at 60FPS however, and will skip frames when running above that
+	// (If playing at 120FPS, 1/2 frames will skip calling EventControl, which will skip running SumoFrontEndEvent_Ctrl, and the text won't be drawn that frame)
+	// 
+	// Unfortunately running SumoFrontEndEvent_Ctrl every frame makes the C2C UI speed up too
+	// Instead this just removes the original SumoFrontEnd_animate caller, and handles calling that function ourselves every frame instead
+	// 
+	// TODO: this fixes the Not Signed In text, but there are still other flashing Sumo menus that need a fix too (eg. showroom menus), maybe there's others too?
+public:
+	static void draw()
+	{
+		// Make sure sumo FE event is active...
+		uint8_t* status = Module::exe_ptr<uint8_t>(0x39FB48);
+		if ((status[0x195] & 0x18) == 0 && (status[0x195] & 2) != 0) // 0x195 = EVENT_SUMOFE
+		{
+			uint8_t* frontend = (uint8_t*)SumoFrontEnd_GetSingleton();
+			// Check we're in the right state #
+			if (*(int*)(frontend + 0x218) == 2)
+			{
+				SumoFrontEnd_animate(frontend, 0);
+			}
+		}
+	}
+	std::string_view description() override
+	{
+		return "SumoUIFlashingTextFix";
+	}
+
+	bool validate() override
+	{
+		return (Settings::FramerateLimit == 0 || Settings::FramerateLimit > 60) && Settings::FramerateUnlockExperimental;
+	}
+
+	bool apply() override
+	{
+		SumoFrontEnd_GetSingleton = Module::fn_ptr<fn_0args_void>(0x35F0);
+		SumoFrontEnd_animate = Module::fn_ptr<fn_0args_class>(0x43110);
+
+		constexpr int SumoFe_Animate_CallerAddr = 0x45C4E;
+		Memory::VP::Nop(Module::exe_ptr(SumoFe_Animate_CallerAddr), 5);
+		return true;
+	}
+
+	static SumoUIFlashingTextFix instance;
+};
+SumoUIFlashingTextFix SumoUIFlashingTextFix::instance;
+
 class ReplaceGameUpdateLoop : public Hook
 {
 	inline static double FramelimiterFrequency = 0;
@@ -149,6 +202,8 @@ class ReplaceGameUpdateLoop : public Hook
 			if (Settings::ControllerHotPlug)
 				DInput_RegisterNewDevices();
 		}
+
+		SumoUIFlashingTextFix::draw();
 
 		for (int curUpdateIdx = 0; curUpdateIdx < numUpdates; curUpdateIdx++)
 		{

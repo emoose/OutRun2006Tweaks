@@ -5,12 +5,14 @@
 #define D3DX_DEFAULT ULONG_MAX
 
 typedef void (*fn_0args)();
+typedef void* (*fn_0args_void)();
 typedef void (*fn_1arg)(int);
 typedef void (*fn_2args)(int, int);
 typedef void (*fn_3args)(int, int, int);
 typedef int (*fn_1arg_int)(int);
 typedef void (*fn_2floats)(float, float);
 typedef void (*fn_printf)(const char*, ...);
+typedef void (__fastcall *fn_0args_class)(void* thisptr, void* unused);
 
 #define XINPUT_DIGITAL_LEFT_TRIGGER   0x10000
 #define XINPUT_DIGITAL_RIGHT_TRIGGER  0x20000
