@@ -6,9 +6,6 @@
 
 class SumoUIFlashingTextFix : public Hook
 {
-	inline static fn_0args_void SumoFrontEnd_GetSingleton = nullptr;
-	inline static fn_0args_class SumoFrontEnd_animate = nullptr;
-
 	// Hacky fix for the flashing "Not Signed In" / "Signed In As" text when playing above 60FPS
 	// Normally SumoFrontEndEvent_Ctrl calls into SumoFrontEnd_animate function, which then handles drawing the text
 	// SumoFrontEndEvent_Ctrl is only ran at 60FPS however, and will skip frames when running above that
@@ -25,12 +22,10 @@ public:
 		uint8_t* status = Module::exe_ptr<uint8_t>(0x39FB48);
 		if ((status[0x195] & 0x18) == 0 && (status[0x195] & 2) != 0) // 0x195 = EVENT_SUMOFE
 		{
-			uint8_t* frontend = (uint8_t*)SumoFrontEnd_GetSingleton();
+			uint8_t* frontend = (uint8_t*)Game::SumoFrontEnd_GetSingleton_4035F0();
 			// Check we're in the right state #
-			if (*(int*)(frontend + 0x218) == 2)
-			{
-				SumoFrontEnd_animate(frontend, 0);
-			}
+			if (frontend && *(int*)(frontend + 0x218) == 2)
+				Game::SumoFrontEnd_animate_443110(frontend, 0);
 		}
 	}
 	std::string_view description() override
@@ -45,8 +40,6 @@ public:
 
 	bool apply() override
 	{
-		SumoFrontEnd_GetSingleton = Module::fn_ptr<fn_0args_void>(0x35F0);
-		SumoFrontEnd_animate = Module::fn_ptr<fn_0args_class>(0x43110);
 
 		constexpr int SumoFe_Animate_CallerAddr = 0x45C4E;
 		Memory::VP::Nop(Module::exe_ptr(SumoFe_Animate_CallerAddr), 5);
@@ -203,7 +196,8 @@ class ReplaceGameUpdateLoop : public Hook
 				DInput_RegisterNewDevices();
 		}
 
-		SumoUIFlashingTextFix::draw();
+		if (SumoUIFlashingTextFix::instance.active())
+			SumoUIFlashingTextFix::draw();
 
 		for (int curUpdateIdx = 0; curUpdateIdx < numUpdates; curUpdateIdx++)
 		{

@@ -95,6 +95,9 @@ namespace Game
 	inline fn_1arg_char Sumo_GetStringFromId = nullptr;
 	inline fn_printf Sumo_Printf = nullptr;
 
+	inline fn_0args_void SumoFrontEnd_GetSingleton_4035F0 = nullptr;
+	inline fn_0args_class SumoFrontEnd_animate_443110 = nullptr;
+
 	// 3d drawing
 	inline DrawObject_Internal_fn DrawObject_Internal = nullptr;
 	inline DrawObjectAlpha_Internal_fn DrawObjectAlpha_Internal = nullptr;
@@ -180,6 +183,9 @@ namespace Game
 
 		Sumo_GetStringFromId = Module::fn_ptr<fn_1arg_char>(0x65EB0);
 		Sumo_Printf = Module::fn_ptr<fn_printf>(0x2CDD0);
+
+		SumoFrontEnd_GetSingleton_4035F0 = Module::fn_ptr<fn_0args_void>(0x35F0);
+		SumoFrontEnd_animate_443110 = Module::fn_ptr<fn_0args_class>(0x43110);
 
 		DrawObject_Internal = Module::fn_ptr<DrawObject_Internal_fn>(0x5360);
 		DrawObjectAlpha_Internal = Module::fn_ptr<DrawObjectAlpha_Internal_fn>(0x56D0);
