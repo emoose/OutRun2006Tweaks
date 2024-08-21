@@ -46,7 +46,7 @@ namespace Settings
 	inline int FramerateFastLoad = 3;
 	inline bool FramerateUnlockExperimental = true;
 	inline int VSync = 1;
-	inline bool SingleCoreAffinity = false;
+	inline bool SingleCoreAffinity = true;
 
 	inline bool WindowedBorderless = true;
 	inline int WindowPositionX = 0;
@@ -72,7 +72,7 @@ namespace Settings
 
 	inline std::vector<std::pair<std::string, std::string>> CDTracks;
 
-	inline int UIScalingMode = 0;
+	inline int UIScalingMode = 1;
 	inline int UILetterboxing = 1;
 	inline int AnisotropicFiltering = 16;
 	inline int ReflectionResolution = 2048;
@@ -106,7 +106,7 @@ namespace Settings
 	inline bool RestoreJPClarissa = false;
 	inline bool ShowOutRunMilesOnMenu = true;
 	inline bool RandomHighwayAnimSets = false;
-	inline std::string DemonwareServerOverride = "7.176.116.34.bc.googleusercontent.com";
+	inline std::string DemonwareServerOverride = "clarissa.port0.org";
 
 	inline bool FixPegasusClopping = true;
 	inline bool FixC2CRankings = true;

@@ -12,6 +12,8 @@
 
 namespace Input
 {
+    static int HudToggleVKey = 0;
+
     void PadUpdate(int controllerIndex)
     {
         PadStatePrev = PadStateCur;
@@ -50,8 +52,6 @@ namespace Input
                 PadDigitalCur |= XINPUT_DIGITAL_RS_RIGHT;
         }
     }
-
-    static int HudToggleVKey = 0;
 
     void HudToggleUpdate()
     {
