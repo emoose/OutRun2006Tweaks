@@ -111,6 +111,7 @@ namespace Settings
 
 		spdlog::info(" - SkipIntroLogos: {}", SkipIntroLogos);
 		spdlog::info(" - DisableCountdownTimer: {}", DisableCountdownTimer);
+		spdlog::info(" - HudToggleKey: {}", HudToggleKey);
 		spdlog::info(" - RestoreJPClarissa: {}", RestoreJPClarissa);
 		spdlog::info(" - ShowOutRunMilesOnMenu: {}", ShowOutRunMilesOnMenu);
 		spdlog::info(" - RandomHighwayAnimSets: {}", RandomHighwayAnimSets);
@@ -225,6 +226,7 @@ namespace Settings
 
 		SkipIntroLogos = ini.Get("Misc", "SkipIntroLogos", std::move(SkipIntroLogos));
 		DisableCountdownTimer = ini.Get("Misc", "DisableCountdownTimer", std::move(DisableCountdownTimer));
+		HudToggleKey = ini.Get("Misc", "HudToggleKey", std::move(HudToggleKey));
 		RestoreJPClarissa = ini.Get("Misc", "RestoreJPClarissa", std::move(RestoreJPClarissa));
 		ShowOutRunMilesOnMenu = ini.Get("Misc", "ShowOutRunMilesOnMenu", std::move(ShowOutRunMilesOnMenu));
 		RandomHighwayAnimSets = ini.Get("Misc", "RandomHighwayAnimSets", std::move(RandomHighwayAnimSets));

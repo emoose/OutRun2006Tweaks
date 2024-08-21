@@ -35,6 +35,8 @@ namespace Game
 		return *DirectInput8_ptr;
 	}
 
+	inline uint32_t* navipub_disp_flg = nullptr;
+
 	inline int* sel_bgm_kind_buf = nullptr;
 
 	inline int* app_time = nullptr; // used by SetTweeningTable etc
@@ -121,6 +123,8 @@ namespace Game
 		D3DPresentParams = Module::exe_ptr<D3DPRESENT_PARAMETERS>(0x49BD64);
 		D3DDevice_ptr = Module::exe_ptr<IDirect3DDevice9*>(0x49BD60);
 		DirectInput8_ptr = Module::exe_ptr<IDirectInput8A*>(0x4606E8);
+
+		navipub_disp_flg = Module::exe_ptr<uint32_t>(0x4447F8);
 
 		sel_bgm_kind_buf = Module::exe_ptr<int>(0x430364);
 

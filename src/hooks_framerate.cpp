@@ -209,7 +209,7 @@ class ReplaceGameUpdateLoop : public Hook
 		{
 			// Fetch latest input state
 			// (do this inside our update-loop so that any hooked game funcs have accurate state...)
-			Input::PadUpdate(Settings::VibrationControllerId);
+			Input::Update();
 
 			Game::ReadIO();
 			Game::SoundControl_mb();

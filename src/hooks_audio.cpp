@@ -150,8 +150,8 @@ class CDSwitcher : public Hook
 				PadStatePrev = false;
 		}
 
-		bool KeyStateNext = (GetAsyncKeyState('X') || PadStateNext);
-		bool KeyStatePrev = (GetAsyncKeyState('Z') || PadStatePrev);
+		bool KeyStateNext = ((GetAsyncKeyState('X') & 1) || PadStateNext);
+		bool KeyStatePrev = ((GetAsyncKeyState('Z') & 1) || PadStatePrev);
 
 		bool BGMChanged = false;
 
@@ -189,8 +189,15 @@ class CDSwitcher : public Hook
 
 	static void __cdecl PettyAutosceneCmdTblAnalysis_adxPlay_dest(int a1, uint32_t bgmIdx, int a3)
 	{
+		if (!Settings::CDTracks.size())
+		{
+			Game::adxPlay(a1, bgmIdx, a3);
+			return;
+		}
+
 		if (bgmIdx >= Settings::CDTracks.size())
 			bgmIdx = 0;
+
 		BGMOverridePath = Settings::CDTracks[bgmIdx].first;
 		Game::adxPlay(0, 0, 0);
 	}
@@ -283,8 +290,6 @@ void AudioHooks_Update(int numUpdates)
 
 void CDSwitcher_ReadIni(const std::filesystem::path& iniPath)
 {
-	Settings::CDTracks.clear();
-
 	if (!std::filesystem::exists(iniPath))
 	{
 		// TODO: fill in defaults if no INI found? for now we'll just disable switcher

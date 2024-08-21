@@ -68,50 +68,14 @@ namespace Input
 	inline XINPUT_STATE PadStateCur{ 0 };
 	inline uint32_t PadDigitalCur{ 0 };
 
-	inline void PadUpdate(int controllerIndex)
-	{
-		PadStatePrev = PadStateCur;
-		PadDigitalPrev = PadDigitalCur;
-
-		if (XInputGetState(controllerIndex, &PadStateCur) != ERROR_SUCCESS)
-			PadStateCur = { 0 };
-
-		PadDigitalCur = PadStateCur.Gamepad.wButtons;
-
-		// Convert analog inputs to digital bitfield
-		{
-			if (PadStateCur.Gamepad.bLeftTrigger > XINPUT_GAMEPAD_TRIGGER_THRESHOLD)
-				PadDigitalCur |= XINPUT_DIGITAL_LEFT_TRIGGER;
-			if (PadStateCur.Gamepad.bRightTrigger > XINPUT_GAMEPAD_TRIGGER_THRESHOLD)
-				PadDigitalCur |= XINPUT_DIGITAL_RIGHT_TRIGGER;
-
-			// Check left stick
-			if (PadStateCur.Gamepad.sThumbLY > XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE)
-				PadDigitalCur |= XINPUT_DIGITAL_LS_UP;
-			if (PadStateCur.Gamepad.sThumbLY < -XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE)
-				PadDigitalCur |= XINPUT_DIGITAL_LS_DOWN;
-			if (PadStateCur.Gamepad.sThumbLX < -XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE)
-				PadDigitalCur |= XINPUT_DIGITAL_LS_LEFT;
-			if (PadStateCur.Gamepad.sThumbLX > XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE)
-				PadDigitalCur |= XINPUT_DIGITAL_LS_RIGHT;
-
-			// Check right stick
-			if (PadStateCur.Gamepad.sThumbRY > XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE)
-				PadDigitalCur |= XINPUT_DIGITAL_RS_UP;
-			if (PadStateCur.Gamepad.sThumbRY < -XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE)
-				PadDigitalCur |= XINPUT_DIGITAL_RS_DOWN;
-			if (PadStateCur.Gamepad.sThumbRX < -XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE)
-				PadDigitalCur |= XINPUT_DIGITAL_RS_LEFT;
-			if (PadStateCur.Gamepad.sThumbRX > XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE)
-				PadDigitalCur |= XINPUT_DIGITAL_RS_RIGHT;
-		}
-	}
-
 	inline bool PadReleased(uint32_t buttons)
 	{
 		return (PadDigitalPrev & buttons) == buttons &&
-			   (PadDigitalCur & buttons) != buttons;
+			(PadDigitalCur & buttons) != buttons;
 	}
+
+	// hooks_input.cpp
+	void Update();
 };
 
 enum GameState

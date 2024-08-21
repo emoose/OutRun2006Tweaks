@@ -102,6 +102,7 @@ namespace Settings
 
 	inline bool SkipIntroLogos = false;
 	inline bool DisableCountdownTimer = false;
+	inline std::string HudToggleKey = "";
 	inline bool RestoreJPClarissa = false;
 	inline bool ShowOutRunMilesOnMenu = true;
 	inline bool RandomHighwayAnimSets = false;
