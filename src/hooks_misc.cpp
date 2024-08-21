@@ -195,6 +195,16 @@ RandomHighwayAnimSets RandomHighwayAnimSets::instance;
 
 class SingleCoreAffinity : public Hook
 {
+	inline static SafetyHookMid Sumo_InitFileLoad_midhook{};
+	inline static SafetyHookMid Sumo_FileLoadThread_midhook{};
+	inline static SafetyHookMid Sumo_FileCreateThread_midhook{};
+
+	static void destination(SafetyHookContext& ctx)
+	{
+		DWORD_PTR threadAffinityMask = 1;
+		SetThreadAffinityMask(GetCurrentThread(), 1);
+	}
+
 public:
 	std::string_view description() override
 	{
@@ -208,8 +218,13 @@ public:
 
 	bool apply() override
 	{
-		DWORD_PTR processAffinityMask = 1;
-		SetProcessAffinityMask(GetCurrentProcess(), processAffinityMask);
+		// Hook file load thread functions to make them share same core as main thread
+		// (this allows other threads spawned by D3D/DSound/etc to still use different cores)
+
+		Sumo_InitFileLoad_midhook = safetyhook::create_mid(Module::exe_ptr(0x231E0), destination);
+		Sumo_FileLoadThread_midhook = safetyhook::create_mid(Module::exe_ptr(0x23940), destination);
+		Sumo_FileCreateThread_midhook = safetyhook::create_mid(Module::exe_ptr(0x24090), destination);
+
 		return true;
 	}
 
