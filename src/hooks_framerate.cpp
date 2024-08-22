@@ -6,6 +6,8 @@
 
 class SumoUIFlashingTextFix : public Hook
 {
+	static SumoUIFlashingTextFix instance;
+
 	// Hacky fix for the flashing "Not Signed In" / "Signed In As" text when playing above 60FPS
 	// Normally SumoFrontEndEvent_Ctrl calls into SumoFrontEnd_animate function, which then handles drawing the text
 	// SumoFrontEndEvent_Ctrl is only ran at 60FPS however, and will skip frames when running above that
@@ -18,6 +20,9 @@ class SumoUIFlashingTextFix : public Hook
 public:
 	static void draw()
 	{
+		if (!instance.active())
+			return;
+
 		// Make sure sumo FE event is active...
 		uint8_t* status = Module::exe_ptr<uint8_t>(0x39FB48);
 		if ((status[0x195] & 0x18) == 0 && (status[0x195] & 2) != 0) // 0x195 = EVENT_SUMOFE
@@ -46,7 +51,6 @@ public:
 		return true;
 	}
 
-	static SumoUIFlashingTextFix instance;
 };
 SumoUIFlashingTextFix SumoUIFlashingTextFix::instance;
 
@@ -196,8 +200,7 @@ class ReplaceGameUpdateLoop : public Hook
 				DInput_RegisterNewDevices();
 		}
 
-		if (SumoUIFlashingTextFix::instance.active())
-			SumoUIFlashingTextFix::draw();
+		SumoUIFlashingTextFix::draw();
 
 		for (int curUpdateIdx = 0; curUpdateIdx < numUpdates; curUpdateIdx++)
 		{

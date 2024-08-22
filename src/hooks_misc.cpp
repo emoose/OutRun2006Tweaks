@@ -9,6 +9,106 @@
 #include <upnpcommands.h>
 #include <WinSock2.h>
 
+class EnableHollyCourse2 : public Hook
+{
+	// TODO: right now Sumo_IsRacerUnlocked is hooked so that 7 (holly course2) gets checked as 6 (holly course1)
+	// So course 2 will unlock if you have Holly unlocked, but maybe this could be improved to only unlock after reaching rank on Holly1?
+	// (IIRC the game shows a congrats screen once you manage to unlock a new racer though, not sure how we could reimplement that for holly2..)
+
+	inline static SafetyHookMid Sumo_IsRacerUnlocked_midhook{};
+
+	inline static SafetyHookMid Sumo_RacerMenuInput_midhook{};
+	inline static SafetyHookMid Sumo_RacerMenuInput_midhook2{};
+
+	inline static SafetyHookMid Sumo_RacerSetupGame_midhook{};
+	inline static SafetyHookMid Sumo_RacerSetupGame_midhook2{};
+
+	static void Sumo_RacerSwitch7to6_dest(SafetyHookContext& ctx)
+	{
+		if (ctx.eax == 7)
+			ctx.eax = 6;
+	}
+
+	static void Sumo_AddFlagForRacer7_dest(SafetyHookContext& ctx)
+	{
+		// for racer 7 eax would be switched to 6 in the hook above, so check with the actual racer num value
+		int racerNum = *Module::exe_ptr<int>(0x44B7F0);
+		if (racerNum == 7)
+			ctx.ecx = (ctx.ecx & ~0x600) | 0x700; // 0x700 will let game load mix 2 course menu
+	}
+
+	inline static int isRaceHolly2 = false;
+	static void Sumo_RacerSetupGame_Switch7to6_dest(SafetyHookContext& ctx)
+	{
+		isRaceHolly2 = false;
+		if (ctx.eax == 7)
+		{
+			isRaceHolly2 = true;
+			ctx.eax = 6;
+		}
+	}
+
+	static void Sumo_RacerSetupGame_SwitchToHolly2_dest(SafetyHookContext& ctx)
+	{
+		if (isRaceHolly2)
+			*(int*)(ctx.esp + 8) = 2; // switch from race 3 to race 2, seems to be the race num for holly2 (despite PSP_MIX coming /after/ PS2_MIX, weird)
+	}
+
+public:
+	std::string_view description() override
+	{
+		return "EnableHollyCourse2";
+	}
+
+	bool validate() override
+	{
+		return Settings::EnableHollyCourse2;
+	}
+
+	bool apply() override
+	{
+		// Increase Sumo_RacerMenu alloc size to fit extra sprite
+		Memory::VP::Patch(Module::exe_ptr(0x425A6) + 1, int(0x674 + 0xA0));
+
+		// Move sprite_494 references to the new sprite slot at 0x674, so holly2 can go at 494
+		Memory::VP::Patch(Module::exe_ptr(0xE817A) + 2, int(0x674));
+		Memory::VP::Patch(Module::exe_ptr(0xE8A58) + 2, int(0x674));
+		Memory::VP::Patch(Module::exe_ptr(0xE8AD0) + 2, int(0x674));
+		Memory::VP::Patch(Module::exe_ptr(0xE8DFA) + 2, int(0x674));
+
+		// Increase racer sprite count from 7 to 8
+		Memory::VP::Patch(Module::exe_ptr(0xE815C) + 1, uint8_t(8));
+		Memory::VP::Patch(Module::exe_ptr(0xE8A43) + 1, int(8));
+		Memory::VP::Patch(Module::exe_ptr(0xE8AE5) + 1, uint8_t(8));
+		Memory::VP::Patch(Module::exe_ptr(0xE8D0B) + 2, uint8_t(8));
+
+		// Fix selection structs so course 2 can be selected
+		Memory::VP::Patch(Module::exe_ptr(0x1CE430) + 0x4, int(7)); // down from flagman 4
+		Memory::VP::Patch(Module::exe_ptr(0x1CE460) + 0x8, int(7)); // right from holly 1
+
+		// Allow selections to go in reverse, why not?
+		Memory::VP::Patch(Module::exe_ptr(0x1CE400) + 0xC, int(3)); // left from flagman 1
+		Memory::VP::Patch(Module::exe_ptr(0x1CE430) + 0x8, int(0)); // right from flagman 4
+		Memory::VP::Patch(Module::exe_ptr(0x1CE440) + 0xC, int(7)); // left from clarissa
+		Memory::VP::Patch(Module::exe_ptr(0x1CE470) + 0x8, int(4)); // right from holly 2
+
+		// Switch racer number from 7 to 6 to satisfy some switch cases
+		Sumo_IsRacerUnlocked_midhook = safetyhook::create_mid(Module::exe_ptr(0xE8414), Sumo_RacerSwitch7to6_dest);
+		Sumo_RacerMenuInput_midhook = safetyhook::create_mid(Module::exe_ptr(0xE87C6), Sumo_RacerSwitch7to6_dest);
+		// Hacky fix to handle adding flag for racer 7
+		Sumo_RacerMenuInput_midhook2 = safetyhook::create_mid(Module::exe_ptr(0xE8928), Sumo_AddFlagForRacer7_dest);
+
+		// Hook game setup func to make it setup as Holly for race 3
+		Sumo_RacerSetupGame_midhook = safetyhook::create_mid(Module::exe_ptr(0xEEB54), Sumo_RacerSetupGame_Switch7to6_dest);
+		Sumo_RacerSetupGame_midhook2 = safetyhook::create_mid(Module::exe_ptr(0xEEC0B), Sumo_RacerSetupGame_SwitchToHolly2_dest);
+		
+		return true;
+	}
+
+	static EnableHollyCourse2 instance;
+};
+EnableHollyCourse2 EnableHollyCourse2::instance;
+
 class ShowOutRunMilesOnMenu : public Hook
 {
 	inline static SafetyHookMid midhook = {};
