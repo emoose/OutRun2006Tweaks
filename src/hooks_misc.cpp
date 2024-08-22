@@ -16,6 +16,10 @@ class EnableHollyCourse2 : public Hook
 	// (IIRC the game shows a congrats screen once you manage to unlock a new racer though, not sure how we could reimplement that for holly2..)
 
 	inline static SafetyHookMid Sumo_IsRacerUnlocked_midhook{};
+	inline static SafetyHookMid Sumo_IsRacerUnlocked_midhook2{};
+
+	inline static SafetyHookMid Sumo_GetRacerRank_midhook{};
+	inline static SafetyHookMid Sumo_GetRacerRank_midhook2{};
 
 	inline static SafetyHookMid Sumo_RacerMenuInput_midhook{};
 	inline static SafetyHookMid Sumo_RacerMenuInput_midhook2{};
@@ -23,22 +27,12 @@ class EnableHollyCourse2 : public Hook
 	inline static SafetyHookMid Sumo_RacerSetupGame_midhook{};
 	inline static SafetyHookMid Sumo_RacerSetupGame_midhook2{};
 
-	static void Sumo_RacerSwitch7to6_dest(SafetyHookContext& ctx)
-	{
-		if (ctx.eax == 7)
-			ctx.eax = 6;
-	}
-
-	static void Sumo_AddFlagForRacer7_dest(SafetyHookContext& ctx)
-	{
-		// for racer 7 eax would be switched to 6 in the hook above, so check with the actual racer num value
-		int racerNum = *Module::exe_ptr<int>(0x44B7F0);
-		if (racerNum == 7)
-			ctx.ecx = (ctx.ecx & ~0x600) | 0x700; // 0x700 will let game load mix 2 course menu
-	}
+	inline static SafetyHookMid Sumo_RacerDrawRank_midhook{};
+	inline static SafetyHookMid Sumo_RacerDrawRank_midhook2{};
+	inline static SafetyHookMid Sumo_RacerDrawRank_midhook3{};
 
 	inline static int isRaceHolly2 = false;
-	static void Sumo_RacerSetupGame_Switch7to6_dest(SafetyHookContext& ctx)
+	static void Sumo_RacerSwitch7to6_dest(SafetyHookContext& ctx)
 	{
 		isRaceHolly2 = false;
 		if (ctx.eax == 7)
@@ -48,10 +42,57 @@ class EnableHollyCourse2 : public Hook
 		}
 	}
 
+	static void Sumo_GetRankForHolly2_dest(SafetyHookContext& ctx)
+	{
+		if (isRaceHolly2)
+			*(int*)(ctx.esp) = 3;
+	}
+
+	static void Sumo_IsRacerUnlocked_CheckHolly1Rank_dest(SafetyHookContext& ctx)
+	{
+		if (isRaceHolly2)
+			*(int*)(ctx.esp) = 2;
+	}
+
+	static void Sumo_AddFlagForRacer7_dest(SafetyHookContext& ctx)
+	{
+		if (isRaceHolly2)
+			ctx.ecx = (ctx.ecx & ~0x600) | 0x700; // 0x700 will let game load mix 2 course menu
+	}
+
 	static void Sumo_RacerSetupGame_SwitchToHolly2_dest(SafetyHookContext& ctx)
 	{
 		if (isRaceHolly2)
 			*(int*)(ctx.esp + 8) = 2; // switch from race 3 to race 2, seems to be the race num for holly2 (despite PSP_MIX coming /after/ PS2_MIX, weird)
+	}
+
+	static void Sumo_RacerDrawRank_StringFix_eax_dest(SafetyHookContext& ctx)
+	{
+		if (ctx.eax >= 7)
+		{
+			ctx.eip += 7;
+			ctx.ecx = 0x394; // "Perfect! Holly's got chills!"
+		}
+	}
+
+	static void Sumo_RacerDrawRank_StringFix_edx_dest(SafetyHookContext& ctx)
+	{
+		if (ctx.edx >= 7)
+			ctx.edx = 6;
+	}
+
+	static void Sumo_RacerDrawLockedRank_StringFix_eax_dest(SafetyHookContext& ctx)
+	{
+		if (ctx.eax >= 7)
+		{
+			ctx.eax = 6;
+			// TODO: if EnableHollyCourse2 == 2, make this say something like
+			// "To unlock, beat Holly 1 at Rank A!"
+			// Sadly doesn't seem lang files include any string for that, might have to hardcode it
+			// 
+			//ctx.eip += 7;
+			//ctx.ecx = 0x397; // Play Mix 01 on your Playstation Portable! (doesn't seem fitting...)
+		}
 	}
 
 public:
@@ -62,7 +103,7 @@ public:
 
 	bool validate() override
 	{
-		return Settings::EnableHollyCourse2;
+		return Settings::EnableHollyCourse2 != 0;
 	}
 
 	bool apply() override
@@ -95,11 +136,27 @@ public:
 		// Switch racer number from 7 to 6 to satisfy some switch cases
 		Sumo_IsRacerUnlocked_midhook = safetyhook::create_mid(Module::exe_ptr(0xE8414), Sumo_RacerSwitch7to6_dest);
 		Sumo_RacerMenuInput_midhook = safetyhook::create_mid(Module::exe_ptr(0xE87C6), Sumo_RacerSwitch7to6_dest);
+
+		// Hook IsRacerUnlocked to make it check holly1 rank before unlocking holly2
+		if (Settings::EnableHollyCourse2 == 2)
+			Sumo_IsRacerUnlocked_midhook2 = safetyhook::create_mid(Module::exe_ptr(0xE8537), Sumo_IsRacerUnlocked_CheckHolly1Rank_dest);
+
+		// Hook GetRacerRank to let it fetch holly2 rank
+		Sumo_GetRacerRank_midhook = safetyhook::create_mid(Module::exe_ptr(0xE82B4), Sumo_RacerSwitch7to6_dest);
+		Sumo_GetRacerRank_midhook2 = safetyhook::create_mid(Module::exe_ptr(0xE83E0), Sumo_GetRankForHolly2_dest);
+
+		// Fix stringID crash when holly2 is selected...
+		Sumo_RacerDrawRank_midhook = safetyhook::create_mid(Module::exe_ptr(0xE8E3D), Sumo_RacerDrawRank_StringFix_eax_dest);
+		Sumo_RacerDrawRank_midhook2 = safetyhook::create_mid(Module::exe_ptr(0xE8E4D), Sumo_RacerDrawRank_StringFix_edx_dest);
+
+		// Change text for locked Holly 2
+		Sumo_RacerDrawRank_midhook3 = safetyhook::create_mid(Module::exe_ptr(0xE8EED), Sumo_RacerDrawLockedRank_StringFix_eax_dest);
+
 		// Hacky fix to handle adding flag for racer 7
 		Sumo_RacerMenuInput_midhook2 = safetyhook::create_mid(Module::exe_ptr(0xE8928), Sumo_AddFlagForRacer7_dest);
 
-		// Hook game setup func to make it setup as Holly for race 3
-		Sumo_RacerSetupGame_midhook = safetyhook::create_mid(Module::exe_ptr(0xEEB54), Sumo_RacerSetupGame_Switch7to6_dest);
+		// Hook game setup func to make it setup as Holly for race 2
+		Sumo_RacerSetupGame_midhook = safetyhook::create_mid(Module::exe_ptr(0xEEB54), Sumo_RacerSwitch7to6_dest);
 		Sumo_RacerSetupGame_midhook2 = safetyhook::create_mid(Module::exe_ptr(0xEEC0B), Sumo_RacerSetupGame_SwitchToHolly2_dest);
 		
 		return true;

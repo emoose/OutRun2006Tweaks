@@ -100,7 +100,7 @@ namespace Settings
 	inline float ImpulseVibrationLeftMultiplier = 0.25f;
 	inline float ImpulseVibrationRightMultiplier = 0.25f;
 
-	inline bool EnableHollyCourse2 = true;
+	inline int EnableHollyCourse2 = 1;
 	inline bool SkipIntroLogos = false;
 	inline bool DisableCountdownTimer = false;
 	inline std::string HudToggleKey = "";
