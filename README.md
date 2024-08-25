@@ -25,6 +25,7 @@ Latest builds can be found under the releases section: https://github.com/emoose
 - Xbox Series impulse triggers are supported and can be tweaked inside INI
 - Horn button can be made functional during normal gameplay, outside of the "honk your horn!" girl requests
 - Allows randomizing the set of highway animations to use, instead of only using the set for the game mode being played
+- In-game HUD can be optionally toggled via bindable keypress
 
 **Bugfixes:**
 - Prevents save corruption bug when remapping controls with many input devices connected
@@ -33,10 +34,13 @@ Latest builds can be found under the releases section: https://github.com/emoose
 - Text related to the now-defunct online service can be hidden
 - Automatically disables DPI scaling on the game window to fix scaling issues
 - Game can be forced to run on a single core, to help with freezing issues on some modern systems
+- Bink movie files larger than 1024 pixels will now play without crashes
+- Game crashes will now write a crash report into CrashDumps folder (please feel free to post any crash reports to the issues page!)
 
 **Enhancements:**
 - Game can now run in borderless windowed mode; mouse cursor will now be hidden while game is active
-- Load times heavily reduced by disabling framelimiter/vsync during load screens
+- Will use desktop resolution for the game if outrun2006.ini isn't present
+- Load times heavily reduced via improved framelimiter
 - Draw distance for the stage can be increased, greatly reducing pop-in/fade-ins on the level
 - Music can now be loaded from uncompressed WAV or lossless FLAC files, if they exist with the same filename
 - Allows intro splash screens to be skipped

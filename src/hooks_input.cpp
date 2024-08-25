@@ -321,3 +321,35 @@ void DInput_RegisterNewDevices()
         *Module::exe_ptr<int>(0x3398D4) = 0;
     }
 }
+
+class AnalogDeadZone : public Hook
+{
+public:
+    std::string_view description() override
+    {
+        return "AnalogDeadZone";
+    }
+
+    bool validate() override
+    {
+        return Settings::AnalogDeadZone != 0.2f;
+    }
+
+    bool apply() override
+    {
+        constexpr int ReadVolume_UnkCheck_Addr = 0x538FC;
+        constexpr int ReadVolume_LoadDeadZone_Addr = 0x538FE + 4;
+
+        // Remove weird check which would override deadzone value to 0.0078125
+        // (maybe that value is meant to be used for wheels, but game doesn't end up using it?)
+        Memory::VP::Nop(Module::exe_ptr(ReadVolume_UnkCheck_Addr), 2);
+
+        // Patch game code with Settings::AnalogDeadZone pointer
+        Memory::VP::Patch(Module::exe_ptr(ReadVolume_LoadDeadZone_Addr), &Settings::AnalogDeadZone);
+
+        return true;
+    }
+
+    static AnalogDeadZone instance;
+};
+AnalogDeadZone AnalogDeadZone::instance;

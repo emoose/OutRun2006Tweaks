@@ -109,6 +109,7 @@ namespace Settings
 		spdlog::info(" - ImpulseVibrationLeftMultiplier: {}", ImpulseVibrationLeftMultiplier);
 		spdlog::info(" - ImpulseVibrationRightMultiplier: {}", ImpulseVibrationRightMultiplier);
 
+		spdlog::info(" - AnalogDeadZone: {}", AnalogDeadZone);
 		spdlog::info(" - EnableHollyCourse2: {}", EnableHollyCourse2);
 		spdlog::info(" - SkipIntroLogos: {}", SkipIntroLogos);
 		spdlog::info(" - DisableCountdownTimer: {}", DisableCountdownTimer);
@@ -225,6 +226,8 @@ namespace Settings
 		ImpulseVibrationRightMultiplier = ini.Get("Vibration", "ImpulseVibrationRightMultiplier", std::move(ImpulseVibrationRightMultiplier));
 		ImpulseVibrationRightMultiplier = std::clamp(ImpulseVibrationRightMultiplier, 0.0f, 1.0f);
 
+		AnalogDeadZone = ini.Get("Misc", "AnalogDeadZone", std::move(AnalogDeadZone));
+		AnalogDeadZone = std::clamp(AnalogDeadZone, 0.f, 1.f);
 		EnableHollyCourse2 = ini.Get("Misc", "EnableHollyCourse2", std::move(EnableHollyCourse2));
 		SkipIntroLogos = ini.Get("Misc", "SkipIntroLogos", std::move(SkipIntroLogos));
 		DisableCountdownTimer = ini.Get("Misc", "DisableCountdownTimer", std::move(DisableCountdownTimer));

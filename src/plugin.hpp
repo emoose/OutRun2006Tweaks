@@ -100,6 +100,7 @@ namespace Settings
 	inline float ImpulseVibrationLeftMultiplier = 0.25f;
 	inline float ImpulseVibrationRightMultiplier = 0.25f;
 
+	inline float AnalogDeadZone = 0.2f;
 	inline int EnableHollyCourse2 = 1;
 	inline bool SkipIntroLogos = false;
 	inline bool DisableCountdownTimer = false;
