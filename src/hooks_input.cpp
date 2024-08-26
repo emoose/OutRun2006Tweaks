@@ -322,17 +322,17 @@ void DInput_RegisterNewDevices()
     }
 }
 
-class AnalogDeadZone : public Hook
+class SteeringDeadZone : public Hook
 {
 public:
     std::string_view description() override
     {
-        return "AnalogDeadZone";
+        return "SteeringDeadZone";
     }
 
     bool validate() override
     {
-        return Settings::AnalogDeadZone != 0.2f;
+        return Settings::SteeringDeadZone != 0.2f;
     }
 
     bool apply() override
@@ -344,12 +344,12 @@ public:
         // (maybe that value is meant to be used for wheels, but game doesn't end up using it?)
         Memory::VP::Nop(Module::exe_ptr(ReadVolume_UnkCheck_Addr), 2);
 
-        // Patch game code with Settings::AnalogDeadZone pointer
-        Memory::VP::Patch(Module::exe_ptr(ReadVolume_LoadDeadZone_Addr), &Settings::AnalogDeadZone);
+        // Patch game code with Settings::SteeringDeadZone pointer
+        Memory::VP::Patch(Module::exe_ptr(ReadVolume_LoadDeadZone_Addr), &Settings::SteeringDeadZone);
 
         return true;
     }
 
-    static AnalogDeadZone instance;
+    static SteeringDeadZone instance;
 };
-AnalogDeadZone AnalogDeadZone::instance;
+SteeringDeadZone SteeringDeadZone::instance;

@@ -93,6 +93,9 @@ namespace Settings
 	inline bool EnableTextureCache = true;
 	inline bool UseNewTextureAllocator = true;
 
+	inline float SteeringDeadZone = 0.2f;
+	inline bool ControllerHotPlug = true;
+	inline std::string HudToggleKey = "";
 	inline int VibrationMode = 0;
 	inline int VibrationStrength = 10;
 	inline int VibrationControllerId = 0;
@@ -100,11 +103,9 @@ namespace Settings
 	inline float ImpulseVibrationLeftMultiplier = 0.25f;
 	inline float ImpulseVibrationRightMultiplier = 0.25f;
 
-	inline float AnalogDeadZone = 0.2f;
 	inline int EnableHollyCourse2 = 1;
 	inline bool SkipIntroLogos = false;
 	inline bool DisableCountdownTimer = false;
-	inline std::string HudToggleKey = "";
 	inline bool RestoreJPClarissa = false;
 	inline bool ShowOutRunMilesOnMenu = true;
 	inline bool RandomHighwayAnimSets = false;
@@ -116,7 +117,6 @@ namespace Settings
 	inline bool FixLensFlarePath = true;
 	inline bool FixFullPedalChecks = true;
 	inline bool HideOnlineSigninText = true;
-	inline bool ControllerHotPlug = true;
 }
 
 namespace Util

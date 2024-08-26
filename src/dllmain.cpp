@@ -102,6 +102,8 @@ namespace Settings
 		spdlog::info(" - EnableTextureCache: {}", EnableTextureCache);
 		spdlog::info(" - UseNewTextureAllocator: {}", UseNewTextureAllocator);
 
+		spdlog::info(" - SteeringDeadZone: {}", SteeringDeadZone);
+		spdlog::info(" - ControllerHotPlug: {}", ControllerHotPlug);
 		spdlog::info(" - VibrationMode: {}", VibrationMode);
 		spdlog::info(" - VibrationStrength: {}", VibrationStrength);
 		spdlog::info(" - VibrationControllerId: {}", VibrationControllerId);
@@ -109,7 +111,7 @@ namespace Settings
 		spdlog::info(" - ImpulseVibrationLeftMultiplier: {}", ImpulseVibrationLeftMultiplier);
 		spdlog::info(" - ImpulseVibrationRightMultiplier: {}", ImpulseVibrationRightMultiplier);
 
-		spdlog::info(" - AnalogDeadZone: {}", AnalogDeadZone);
+
 		spdlog::info(" - EnableHollyCourse2: {}", EnableHollyCourse2);
 		spdlog::info(" - SkipIntroLogos: {}", SkipIntroLogos);
 		spdlog::info(" - DisableCountdownTimer: {}", DisableCountdownTimer);
@@ -125,7 +127,6 @@ namespace Settings
 		spdlog::info(" - FixLensFlarePath: {}", FixLensFlarePath);
 		spdlog::info(" - FixFullPedalChecks: {}", FixFullPedalChecks);
 		spdlog::info(" - HideOnlineSigninText: {}", HideOnlineSigninText);
-		spdlog::info(" - ControllerHotPlug: {}", ControllerHotPlug);
 	}
 
 	bool read(std::filesystem::path& iniPath)
@@ -212,26 +213,27 @@ namespace Settings
 		EnableTextureCache = ini.Get("Graphics", "EnableTextureCache", std::move(EnableTextureCache));
 		UseNewTextureAllocator = ini.Get("Graphics", "UseNewTextureAllocator", std::move(UseNewTextureAllocator));
 
-		VibrationMode = ini.Get("Vibration", "VibrationMode", std::move(VibrationMode));
+		SteeringDeadZone = ini.Get("Controls", "SteeringDeadZone", std::move(SteeringDeadZone));
+		SteeringDeadZone = std::clamp(SteeringDeadZone, 0.f, 1.f);
+		ControllerHotPlug = ini.Get("Controls", "ControllerHotPlug", std::move(ControllerHotPlug));
+		HudToggleKey = ini.Get("Controls", "HudToggleKey", std::move(HudToggleKey));
+		VibrationMode = ini.Get("Controls", "VibrationMode", std::move(VibrationMode));
 		VibrationMode = std::clamp(VibrationMode, 0, 3);
-		VibrationStrength = ini.Get("Vibration", "VibrationStrength", std::move(VibrationStrength));
+		VibrationStrength = ini.Get("Controls", "VibrationStrength", std::move(VibrationStrength));
 		VibrationStrength = std::clamp(VibrationStrength, 0, 10);
-		VibrationControllerId = ini.Get("Vibration", "VibrationControllerId", std::move(VibrationControllerId));
+		VibrationControllerId = ini.Get("Controls", "VibrationControllerId", std::move(VibrationControllerId));
 		VibrationControllerId = std::clamp(VibrationControllerId, 0, 4);
 
-		ImpulseVibrationMode = ini.Get("Vibration", "ImpulseVibrationMode", std::move(ImpulseVibrationMode));
+		ImpulseVibrationMode = ini.Get("Controls", "ImpulseVibrationMode", std::move(ImpulseVibrationMode));
 		ImpulseVibrationMode = std::clamp(ImpulseVibrationMode, 0, 3);
-		ImpulseVibrationLeftMultiplier = ini.Get("Vibration", "ImpulseVibrationLeftMultiplier", std::move(ImpulseVibrationLeftMultiplier));
+		ImpulseVibrationLeftMultiplier = ini.Get("Controls", "ImpulseVibrationLeftMultiplier", std::move(ImpulseVibrationLeftMultiplier));
 		ImpulseVibrationLeftMultiplier = std::clamp(ImpulseVibrationLeftMultiplier, 0.0f, 1.0f);
-		ImpulseVibrationRightMultiplier = ini.Get("Vibration", "ImpulseVibrationRightMultiplier", std::move(ImpulseVibrationRightMultiplier));
+		ImpulseVibrationRightMultiplier = ini.Get("Controls", "ImpulseVibrationRightMultiplier", std::move(ImpulseVibrationRightMultiplier));
 		ImpulseVibrationRightMultiplier = std::clamp(ImpulseVibrationRightMultiplier, 0.0f, 1.0f);
 
-		AnalogDeadZone = ini.Get("Misc", "AnalogDeadZone", std::move(AnalogDeadZone));
-		AnalogDeadZone = std::clamp(AnalogDeadZone, 0.f, 1.f);
 		EnableHollyCourse2 = ini.Get("Misc", "EnableHollyCourse2", std::move(EnableHollyCourse2));
 		SkipIntroLogos = ini.Get("Misc", "SkipIntroLogos", std::move(SkipIntroLogos));
 		DisableCountdownTimer = ini.Get("Misc", "DisableCountdownTimer", std::move(DisableCountdownTimer));
-		HudToggleKey = ini.Get("Misc", "HudToggleKey", std::move(HudToggleKey));
 		RestoreJPClarissa = ini.Get("Misc", "RestoreJPClarissa", std::move(RestoreJPClarissa));
 		ShowOutRunMilesOnMenu = ini.Get("Misc", "ShowOutRunMilesOnMenu", std::move(ShowOutRunMilesOnMenu));
 		RandomHighwayAnimSets = ini.Get("Misc", "RandomHighwayAnimSets", std::move(RandomHighwayAnimSets));
@@ -243,7 +245,6 @@ namespace Settings
 		FixLensFlarePath = ini.Get("Bugfixes", "FixLensFlarePath", std::move(FixLensFlarePath));
 		FixFullPedalChecks = ini.Get("Bugfixes", "FixFullPedalChecks", std::move(FixFullPedalChecks));
 		HideOnlineSigninText = ini.Get("Bugfixes", "HideOnlineSigninText", std::move(HideOnlineSigninText));
-		ControllerHotPlug = ini.Get("Bugfixes", "ControllerHotPlug", std::move(ControllerHotPlug));
 
 		// INIReader doesn't preserve the order of the keys/values in a section
 		// Will need to try opening INI ourselves to grab cd tracks...
