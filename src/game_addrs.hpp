@@ -84,6 +84,8 @@ namespace Game
 	inline fn_1arg_int GetStageUniqueNum = nullptr;
 	inline fn_1arg_int GetMaxCsLen = nullptr;
 
+	inline fn_1arg_int Sumo_CheckRacerUnlocked = nullptr;
+
 	// 2d sprite drawing
 	inline fn_1arg sprSetFontPriority = nullptr;
 	inline fn_1arg sprSetPrintFont = nullptr;
@@ -173,6 +175,8 @@ namespace Game
 		GetNowStageNum = Module::fn_ptr<fn_1arg_int>(0x50380);
 		GetStageUniqueNum = Module::fn_ptr<fn_1arg_int>(0x4DC50);
 		GetMaxCsLen = Module::fn_ptr<fn_1arg_int>(0x3D470);
+
+		Sumo_CheckRacerUnlocked = Module::fn_ptr<fn_1arg_int>(0xE8410);
 
 		sprSetFontPriority = Module::fn_ptr<fn_1arg>(0x2CCB0);
 		sprSetPrintFont = Module::fn_ptr<fn_1arg>(0x2CA60);

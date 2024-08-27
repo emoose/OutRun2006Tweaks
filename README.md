@@ -19,15 +19,17 @@ Latest builds can be found under the releases section: https://github.com/emoose
 - Restores the car base shadow from the C2C console ports, which was missing on PC for some reason
 
 **Gameplay:**
-- Built-in framelimiter to prevent speedups, framerate can be partially unlocked with game running at 60FPS internally
 - Points game toward new online servers, restoring the online multiplayer modes
 - Restored XInput rumble code from the Xbox release, allowing gear shifts/drifts/crashes/etc to give feedback
 - Xbox Series impulse triggers are supported and can be tweaked inside INI
+- Steering deadzone can be customized from the default 20%
 - Horn button can be made functional during normal gameplay, outside of the "honk your horn!" girl requests
 - Allows randomizing the set of highway animations to use, instead of only using the set for the game mode being played
 - In-game HUD can be optionally toggled via bindable keypress
+- Passing all the C2C missions might unlock something new 🐱
 
 **Bugfixes:**
+- Built-in framelimiter to prevent speedups, framerate can be partially unlocked with game running at 60FPS internally
 - Prevents save corruption bug when remapping controls with many input devices connected
 - Fixed C2C ranking scoreboards not updating on Steam and other releases due to faulty anti-piracy checks
 - Pegasus animation's clopping sound effect will now end correctly

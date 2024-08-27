@@ -11,9 +11,7 @@
 
 class EnableHollyCourse2 : public Hook
 {
-	// TODO: right now Sumo_IsRacerUnlocked is hooked so that 7 (holly course2) gets checked as 6 (holly course1)
-	// So course 2 will unlock if you have Holly unlocked, but maybe this could be improved to only unlock after reaching rank on Holly1?
-	// (IIRC the game shows a congrats screen once you manage to unlock a new racer though, not sure how we could reimplement that for holly2..)
+	// TODO: Percentage might not be affected by the holly 2 missions atm, letting it go above 100% might be neat
 
 	inline static SafetyHookMid Sumo_IsRacerUnlocked_midhook{};
 	inline static SafetyHookMid Sumo_IsRacerUnlocked_midhook2{};
@@ -95,6 +93,42 @@ class EnableHollyCourse2 : public Hook
 		}
 	}
 
+	// if Settings::EnableHollyCourse2 == 3, only draw holly2 sprite once holly1 is complete
+	inline static SafetyHookMid Sumo_RacerMenuDraw_NumSprites_midhook{};
+	static void Sumo_RacerMenuDraw_CheckHollyCompletion_dest(SafetyHookContext& ctx)
+	{
+		uint32_t edi = ctx.edi;
+		uint32_t cmp_value = 7;
+
+		static bool holly2unlocked_previous = false;
+		bool holly2unlocked = Game::Sumo_CheckRacerUnlocked(7);
+		if (holly2unlocked)
+			cmp_value = 8; // allow loop to draw holly2 sprite
+
+		// Patch selection structs to change whether holly2 can be selected, if holly2 state has changed at all
+		if (holly2unlocked_previous != holly2unlocked)
+		{
+			holly2unlocked_previous = holly2unlocked;
+
+			// Fix selection structs so course 2 can be selected
+			Memory::VP::Patch(Module::exe_ptr(0x1CE430) + 0x4, holly2unlocked ? int(7) : int(-1)); // down from flagman 4
+			Memory::VP::Patch(Module::exe_ptr(0x1CE460) + 0x8, holly2unlocked ? int(7) : int(4)); // right from holly 1
+
+			// Allow selections to go in reverse, why not?
+			Memory::VP::Patch(Module::exe_ptr(0x1CE400) + 0xC, int(3)); // left from flagman 1
+			Memory::VP::Patch(Module::exe_ptr(0x1CE430) + 0x8, int(0)); // right from flagman 4
+			Memory::VP::Patch(Module::exe_ptr(0x1CE440) + 0xC, holly2unlocked ? int(7) : int(6)); // left from clarissa
+			Memory::VP::Patch(Module::exe_ptr(0x1CE470) + 0x8, int(4)); // right from holly 2
+		}
+
+		uintptr_t eflags = 0;
+
+		// Update CF (Carry Flag) - if edi < 7 in an unsigned comparison
+		if (edi < cmp_value) eflags |= (1 << 0);  // CF is the 0th bit
+
+		ctx.eflags = eflags;
+	}
+
 public:
 	std::string_view description() override
 	{
@@ -121,24 +155,30 @@ public:
 		Memory::VP::Patch(Module::exe_ptr(0xE815C) + 1, uint8_t(8));
 		Memory::VP::Patch(Module::exe_ptr(0xE8A43) + 1, int(8));
 		Memory::VP::Patch(Module::exe_ptr(0xE8AE5) + 1, uint8_t(8));
-		Memory::VP::Patch(Module::exe_ptr(0xE8D0B) + 2, uint8_t(8));
 
-		// Fix selection structs so course 2 can be selected
-		Memory::VP::Patch(Module::exe_ptr(0x1CE430) + 0x4, int(7)); // down from flagman 4
-		Memory::VP::Patch(Module::exe_ptr(0x1CE460) + 0x8, int(7)); // right from holly 1
+		if (Settings::EnableHollyCourse2 == 3) // 3 = only show after holly1 is completed, hide if not complete
+			Sumo_RacerMenuDraw_NumSprites_midhook = safetyhook::create_mid(Module::exe_ptr(0xE8D0E), Sumo_RacerMenuDraw_CheckHollyCompletion_dest);
+		else
+		{
+			Memory::VP::Patch(Module::exe_ptr(0xE8D0B) + 2, uint8_t(8));
 
-		// Allow selections to go in reverse, why not?
-		Memory::VP::Patch(Module::exe_ptr(0x1CE400) + 0xC, int(3)); // left from flagman 1
-		Memory::VP::Patch(Module::exe_ptr(0x1CE430) + 0x8, int(0)); // right from flagman 4
-		Memory::VP::Patch(Module::exe_ptr(0x1CE440) + 0xC, int(7)); // left from clarissa
-		Memory::VP::Patch(Module::exe_ptr(0x1CE470) + 0x8, int(4)); // right from holly 2
+			// Fix selection structs so course 2 can be selected
+			Memory::VP::Patch(Module::exe_ptr(0x1CE430) + 0x4, int(7)); // down from flagman 4
+			Memory::VP::Patch(Module::exe_ptr(0x1CE460) + 0x8, int(7)); // right from holly 1
+
+			// Allow selections to go in reverse, why not?
+			Memory::VP::Patch(Module::exe_ptr(0x1CE400) + 0xC, int(3)); // left from flagman 1
+			Memory::VP::Patch(Module::exe_ptr(0x1CE430) + 0x8, int(0)); // right from flagman 4
+			Memory::VP::Patch(Module::exe_ptr(0x1CE440) + 0xC, int(7)); // left from clarissa
+			Memory::VP::Patch(Module::exe_ptr(0x1CE470) + 0x8, int(4)); // right from holly 2
+		}
 
 		// Switch racer number from 7 to 6 to satisfy some switch cases
 		Sumo_IsRacerUnlocked_midhook = safetyhook::create_mid(Module::exe_ptr(0xE8414), Sumo_RacerSwitch7to6_dest);
 		Sumo_RacerMenuInput_midhook = safetyhook::create_mid(Module::exe_ptr(0xE87C6), Sumo_RacerSwitch7to6_dest);
 
 		// Hook IsRacerUnlocked to make it check holly1 rank before unlocking holly2
-		if (Settings::EnableHollyCourse2 == 2)
+		if (Settings::EnableHollyCourse2 == 2 || Settings::EnableHollyCourse2 == 3)
 			Sumo_IsRacerUnlocked_midhook2 = safetyhook::create_mid(Module::exe_ptr(0xE8537), Sumo_IsRacerUnlocked_CheckHolly1Rank_dest);
 
 		// Hook GetRacerRank to let it fetch holly2 rank

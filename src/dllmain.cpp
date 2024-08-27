@@ -309,7 +309,7 @@ void Plugin_Init()
 		}
 		catch (const std::exception&)
 		{
-			spdlog::error("Plugin_Init: Failed to create SaveGame folder (game might not have permissions) - game might have issues writing savegame!");
+			spdlog::error("Plugin_Init: Failed to create SaveGame folder (may require permissions?) - game might have issues writing savegame!");
 		}
 	}
 
