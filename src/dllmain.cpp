@@ -297,6 +297,22 @@ void Plugin_Init()
 
 	Game::StartupTime = std::chrono::system_clock::now();
 
+	// Create save folder if it doesn't exist, otherwise game will have issues writing savegame...
+	auto saveFolder = Module::ExePath.parent_path() / "SaveGame";
+	if (!std::filesystem::exists(saveFolder))
+	{
+		spdlog::warn("Plugin_Init: SaveGame folder doesn't exist, trying to create it...");
+		try
+		{
+			std::filesystem::create_directory(saveFolder);
+			spdlog::info("Plugin_Init: SaveGame folder created");
+		}
+		catch (const std::exception&)
+		{
+			spdlog::error("Plugin_Init: Failed to create SaveGame folder (game might not have permissions) - game might have issues writing savegame!");
+		}
+	}
+
 	InitExceptionHandler();
 
 	HookManager::ApplyHooks();
