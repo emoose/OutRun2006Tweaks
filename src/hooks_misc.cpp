@@ -9,6 +9,47 @@
 #include <upnpcommands.h>
 #include <WinSock2.h>
 
+class DefaultManualTransmission : public Hook
+{
+	inline static SafetyHookInline Sumo_TransmissionSelection_Init{};
+	static char __fastcall destination2(uint8_t* thisptr)
+	{
+		char ret = Sumo_TransmissionSelection_Init.thiscall<char>(thisptr);
+
+		*(int*)(thisptr + 0xE4) = 0; // prev selection = auto
+		*(int*)(thisptr + 0xE8) = 1; // current selection = manual
+
+		// This can force sprite to update to manual immediately, which should improve presentation
+		// but this causes it to draw transmision menu while the animation for opening it plays out
+		// (that anim also seems to show automatic selected despite this update, maybe the graphic for that animation has it selected...)
+		//fn_0args_class sub_51BE30 = (fn_0args_class)0x51BE30;
+		//sub_51BE30(thisptr + 0x34, 0);
+
+		return ret;
+	}
+
+public:
+	std::string_view description() override
+	{
+		return "DefaultManualTransmission";
+	}
+
+	bool validate() override
+	{
+		return Settings::DefaultManualTransmission;
+	}
+
+	bool apply() override
+	{
+		Sumo_TransmissionSelection_Init = safetyhook::create_inline(Module::exe_ptr(0xDD250), destination2);
+
+		return !!Sumo_TransmissionSelection_Init;
+	}
+
+	static DefaultManualTransmission instance;
+};
+DefaultManualTransmission DefaultManualTransmission::instance;
+
 class EnableHollyCourse2 : public Hook
 {
 	// TODO: Percentage might not be affected by the holly 2 missions atm, letting it go above 100% might be neat

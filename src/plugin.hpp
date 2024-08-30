@@ -95,6 +95,7 @@ namespace Settings
 
 	inline float SteeringDeadZone = 0.2f;
 	inline bool ControllerHotPlug = true;
+	inline bool DefaultManualTransmission = false;
 	inline std::string HudToggleKey = "";
 	inline int VibrationMode = 0;
 	inline int VibrationStrength = 10;

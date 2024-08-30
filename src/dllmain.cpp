@@ -104,13 +104,13 @@ namespace Settings
 
 		spdlog::info(" - SteeringDeadZone: {}", SteeringDeadZone);
 		spdlog::info(" - ControllerHotPlug: {}", ControllerHotPlug);
+		spdlog::info(" - DefaultManualTransmission: {}", DefaultManualTransmission);
 		spdlog::info(" - VibrationMode: {}", VibrationMode);
 		spdlog::info(" - VibrationStrength: {}", VibrationStrength);
 		spdlog::info(" - VibrationControllerId: {}", VibrationControllerId);
 		spdlog::info(" - ImpulseVibrationMode: {}", ImpulseVibrationMode);
 		spdlog::info(" - ImpulseVibrationLeftMultiplier: {}", ImpulseVibrationLeftMultiplier);
 		spdlog::info(" - ImpulseVibrationRightMultiplier: {}", ImpulseVibrationRightMultiplier);
-
 
 		spdlog::info(" - EnableHollyCourse2: {}", EnableHollyCourse2);
 		spdlog::info(" - SkipIntroLogos: {}", SkipIntroLogos);
@@ -216,6 +216,7 @@ namespace Settings
 		SteeringDeadZone = ini.Get("Controls", "SteeringDeadZone", std::move(SteeringDeadZone));
 		SteeringDeadZone = std::clamp(SteeringDeadZone, 0.f, 1.f);
 		ControllerHotPlug = ini.Get("Controls", "ControllerHotPlug", std::move(ControllerHotPlug));
+		DefaultManualTransmission = ini.Get("Controls", "DefaultManualTransmission", std::move(DefaultManualTransmission));
 		HudToggleKey = ini.Get("Controls", "HudToggleKey", std::move(HudToggleKey));
 		VibrationMode = ini.Get("Controls", "VibrationMode", std::move(VibrationMode));
 		VibrationMode = std::clamp(VibrationMode, 0, 3);

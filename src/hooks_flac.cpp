@@ -6,6 +6,7 @@
 #include <fstream>
 #include <FLAC/stream_decoder.h>
 
+// CWaveFile class used in C2C, seems based on DirectX DXUTsound.cpp code
 class CWaveFile
 {
 public:
