@@ -15,6 +15,7 @@ typedef char* (*fn_1arg_char)(int);
 typedef void (*fn_2floats)(float, float);
 typedef void (*fn_printf)(const char*, ...);
 typedef void (__fastcall *fn_0args_class)(void* thisptr, void* unused);
+typedef void (__fastcall *fn_1args_class)(void* thisptr, void* unused, void* a1);
 
 #define XINPUT_DIGITAL_LEFT_TRIGGER   0x10000
 #define XINPUT_DIGITAL_RIGHT_TRIGGER  0x20000

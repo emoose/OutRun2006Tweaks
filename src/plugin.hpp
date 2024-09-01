@@ -109,6 +109,7 @@ namespace Settings
 	inline bool DisableCountdownTimer = false;
 	inline bool RestoreJPClarissa = false;
 	inline bool ShowOutRunMilesOnMenu = true;
+	inline bool AllowCharacterSelection = false;
 	inline bool RandomHighwayAnimSets = false;
 	inline std::string DemonwareServerOverride = "clarissa.port0.org";
 

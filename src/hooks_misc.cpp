@@ -9,6 +9,60 @@
 #include <upnpcommands.h>
 #include <WinSock2.h>
 
+class AllowCharacterSelection : public Hook
+{
+	inline static fn_1args_class Sumo_LicenseScreenChangeSelection = nullptr;
+
+	inline static SafetyHookInline hook_orig = {};
+	static void __fastcall destination(uint8_t* thisptr, void* unk, int button)
+	{
+		// not the actual names
+		constexpr int BTN_DOWN = 4;
+		constexpr int BTN_UP = 2;
+		constexpr int SELECTION_PLAYERNAME = 0;
+		constexpr int SELECTION_CHARACTER = 1;
+		constexpr int SELECTION_NATIONALITY = 2;
+		constexpr int SPRITES_CHARACTER = 5;
+
+		int curSelection = *(DWORD*)(thisptr + 0x3C);
+
+		if ((curSelection == SELECTION_PLAYERNAME && button == BTN_DOWN) || // If playername selected and user pressed down
+			(curSelection == SELECTION_NATIONALITY && button == BTN_UP)) // Or nationality selected and user pressed up...
+		{
+			// Change selection to character switcher
+			*(DWORD*)(thisptr + 0x3C) = SELECTION_CHARACTER;
+			Sumo_LicenseScreenChangeSelection(thisptr, 0, (void*)SPRITES_CHARACTER);
+			return;
+		}
+
+		hook_orig.thiscall(thisptr, button);
+	}
+
+public:
+	std::string_view description() override
+	{
+		return "AllowCharacterSelection";
+	}
+
+	bool validate() override
+	{
+		return Settings::AllowCharacterSelection;
+	}
+
+	bool apply() override
+	{
+		Sumo_LicenseScreenChangeSelection = Module::fn_ptr<fn_1args_class>(0xDD990);
+
+		constexpr int Sumo_CharacterSelectBtnPress_Addr = 0xDDC50;
+		hook_orig = safetyhook::create_inline(Module::exe_ptr(Sumo_CharacterSelectBtnPress_Addr), destination);
+
+		return !!hook_orig;
+	}
+
+	static AllowCharacterSelection instance;
+};
+AllowCharacterSelection AllowCharacterSelection::instance;
+
 class DefaultManualTransmission : public Hook
 {
 	inline static SafetyHookInline Sumo_TransmissionSelection_Init{};
