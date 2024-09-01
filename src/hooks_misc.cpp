@@ -9,6 +9,50 @@
 #include <upnpcommands.h>
 #include <WinSock2.h>
 
+class PlaySegaJingle : public Hook
+{
+	inline static SafetyHookMid begin = {};
+	static void dest_begin(SafetyHookContext& ctx)
+	{
+		Game::adxPlay(0, 0x1D, 0);
+	}
+
+	inline static SafetyHookMid end = {};
+	static void dest_end(SafetyHookContext& ctx)
+	{
+		Game::adxStopAll();
+	}
+
+public:
+	std::string_view description() override
+	{
+		return "PlaySegaJingle";
+	}
+
+	bool validate() override
+	{
+		return
+			std::filesystem::exists(Module::ExePath.parent_path() / "Sound" / "sega441.flac") ||
+			std::filesystem::exists(Module::ExePath.parent_path() / "playsega.txt"); // allow playing the OGG version if txt file exists (maybe INI option later on)
+	}
+
+	bool apply() override
+	{
+		constexpr int SumoFrontEnd_state1_SegaBegin_HookAddr = 0x455AA;
+		constexpr int SumoFrontEnd_state1_SegaEnd_HookAddr = 0x456BF;
+
+		begin = safetyhook::create_mid(Module::exe_ptr(SumoFrontEnd_state1_SegaBegin_HookAddr), dest_begin);
+		if (!begin)
+			return false;
+
+		end = safetyhook::create_mid(Module::exe_ptr(SumoFrontEnd_state1_SegaEnd_HookAddr), dest_end);
+		return !!begin && !!end;
+	}
+
+	static PlaySegaJingle instance;
+};
+PlaySegaJingle PlaySegaJingle::instance;
+
 class AllowCharacterSelection : public Hook
 {
 	inline static fn_1args_class Sumo_LicenseScreenChangeSelection = nullptr;
