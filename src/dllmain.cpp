@@ -126,6 +126,7 @@ namespace Settings
 		spdlog::info(" - FixC2CRankings: {}", FixC2CRankings);
 		spdlog::info(" - PreventDESTSaveCorruption: {}", PreventDESTSaveCorruption);
 		spdlog::info(" - FixLensFlarePath: {}", FixLensFlarePath);
+		spdlog::info(" - FixCharacterShading: {}", FixCharacterShading);
 		spdlog::info(" - FixFullPedalChecks: {}", FixFullPedalChecks);
 		spdlog::info(" - HideOnlineSigninText: {}", HideOnlineSigninText);
 	}
@@ -246,6 +247,7 @@ namespace Settings
 		FixC2CRankings = ini.Get("Bugfixes", "FixC2CRankings", std::move(FixC2CRankings));
 		PreventDESTSaveCorruption = ini.Get("Bugfixes", "PreventDESTSaveCorruption", std::move(PreventDESTSaveCorruption));
 		FixLensFlarePath = ini.Get("Bugfixes", "FixLensFlarePath", std::move(FixLensFlarePath));
+		FixCharacterShading = ini.Get("Bugfixes", "FixCharacterShading", std::move(FixCharacterShading));
 		FixFullPedalChecks = ini.Get("Bugfixes", "FixFullPedalChecks", std::move(FixFullPedalChecks));
 		HideOnlineSigninText = ini.Get("Bugfixes", "HideOnlineSigninText", std::move(HideOnlineSigninText));
 

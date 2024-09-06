@@ -165,8 +165,19 @@ struct VtxFormatList(int header_offset)
     */
 };
 
+struct M_MatAttrFlags
+{
+    int M_MA_SPECULAR : 1;
+    int M_MA_DOUBLESIDE : 1;
+    int M_MA_DOUBLESIDE_LIGHTING : 1;
+    int M_MA_ZBIAS : 1;
+    int M_MA_NOFOG : 1;
+    int : 3;
+};
+
 struct MatAttrib_member
 {
+    M_MatAttrFlags flags;
     unsigned int flags : 8;
     unsigned int src_blend_factor : 4;
     unsigned int dst_blend_factor : 4;
@@ -211,9 +222,14 @@ struct MatTexInfo
 
 struct MaterialList
 {
+    local long pos = FTell();
+    
     int index_color;
     MatAttrib attrib;
     MatTexInfo texture[4];
+    
+    if (attrib.w & 5 == 5)
+        Printf("Attrib @ %x\n", pos);
 };
 
 struct MaterialColor
@@ -347,7 +363,7 @@ struct OBJECT(int xmtPos)
     VtxFormatList VtxFormats(startPos)[numof_vtx_formats]<optimize=false>;
     
     FSeek(xmtPos + Object.offset_materials);
-    MaterialList Materials[ObjHeader.numof_materials];
+    MaterialList Materials[ObjHeader.numof_materials]<optimize=false>;
     
     FSeek(xmtPos + Object.offset_mat_colors);
     MaterialColor MaterialColors[ObjHeader.numof_mat_colors]<optimize=false>;

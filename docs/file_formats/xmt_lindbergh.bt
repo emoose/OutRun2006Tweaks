@@ -144,9 +144,19 @@ struct VtxFormatList(int header_offset)
     FSeek(pos);    
 };
 
+struct M_MatAttrFlags
+{
+    int M_MA_SPECULAR : 1;
+    int M_MA_DOUBLESIDE : 1;
+    int M_MA_DOUBLESIDE_LIGHTING : 1;
+    int M_MA_ZBIAS : 1;
+    int M_MA_NOFOG : 1;
+    int : 3;
+};
+
 struct MatAttrib_member
 {
-    unsigned int flags : 8;
+    M_MatAttrFlags flags;
     unsigned int src_blend_factor : 4;
     unsigned int dst_blend_factor : 4;
     unsigned int blend_operation : 3;

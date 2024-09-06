@@ -5,6 +5,52 @@
 #include "plugin.hpp"
 #include "game_addrs.hpp"
 
+class FixCharacterShading : public Hook
+{
+public:
+	std::string_view description() override
+	{
+		return "FixCharacterShading";
+	}
+
+	bool validate() override
+	{
+		return true;
+	}
+
+	bool apply() override
+	{
+		// Fixes broken shading on ending cutscene characters, by pointing VSULT_TWOSIDE_* vertex shaders to use VSULT_DOUBLE_* vertex shader code instead
+		// Cutscene chars are setup with M_MA_DOUBLESIDE_LIGHTING MatAttrib flag, which makes use of the VSULT_TWOSIDE_* shaders
+		// 
+		// Online Arcade includes HLSL_LambertLit.shad shader code which likely reveals the problem with these
+		// a commented out line was meant to set oB0 output register, to shade the backside of vertexes
+		// but this register only appears to exist on Xbox OG, and sadly wasn't carried forward into DX9
+		// 
+		// In C2C it seems instead of trying to emulate this with pixel shaders, the TWOSIDE shaders instead just flip the light direction?
+		// Maybe this helped to fix /something/ in the game, but it ended up breaking a whole lot more
+		// By patching the TWOSIDE shaders to use the normal DOUBLE ones instead that seems to fix most of the shading issues found
+		// 
+		// In Lindbergh it seems DOUBLE_LAMBERT is handled by fixed_vs000.vp, and TWOSIDE_LAMBERT by fixed_vs018.vp
+		// Interestingly Lindbergh seems to calculate the backside color different to how C2C and the commented-out Online Arcade code did
+		// Sadly trying to copy that implementation doesn't work, guess Lindbergh might use a pixel shader somewhere to split the colors of each side?
+
+		auto* VSULT_DOUBLE_LAMBERT = Module::exe_ptr<uint8_t>(0x21FB48);
+		auto* VSULT_DOUBLE_SPECULAR = Module::exe_ptr<uint8_t>(0x21FC88);
+
+		constexpr int VSULT_TWOSIDE_LAMBERT_Pointer = 0x33F04C;
+		constexpr int VSULT_TWOSIDE_SPECULAR_Pointer = 0x33F050;
+
+		Memory::VP::Patch(Module::exe_ptr<void*>(VSULT_TWOSIDE_LAMBERT_Pointer), VSULT_DOUBLE_LAMBERT);
+		Memory::VP::Patch(Module::exe_ptr<void*>(VSULT_TWOSIDE_SPECULAR_Pointer), VSULT_DOUBLE_SPECULAR);
+
+		return true;
+	}
+
+	static FixCharacterShading instance;
+};
+FixCharacterShading FixCharacterShading::instance;
+
 class FixBinkLargeMovies : public Hook
 {
 	// Most cards don't support creating textures that aren't exact powers of 2, so game tries to find closest pow2 that would fit the movie
