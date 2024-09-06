@@ -15,7 +15,7 @@ public:
 
 	bool validate() override
 	{
-		return true;
+		return Settings::FixCharacterShading;
 	}
 
 	bool apply() override
