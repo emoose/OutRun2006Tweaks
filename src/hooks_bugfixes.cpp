@@ -5,29 +5,31 @@
 #include "plugin.hpp"
 #include "game_addrs.hpp"
 
-class FixCharacterShading : public Hook
+class FixIncorrectShading : public Hook
 {
 public:
 	std::string_view description() override
 	{
-		return "FixCharacterShading";
+		return "FixIncorrectShading";
 	}
 
 	bool validate() override
 	{
-		return Settings::FixCharacterShading;
+		return Settings::FixIncorrectShading;
 	}
 
 	bool apply() override
 	{
-		// Fixes broken shading on ending cutscene characters, by pointing VSULT_TWOSIDE_* vertex shaders to use VSULT_DOUBLE_* vertex shader code instead
-		// Cutscene chars are setup with M_MA_DOUBLESIDE_LIGHTING MatAttrib flag, which makes use of the VSULT_TWOSIDE_* shaders
+		// Cutscene chars (and some stage models) are setup with M_MA_DOUBLESIDE_LIGHTING MatAttrib flag, which makes use of the VSULT_TWOSIDE_* shaders
+		// Unfortunately these shaders seem incomplete and just flip the lighting direction, causing these objects to appear incorrect
+		// This "fixes" them by just pointing VSULT_TWOSIDE_* vertex shaders to use VSULT_DOUBLE_* vertex shader code instead
+		// (this isn't a complete fix since only one side will be shaded correctly, but it's still an improvement)
 		// 
 		// Online Arcade includes HLSL_LambertLit.shad shader code which likely reveals the problem with these
 		// a commented out line was meant to set oB0 output register, to shade the backside of vertexes
 		// but this register only appears to exist on Xbox OG, and sadly wasn't carried forward into DX9
 		// 
-		// In C2C it seems instead of trying to emulate this with pixel shaders, the TWOSIDE shaders instead just flip the light direction?
+		// In C2C it seems instead of trying to emulate this with pixel shaders, the TWOSIDE shaders instead just flip the light direction
 		// Maybe this helped to fix /something/ in the game, but it ended up breaking a whole lot more
 		// By patching the TWOSIDE shaders to use the normal DOUBLE ones instead that seems to fix most of the shading issues found
 		// 
@@ -47,9 +49,9 @@ public:
 		return true;
 	}
 
-	static FixCharacterShading instance;
+	static FixIncorrectShading instance;
 };
-FixCharacterShading FixCharacterShading::instance;
+FixIncorrectShading FixIncorrectShading::instance;
 
 class FixBinkLargeMovies : public Hook
 {
