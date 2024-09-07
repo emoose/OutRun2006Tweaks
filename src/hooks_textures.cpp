@@ -699,7 +699,7 @@ class TextureReplacement : public Hook
 
 	// Two versions of the func depending on Settings::UseNewTextureAllocator, to reduce branching
 	inline static SafetyHookInline D3DXCreateTextureFromFileInMemoryEx = {};
-	static HRESULT __stdcall D3DXCreateTextureFromFileInMemoryEx_Custom_dest(LPDIRECT3DDEVICE9 pDevice, void* pSrcData, UINT SrcDataSize, UINT Width, UINT Height, UINT MipLevels, DWORD Usage, D3DFORMAT Format, D3DPOOL Pool, DWORD Filter, DWORD MipFilter, D3DCOLOR ColorKey, void* pSrcInfo, PALETTEENTRY* pPalette, LPDIRECT3DTEXTURE9* ppTexture)
+	static HRESULT __stdcall D3DXCreateTextureFromFileInMemoryEx_Custom_dest(LPDIRECT3DDEVICE9 pDevice, void* pSrcData, UINT SrcDataSize, UINT Width, UINT Height, UINT MipLevels, DWORD Usage, D3DFORMAT Format, D3DPOOL Pool, DWORD Filter, DWORD MipFilter, D3DCOLOR ColorKey, struct D3DXIMAGE_INFO* pSrcInfo, PALETTEENTRY* pPalette, LPDIRECT3DTEXTURE9* ppTexture)
 	{
 		if ((Settings::SceneTextureReplacement || Settings::SceneTextureExtract) && pSrcData && SrcDataSize)
 		{
@@ -708,7 +708,7 @@ class TextureReplacement : public Hook
 
 		return D3DXCreateTextureFromFileInMemoryEx_Custom(pDevice, pSrcData, SrcDataSize, Width, Height, MipLevels, Usage, Format, Pool, Filter, MipFilter, ppTexture);
 	}
-	static HRESULT __stdcall D3DXCreateTextureFromFileInMemoryEx_Orig_dest(LPDIRECT3DDEVICE9 pDevice, void* pSrcData, UINT SrcDataSize, UINT Width, UINT Height, UINT MipLevels, DWORD Usage, D3DFORMAT Format, D3DPOOL Pool, DWORD Filter, DWORD MipFilter, D3DCOLOR ColorKey, void* pSrcInfo, PALETTEENTRY* pPalette, LPDIRECT3DTEXTURE9* ppTexture)
+	static HRESULT __stdcall D3DXCreateTextureFromFileInMemoryEx_Orig_dest(LPDIRECT3DDEVICE9 pDevice, void* pSrcData, UINT SrcDataSize, UINT Width, UINT Height, UINT MipLevels, DWORD Usage, D3DFORMAT Format, D3DPOOL Pool, DWORD Filter, DWORD MipFilter, D3DCOLOR ColorKey, struct D3DXIMAGE_INFO* pSrcInfo, PALETTEENTRY* pPalette, LPDIRECT3DTEXTURE9* ppTexture)
 	{
 		if ((Settings::SceneTextureReplacement || Settings::SceneTextureExtract) && pSrcData && SrcDataSize)
 		{
@@ -716,6 +716,17 @@ class TextureReplacement : public Hook
 		}
 
 		return D3DXCreateTextureFromFileInMemoryEx.stdcall<HRESULT>(pDevice, pSrcData, SrcDataSize, Width, Height, MipLevels, Usage, Format, Pool, Filter, MipFilter, ColorKey, pSrcInfo, pPalette, ppTexture);
+	}
+
+	inline static SafetyHookInline D3DXCreateCubeTextureFromFileInMemoryEx = {};
+	static HRESULT __stdcall D3DXCreateCubeTextureFromFileInMemoryEx_dest(LPDIRECT3DDEVICE9 pDevice, void* pSrcData, UINT SrcDataSize, UINT Size, UINT MipLevels, DWORD Usage, D3DFORMAT Format, D3DPOOL Pool, DWORD Filter, DWORD MipFilter, D3DCOLOR ColorKey, struct D3DXIMAGE_INFO* pSrcInfo, PALETTEENTRY* pPalette, LPDIRECT3DCUBETEXTURE9* ppCubeTexture)
+	{
+		if ((Settings::SceneTextureReplacement || Settings::SceneTextureExtract) && pSrcData && SrcDataSize)
+		{
+			HandleTexture(&pSrcData, &SrcDataSize, CurrentXmtsetFilename, false);
+		}
+
+		return D3DXCreateCubeTextureFromFileInMemoryEx.stdcall<HRESULT>(pDevice, pSrcData, SrcDataSize, Size, MipLevels, Usage, Format, Pool, Filter, MipFilter, ColorKey, pSrcInfo, pPalette, ppCubeTexture);
 	}
 
 	inline static SafetyHookInline LoadXmtsetObject = {};
@@ -786,6 +797,7 @@ public:
 		const static int LoadXstsetSprite_Addr = 0x2FE20;
 
 		const static int D3DXCreateTextureFromFileInMemoryEx_Addr = 0x39406;
+		const static int D3DXCreateCubeTextureFromFileInMemoryEx_Addr = 0x3940C;
 		const static int LoadXmtsetObject_Addr = 0x2E0D0;
 
 		const static int LoadXmtsetObject_Step1_HookAddr = 0x2E169;
@@ -848,6 +860,7 @@ public:
 
 		if (ApplySceneHooks)
 		{
+			D3DXCreateCubeTextureFromFileInMemoryEx = safetyhook::create_inline(Module::exe_ptr(D3DXCreateCubeTextureFromFileInMemoryEx_Addr), D3DXCreateCubeTextureFromFileInMemoryEx_dest);
 			LoadXmtsetObject = safetyhook::create_inline(Module::exe_ptr(LoadXmtsetObject_Addr), LoadXmtsetObject_dest);
 
 			if (Settings::EnableTextureCache)

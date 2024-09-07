@@ -146,12 +146,14 @@ struct VtxFormatList(int header_offset)
 
 struct M_MatAttrFlags
 {
-    int M_MA_SPECULAR : 1;
-    int M_MA_DOUBLESIDE : 1;
-    int M_MA_DOUBLESIDE_LIGHTING : 1;
-    int M_MA_ZBIAS : 1;
-    int M_MA_NOFOG : 1;
-    int : 3;
+    int M_MA_SPECULAR_1 : 1;
+    int M_MA_DOUBLESIDE_2 : 1;
+    int M_MA_DOUBLESIDE_LIGHTING_4 : 1;
+    int M_MA_ZBIAS_8 : 1;
+    int M_MA_NOFOG_10 : 1;
+    int unused_20 : 1;
+    int unused_40 : 1;
+    int unused_80 : 1;
 };
 
 struct MatAttrib_member
@@ -171,9 +173,24 @@ union MatAttrib
     unsigned int w;
 };
 
+struct M_TexAttrFlags
+{
+    int M_TA_SPECULARMAP_1 : 1;
+    int M_TA_ENVMAP_LIGHTING_2 : 1;
+    int M_TA_ENVMAP_SPHERE_4 : 1;
+    int M_TA_ENVMAP_CUBE_8 : 1;
+    int M_TA_VOLUMETEX_10 : 1;
+    int M_TA_COMBINE_BUMPSPHEREMAP_20 : 1;
+    int M_TA_PROJECTION_40 : 1;
+    int M_TA_FRESNEL_80 : 1;
+    // unsure why these are here, only 8 bits of flags above but flags field is 10 bits for some reason?
+    int unused_100 : 1;
+    int unused_200 : 1;
+};
+
 struct TexAttrib_member
 {
-    unsigned int flags : 10;
+    M_TexAttrFlags flags;
     unsigned int addr_u : 3;
     unsigned int addr_v : 3;
     unsigned int filter : 3;
