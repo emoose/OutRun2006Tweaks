@@ -575,6 +575,14 @@ class RestoreJPClarissa : public Hook
 	const static int get_load_heroine_chrset_Addr1 = 0x88044 + 1;
 	const static int get_load_heroine_chrset_Addr2 = 0x8804E + 1;
 
+	inline static SafetyHookMid request_ending_data{};
+	static void request_ending_data_dest(SafetyHookContext& ctx)
+	{
+		int* ea_scn_char = Module::exe_ptr<int>(0x3D3A7C);
+		if (*ea_scn_char == 3)
+			*ea_scn_char = 2;
+	}
+
 public:
 	std::string_view description() override
 	{
@@ -592,6 +600,22 @@ public:
 		Memory::VP::Patch(Module::exe_ptr<int>(get_load_heroine_chrset_Addr1), 5);
 		// chrset 8 -> 7
 		Memory::VP::Patch(Module::exe_ptr<int>(get_load_heroine_chrset_Addr2), 7);
+
+		// ending cutscene fixes:
+		{
+			constexpr int ending_char_tbl = 0x1A4618;
+			constexpr int get_chrset_PatchAddr = 0xB5AE6;
+			constexpr int request_ending_data_HookAddr = 0x529A5;
+
+			// ending_char_tbl[1] xmt 0xCF -> 0xCE (obj_chr_gal_usa_pmt -> obj_chr_gal_pmt)
+			Memory::VP::Patch(Module::exe_ptr<int>(ending_char_tbl + 4), 0xCE);
+
+			// remove code that forces model 0xE to 0xF
+			Memory::VP::Nop(Module::exe_ptr(get_chrset_PatchAddr), 5);
+
+			// Switch ea_scn_char 3 to ea_scn_char 2 to allow new model to be displayed in ending cutscene
+			request_ending_data = safetyhook::create_mid(Module::exe_ptr(request_ending_data_HookAddr), request_ending_data_dest);
+		}
 
 		// there is another USA chrset 15 at 0x654950 which could be patched to 14
 		// but doesn't seem any code uses it which could be patched?
