@@ -11,16 +11,23 @@
 
 class PlaySegaJingle : public Hook
 {
+	inline static bool disableLooping = false;
+
 	inline static SafetyHookMid begin = {};
 	static void dest_begin(SafetyHookContext& ctx)
 	{
+		disableLooping = true;
 		Game::adxPlay(0, 0x1D, 0);
 	}
 
-	inline static SafetyHookMid end = {};
-	static void dest_end(SafetyHookContext& ctx)
+	inline static SafetyHookMid CSound__Play_LoopFlagOverride = {};
+	static void CSound__Play_LoopFlagOverride_dest(SafetyHookContext& ctx)
 	{
-		Game::adxStopAll();
+		if (disableLooping)
+		{
+			ctx.edx = 0;
+			disableLooping = false;
+		}
 	}
 
 public:
@@ -32,21 +39,22 @@ public:
 	bool validate() override
 	{
 		return
-			std::filesystem::exists(Module::ExePath.parent_path() / "Sound" / "sega441.flac") ||
+			(Settings::AllowFLAC && std::filesystem::exists(Module::ExePath.parent_path() / "Sound" / "sega441.flac")) ||
 			std::filesystem::exists(Module::ExePath.parent_path() / "playsega.txt"); // allow playing the OGG version if txt file exists (maybe INI option later on)
 	}
 
 	bool apply() override
 	{
 		constexpr int SumoFrontEnd_state1_SegaBegin_HookAddr = 0x455AA;
-		constexpr int SumoFrontEnd_state1_SegaEnd_HookAddr = 0x456BF;
+		constexpr int CSound__Play_LoopFlagOverride_HookAddr = 0x12863;
 
 		begin = safetyhook::create_mid(Module::exe_ptr(SumoFrontEnd_state1_SegaBegin_HookAddr), dest_begin);
 		if (!begin)
 			return false;
 
-		end = safetyhook::create_mid(Module::exe_ptr(SumoFrontEnd_state1_SegaEnd_HookAddr), dest_end);
-		return !!begin && !!end;
+		CSound__Play_LoopFlagOverride = safetyhook::create_mid(Module::exe_ptr(CSound__Play_LoopFlagOverride_HookAddr), CSound__Play_LoopFlagOverride_dest);
+
+		return !!begin && !!CSound__Play_LoopFlagOverride;
 	}
 
 	static PlaySegaJingle instance;
