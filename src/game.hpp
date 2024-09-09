@@ -10,6 +10,7 @@ typedef void (*fn_1arg)(int);
 typedef void (*fn_2args)(int, int);
 typedef void (*fn_3args)(int, int, int);
 typedef int (*fn_1arg_int)(int);
+typedef int (__stdcall *fn_stdcall_1arg_int)(int);
 typedef void* (*fn_1arg_void)(int);
 typedef char* (*fn_1arg_char)(int);
 typedef void (*fn_2floats)(float, float);
@@ -175,6 +176,32 @@ typedef struct tagEVWORK_CAR
 } EVWORK_CAR;
 static_assert(sizeof(EVWORK_CAR) == 0x10F0);
 // car0 = 0x7804B0
+
+struct EvFunc
+{
+	void(__stdcall* Init)(void*);
+	void(__stdcall* Ctrl)(void*);
+	void(__stdcall* Disp)(void*);
+	void(__stdcall* Shadow)(void*);
+	void(__stdcall* Dest)(void*);
+};
+
+struct sEventWork
+{
+	uint32_t field_0;
+	uint32_t field_4;
+	uint32_t event_data_8;
+	uint32_t field_C;
+	EvFunc EventFunc;
+	uint8_t unk_24[24];
+
+	template <typename T>
+	inline T* data()
+	{
+		return (T*)event_data_8;
+	}
+};
+static_assert(sizeof(sEventWork) == 0x3C);
 
 typedef struct tagSPRARGS
 {

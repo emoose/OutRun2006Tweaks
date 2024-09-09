@@ -176,9 +176,9 @@ class RestoreCarBaseShadow : public Hook
 	static void __cdecl CalcPeraShadow(int a1, int a2, int a3, float a4)
 	{
 		// CalcPeraShadow code from C2C Xbox
-		EVWORK_CAR* car0 = *Module::exe_ptr<EVWORK_CAR*>(0x399D18); // s_EventWork[8].event_data_8
+		EVWORK_CAR* car = Game::event(8)->data<EVWORK_CAR>();
 
-		Game::mxPushLoadMatrix(&car0->matrix_B0);
+		Game::mxPushLoadMatrix(&car->matrix_B0);
 		Game::mxTranslate(0.0f, 0.05f, 0.0f);
 
 		// Xbox C2C would multiply a4 by 0.5, halving the opacity, which on PC made it almost invisible..
