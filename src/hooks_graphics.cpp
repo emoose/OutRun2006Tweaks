@@ -171,6 +171,41 @@ public:
 };
 DrawDistanceIncrease DrawDistanceIncrease::instance;
 
+class UseHiDefCharacters : public Hook
+{
+public:
+	std::string_view description() override
+	{
+		return "UseHiDefCharacters";
+	}
+
+	bool validate() override
+	{
+		return Settings::UseHiDefCharacters;
+	}
+
+	bool apply() override
+	{
+		int* driver_chrsets = Module::exe_ptr<int>(0x2549B0);
+		int* heroine_chrsets = Module::exe_ptr<int>(0x2549C8);
+
+		// Switch Alberto CHR_DR_M00 -> CHR_DR_MH00
+		driver_chrsets[0] = 12;
+
+		// Switch Jennifer CHR_DR_L00 -> CHR_DR_LH00
+		heroine_chrsets[3] = 10;
+
+		// Switch Clarissa CHR_DR_G00_* -> CHR_DR_GH00_*
+		// (game code handles the switch to USA variant, so we don't need to check RestoreJPClarissa here)
+		heroine_chrsets[4] = 7;
+
+		return true;
+	}
+
+	static UseHiDefCharacters instance;
+};
+UseHiDefCharacters UseHiDefCharacters::instance;
+
 class RestoreCarBaseShadow : public Hook
 {
 	static void __cdecl CalcPeraShadow(int a1, int a2, int a3, float a4)

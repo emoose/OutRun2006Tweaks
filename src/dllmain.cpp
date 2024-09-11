@@ -85,6 +85,7 @@ namespace Settings
 		spdlog::info(" - UIScalingMode: {}", UIScalingMode);
 		spdlog::info(" - AnisotropicFiltering: {}", AnisotropicFiltering);
 		spdlog::info(" - ReflectionResolution: {}", ReflectionResolution);
+		spdlog::info(" - UseHiDefCharacters: {}", UseHiDefCharacters);
 		spdlog::info(" - TransparencySupersampling: {}", TransparencySupersampling);
 		spdlog::info(" - ScreenEdgeCullFix: {}", ScreenEdgeCullFix);
 		spdlog::info(" - DisableVehicleLODs: {}", DisableVehicleLODs);
@@ -198,6 +199,7 @@ namespace Settings
 		AnisotropicFiltering = std::clamp(AnisotropicFiltering, 0, 16);
 		ReflectionResolution = ini.Get("Graphics", "ReflectionResolution", std::move(ReflectionResolution));
 		ReflectionResolution = std::clamp(ReflectionResolution, 0, 8192);
+		UseHiDefCharacters = ini.Get("Graphics", "UseHiDefCharacters", std::move(UseHiDefCharacters));
 		TransparencySupersampling = ini.Get("Graphics", "TransparencySupersampling", std::move(TransparencySupersampling));
 		ScreenEdgeCullFix = ini.Get("Graphics", "ScreenEdgeCullFix", std::move(ScreenEdgeCullFix));
 		DisableVehicleLODs = ini.Get("Graphics", "DisableVehicleLODs", std::move(DisableVehicleLODs));

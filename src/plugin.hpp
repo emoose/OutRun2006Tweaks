@@ -76,6 +76,7 @@ namespace Settings
 	inline int UILetterboxing = 1;
 	inline int AnisotropicFiltering = 16;
 	inline int ReflectionResolution = 2048;
+	inline bool UseHiDefCharacters = true;
 	inline bool TransparencySupersampling = true;
 	inline bool ScreenEdgeCullFix = true;
 	inline bool DisableVehicleLODs = true;
