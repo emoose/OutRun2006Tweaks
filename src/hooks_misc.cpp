@@ -606,9 +606,9 @@ public:
 		constexpr int get_load_heroine_chrset_Addr2 = 0x8804E + 1;
 
 		// chrset 6 -> 5 (or 6 -> 7 if HiDefCharacters are used)
-		Memory::VP::Patch(Module::exe_ptr<int>(get_load_heroine_chrset_Addr1), (Settings::UseHiDefCharacters ? 7 : 5));
+		Memory::VP::Patch(Module::exe_ptr<int>(get_load_heroine_chrset_Addr1), (Settings::UseHiDefCharacters ? ChrSet::CHR_DR_GH00 : ChrSet::CHR_DR_G00));
 		// chrset 8 -> 7
-		Memory::VP::Patch(Module::exe_ptr<int>(get_load_heroine_chrset_Addr2), 7);
+		Memory::VP::Patch(Module::exe_ptr<int>(get_load_heroine_chrset_Addr2), ChrSet::CHR_DR_GH00);
 
 		// ending cutscene fixes (switches CHR_GAL_USA -> CHR_GAL, and fixes cutscene code to make use of it)
 		{

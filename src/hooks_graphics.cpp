@@ -190,14 +190,18 @@ public:
 		int* heroine_chrsets = Module::exe_ptr<int>(0x2549C8);
 
 		// Switch Alberto CHR_DR_M00 -> CHR_DR_MH00
-		driver_chrsets[0] = 12;
+		driver_chrsets[0] = ChrSet::CHR_DR_MH00;
+		Memory::VP::Patch(Module::exe_ptr(0x87F41 + 1), { uint8_t(ChrSet::CHR_DR_MH00) }); // O2SP
 
 		// Switch Jennifer CHR_DR_L00 -> CHR_DR_LH00
-		heroine_chrsets[3] = 10;
+		heroine_chrsets[3] = ChrSet::CHR_DR_LH00;
+		Memory::VP::Patch(Module::exe_ptr(0x8803A + 1), { uint8_t(ChrSet::CHR_DR_LH00) }); // O2SP
 
 		// Switch Clarissa CHR_DR_G00_* -> CHR_DR_GH00_*
-		// (game code handles the switch to USA variant, so we don't need to check RestoreJPClarissa here)
-		heroine_chrsets[4] = 7;
+		heroine_chrsets[4] = ChrSet::CHR_DR_GH00; // (game code handles switching heroine_chrsets to USA variant, so we don't need to check RestoreJPClarissa here)
+
+		// Clarissa O2SP code (this is also patched by RestoreJPClarissa, so make sure both set it to same value...)
+		Memory::VP::Patch(Module::exe_ptr(0x88044 + 1), { Settings::RestoreJPClarissa ? uint8_t(ChrSet::CHR_DR_GH00) : uint8_t(ChrSet::CHR_DR_GH00_USA) });
 
 		return true;
 	}
@@ -504,6 +508,7 @@ class TransparencySupersampling : public Hook
 		device->SetRenderState(D3DRS_MULTISAMPLEMASK, 0xFFFFFFFF);
 
 		// NVIDIA transparency supersampling
+		device->SetRenderState(D3DRS_ADAPTIVETESS_Y, D3DFORMAT(MAKEFOURCC('A', 'T', 'O', 'C')));
 		device->SetRenderState(D3DRS_ADAPTIVETESS_Y, D3DFORMAT(MAKEFOURCC('S', 'S', 'A', 'A')));
 	}
 

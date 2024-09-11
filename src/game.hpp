@@ -121,6 +121,30 @@ enum GameState
 	STATE_SUMOREWARD = 0x24,
 };
 
+enum ChrSet
+{
+	CHR_AUT01 = 0,
+	CHR_AUT02 = 1,
+	CHR_AUT03 = 2,
+	CHR_AUT04 = 3,
+	CHR_AUT04_CVT = 4,
+	CHR_DR_G00 = 5,
+	CHR_DR_G00_USA = 6,
+	CHR_DR_GH00 = 7,
+	CHR_DR_GH00_USA = 8,
+	CHR_DR_L00 = 9,
+	CHR_DR_LH00 = 10,
+	CHR_DR_M00 = 11,
+	CHR_DR_MH00 = 12,
+	CHR_FAL = 13,
+	CHR_GAL = 14,
+	CHR_GAL_USA = 15,
+	CHR_MAL = 16,
+	CHR_DR_W00 = 17,
+	CHR_DR_S00 = 18,
+	CHR_DR_H00 = 19
+};
+
 enum SOUND_CMD
 {
 	/* 0x0800 */ SND_LOOP = (1 << 11),
