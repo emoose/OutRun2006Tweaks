@@ -12,13 +12,13 @@ class FixParticleRendering : public Hook
 	// This causes grass particles not to display properly on PC, usually being rendered out of view
 	// (Possibly other particles too which seem to use similar scaling code - but only the code for grass particles is hooked here)
 	// Fortunately the fix is simple, just divide the values calculated by the function by 2
-	inline static uint8_t x87mem[108];
 	inline static SafetyHookMid midhook{};
 	static void destination(SafetyHookContext& ctx)
 	{
+		float ptcl_size;
 		__asm
 		{
-			fnsave x87mem
+			fstp [ptcl_size]
 		}
 
 		float* esp_1C = (float*)(ctx.esp + 0x1C); // based on width
@@ -28,11 +28,11 @@ class FixParticleRendering : public Hook
 
 		*esp_1C = *esp_1C * mult;
 		*esp_18 = *esp_18 * mult;
+		ptcl_size = ptcl_size * mult;
 
 		__asm
 		{
-			frstor x87mem
-			fmul[mult]
+			fld [ptcl_size]
 		}
 	}
 
