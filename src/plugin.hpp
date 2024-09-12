@@ -95,7 +95,7 @@ namespace Settings
 	inline bool UseNewTextureAllocator = true;
 
 	inline float SteeringDeadZone = 0.2f;
-	inline bool ControllerHotPlug = true;
+	inline bool ControllerHotPlug = false;
 	inline bool DefaultManualTransmission = false;
 	inline std::string HudToggleKey = "";
 	inline int VibrationMode = 0;
