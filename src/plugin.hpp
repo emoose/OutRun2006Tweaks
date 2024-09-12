@@ -119,6 +119,7 @@ namespace Settings
 	inline bool PreventDESTSaveCorruption = true;
 	inline bool FixLensFlarePath = true;
 	inline bool FixIncorrectShading = true;
+	inline bool FixParticleRendering = true;
 	inline bool FixFullPedalChecks = true;
 	inline bool HideOnlineSigninText = true;
 }

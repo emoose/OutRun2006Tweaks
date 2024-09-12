@@ -5,6 +5,61 @@
 #include "plugin.hpp"
 #include "game_addrs.hpp"
 
+class FixParticleRendering : public Hook
+{
+	// Code for rendering grass particles is same as Xbox ver, which scales some vertices based on screen resolution
+	// However in Xbox ver the variable it uses for the screen res is actually resolution / 2, but on PC the variable used is the full resolution
+	// This causes grass particles not to display properly on PC, usually being rendered out of view
+	// (Possibly other particles too which seem to use similar scaling code - but only the code for grass particles is hooked here)
+	// Fortunately the fix is simple, just divide the values calculated by the function by 2
+	inline static uint8_t x87mem[108];
+	inline static SafetyHookMid midhook{};
+	static void destination(SafetyHookContext& ctx)
+	{
+		__asm
+		{
+			fnsave x87mem
+		}
+
+		float* esp_1C = (float*)(ctx.esp + 0x1C); // based on width
+		float* esp_18 = (float*)(ctx.esp + 0x18); // based on height
+
+		float mult = 0.5f;
+
+		*esp_1C = *esp_1C * mult;
+		*esp_18 = *esp_18 * mult;
+
+		__asm
+		{
+			frstor x87mem
+			fmul[mult]
+		}
+	}
+
+public:
+	std::string_view description() override
+	{
+		return "FixParticleRendering";
+	}
+
+	bool validate() override
+	{
+		return Settings::FixParticleRendering;
+	}
+
+	bool apply() override
+	{
+		constexpr int particle_draw_rect2_HookAddr = 0x19009;
+
+		midhook = safetyhook::create_mid(Module::exe_ptr(particle_draw_rect2_HookAddr), destination);
+		return !!midhook;
+	}
+
+	static FixParticleRendering instance;
+};
+FixParticleRendering FixParticleRendering::instance;
+
+																							
 class FixIncorrectShading : public Hook
 {
 public:

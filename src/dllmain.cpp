@@ -128,6 +128,7 @@ namespace Settings
 		spdlog::info(" - PreventDESTSaveCorruption: {}", PreventDESTSaveCorruption);
 		spdlog::info(" - FixLensFlarePath: {}", FixLensFlarePath);
 		spdlog::info(" - FixIncorrectShading: {}", FixIncorrectShading);
+		spdlog::info(" - FixParticleRendering: {}", FixParticleRendering);
 		spdlog::info(" - FixFullPedalChecks: {}", FixFullPedalChecks);
 		spdlog::info(" - HideOnlineSigninText: {}", HideOnlineSigninText);
 	}
@@ -250,6 +251,7 @@ namespace Settings
 		PreventDESTSaveCorruption = ini.Get("Bugfixes", "PreventDESTSaveCorruption", std::move(PreventDESTSaveCorruption));
 		FixLensFlarePath = ini.Get("Bugfixes", "FixLensFlarePath", std::move(FixLensFlarePath));
 		FixIncorrectShading = ini.Get("Bugfixes", "FixIncorrectShading", std::move(FixIncorrectShading));
+		FixParticleRendering = ini.Get("Bugfixes", "FixParticleRendering", std::move(FixParticleRendering));
 		FixFullPedalChecks = ini.Get("Bugfixes", "FixFullPedalChecks", std::move(FixFullPedalChecks));
 		HideOnlineSigninText = ini.Get("Bugfixes", "HideOnlineSigninText", std::move(HideOnlineSigninText));
 
