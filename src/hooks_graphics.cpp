@@ -173,6 +173,23 @@ DrawDistanceIncrease DrawDistanceIncrease::instance;
 
 class UseHiDefCharacters : public Hook
 {
+	inline static SafetyHookInline rob_disp_init{};
+	static void rob_disp_init_dest(tagEvWorkRobot* a1)
+	{
+		// OSAGE handles the moving/bouncing parts of the model
+		// Seems only ending cutscenes actually make use of it, driver/passenger models are skipped
+		// The HQ models will still use any data from rob_osage_matrix array if it's set however
+		// This data doesn't seem to get cleared after ending cutscene, so HQ models use the last values set during cutscene
+		// Causing issues like HQClarissa's hair to seperate from body...
+		// 
+		// rob_disp_init gets called when character is being setup, we can just clear the matrix data for the character here
+
+		rob_disp_init.call(a1);
+
+		D3DMATRIX* rob_osage_matrix = Module::exe_ptr<D3DMATRIX>(0x458710);
+		memset(&rob_osage_matrix[0x20 * a1->workId_0], 0, 0x20 * sizeof(D3DMATRIX));
+	}
+
 public:
 	std::string_view description() override
 	{
@@ -186,6 +203,9 @@ public:
 
 	bool apply() override
 	{
+		constexpr int rob_osage_dest_Addr = 0x114BF0;
+		rob_disp_init = safetyhook::create_inline(Module::exe_ptr(rob_osage_dest_Addr), rob_disp_init_dest);
+
 		int* driver_chrsets = Module::exe_ptr<int>(0x2549B0);
 		int* heroine_chrsets = Module::exe_ptr<int>(0x2549C8);
 

@@ -288,6 +288,28 @@ typedef struct tagSPRARGS2
 } SPRARGS2;
 static_assert(sizeof(SPRARGS2) == 0xB8);
 
+struct tagEvWorkRobot
+{
+	uint32_t workId_0;
+	uint32_t dword4;
+	ChrSet chrset_8;
+	__declspec(align(8)) _D3DMATRIX d3dmatrix10;
+	D3DVECTOR field_50;
+	D3DVECTOR field_5C;
+	int dword68;
+	uint32_t dword6C;
+	int dword70;
+	uint32_t dword74;
+	uint32_t dword78;
+	uint32_t dword7C;
+	int dword80;
+	char byte84;
+	char byte85;
+	uint8_t unk_86[2];
+	uint8_t unk_88[8];
+};
+static_assert(sizeof(tagEvWorkRobot) == 0x90);
+
 inline void WaitForDebugger()
 {
 #ifdef _DEBUG
