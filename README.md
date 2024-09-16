@@ -17,6 +17,7 @@ Latest builds can be found under the releases section: https://github.com/emoose
 - Anisotropic filtering & transparency supersampling can be forced, greatly reducing aliasing around the edges of the track
 - Reflection rendering resolution can be increased from the default 128x128
 - Restores the car base shadow from the C2C console ports, which was missing on PC for some reason
+- Allows using higher-quality models for Alberto/Clarissa/Jennifer, which were otherwise left unused
 
 **Gameplay:**
 - Points game toward new online servers, restoring the online multiplayer modes
@@ -26,6 +27,7 @@ Latest builds can be found under the releases section: https://github.com/emoose
 - Horn button can be made functional during normal gameplay, outside of the "honk your horn!" girl requests
 - Allows randomizing the set of highway animations to use, instead of only using the set for the game mode being played
 - In-game HUD can be optionally toggled via bindable keypress
+- Manual Transmission (MT) can be set as the default for C2C menus
 - Passing all the C2C missions might unlock something new 🐱
 
 **Bugfixes:**
@@ -35,6 +37,8 @@ Latest builds can be found under the releases section: https://github.com/emoose
 - Pegasus animation's clopping sound effect will now end correctly
 - Text related to the now-defunct online service can be hidden
 - Automatically disables DPI scaling on the game window to fix scaling issues
+- Fixes issues with shading on certain character/stage models (eg. the ending cutscene models)
+- Allows particles like grass/gravel to be drawn correctly, like in the console versions
 - Game can be forced to run on a single core, to help with freezing issues on some modern systems
 - Bink movie files larger than 1024 pixels will now play without crashes
 - Game crashes will now write a crash report into CrashDumps folder (please feel free to post any crash reports to the issues page!)
