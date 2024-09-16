@@ -145,6 +145,15 @@ enum ChrSet
 	CHR_DR_H00 = 19
 };
 
+struct s_chrset_info // not actual name
+{
+	const char* bin_ptr;
+	int field_4; // always 0?
+	int xmtset_no_8;
+	int field_C; // always 0?
+};
+static_assert(sizeof(s_chrset_info) == 0x10);
+
 enum SOUND_CMD
 {
 	/* 0x0800 */ SND_LOOP = (1 << 11),
@@ -293,7 +302,8 @@ struct tagEvWorkRobot
 	uint32_t workId_0;
 	uint32_t dword4;
 	ChrSet chrset_8;
-	__declspec(align(8)) _D3DMATRIX d3dmatrix10;
+	uint8_t unk_C[4];
+	_D3DMATRIX d3dmatrix10;
 	D3DVECTOR field_50;
 	D3DVECTOR field_5C;
 	int dword68;

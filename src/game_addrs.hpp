@@ -39,6 +39,8 @@ namespace Game
 
 	inline int* sel_bgm_kind_buf = nullptr;
 
+	inline s_chrset_info* chrset_info = nullptr;
+
 	inline int* app_time = nullptr; // used by SetTweeningTable etc
 	inline int* sprani_num_ticks = nullptr; // number of game ticks being ran in the current frame (can be 0 if above 60FPS)
 
@@ -138,6 +140,8 @@ namespace Game
 		navipub_disp_flg = Module::exe_ptr<uint32_t>(0x4447F8);
 
 		sel_bgm_kind_buf = Module::exe_ptr<int>(0x430364);
+
+		chrset_info = Module::exe_ptr<s_chrset_info>(0x254860);
 
 		app_time = Module::exe_ptr<int>(0x49EDB8);
 		sprani_num_ticks = Module::exe_ptr<int>(0x380278);
