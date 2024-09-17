@@ -50,15 +50,20 @@ public:
 	bool apply() override
 	{
 		constexpr int particle_draw_rect2_HookAddr = 0x19009;
-
 		midhook = safetyhook::create_mid(Module::exe_ptr(particle_draw_rect2_HookAddr), destination);
+
+		// Fix metropolis firework texture issue (https://github.com/emoose/OutRun2006Tweaks/issues/52)
+		// DispStage will draw object 0x630001 once goal is passed, but seems that model is for road barriers
+		// 0x630002 seems to be the right firework model
+		constexpr int DispStage_PatchAddr = 0x4E183 + 1;
+		Memory::VP::Patch(Module::exe_ptr<uint32_t>(DispStage_PatchAddr), 0x630002);
+
 		return !!midhook;
 	}
 
 	static FixParticleRendering instance;
 };
 FixParticleRendering FixParticleRendering::instance;
-
 																							
 class FixIncorrectShading : public Hook
 {
