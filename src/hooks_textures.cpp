@@ -619,6 +619,8 @@ class TextureReplacement : public Hook
 			if (!FileSystem.exists(path_load))
 				path_load = XmtLoadPath / texturePackName.filename().stem() / ddsName;
 			if (!FileSystem.exists(path_load))
+				path_load = XmtLoadPath / ddsNameIndexed;
+			if (!FileSystem.exists(path_load))
 				path_load = XmtLoadPath / ddsName;
 
 			if (FileSystem.exists(path_load))
