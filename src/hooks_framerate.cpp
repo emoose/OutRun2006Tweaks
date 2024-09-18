@@ -230,6 +230,16 @@ class ReplaceGameUpdateLoop : public Hook
 		}
 	}
 
+	// EventDisplay adds to sin_param every frame, if GetPauseFlag is false
+	// This causes speed of flashing cars to change depending on framerate
+	// We'll update it similar to SetTweeningTable so it only increments if a game tick is being ran
+	inline static SafetyHookMid EventDisplay_midhook = {};
+	static void EventDisplay_dest(SafetyHookContext& ctx)
+	{
+		if (*Game::sprani_num_ticks == 0)
+			ctx.eax = 1; // make func think that game is paused
+	}
+
 public:
 	std::string_view description() override
 	{
@@ -263,7 +273,6 @@ public:
 
 		constexpr int HookAddr = 0x17C7B;
 		constexpr int GameLoopFrameLimiterAddr = 0x17DD3;
-		constexpr int SetTweeningTable_Addr = 0xED60;
 		constexpr int GameLoopFileLoad_CtrlCaller = 0x17D8D;
 
 		// disable broken framelimiter
@@ -281,8 +290,12 @@ public:
 			Memory::VP::Nop(Module::exe_ptr(GameLoopFileLoad_CtrlCaller), 5);
 
 		if (Settings::FramerateUnlockExperimental)
-			SetTweeningTable = safetyhook::create_inline(Module::exe_ptr<uint8_t>(SetTweeningTable_Addr), SetTweeningTable_dest);
-
+		{
+			constexpr int SetTweeningTable_Addr = 0xED60;
+			constexpr int EventDisplay_HookAddr = 0x3FC48;
+			SetTweeningTable = safetyhook::create_inline(Module::exe_ptr(SetTweeningTable_Addr), SetTweeningTable_dest);
+			EventDisplay_midhook = safetyhook::create_mid(Module::exe_ptr(EventDisplay_HookAddr), EventDisplay_dest);
+		}
 		return !!dest_hook;
 	}
 
