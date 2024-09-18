@@ -234,7 +234,9 @@ class ReplaceGameUpdateLoop : public Hook
 	// This causes speed of flashing cars to change depending on framerate
 	// We'll update it similar to SetTweeningTable so it only increments if a game tick is being ran
 	// TODO: would probably be smoother to scale that 0.10471975 by deltatime instead
-	inline static SafetyHookMid EventDisplay_midhook = {};
+	inline static SafetyHookMid EventDisplay_midhook1 = {};
+	inline static SafetyHookMid EventDisplay_midhook2 = {};
+	inline static SafetyHookMid DispPlCar_midhook = {};
 	static void EventDisplay_dest(SafetyHookContext& ctx)
 	{
 		if (*Game::sprani_num_ticks == 0)
@@ -293,9 +295,14 @@ public:
 		if (Settings::FramerateUnlockExperimental)
 		{
 			constexpr int SetTweeningTable_Addr = 0xED60;
-			constexpr int EventDisplay_HookAddr = 0x3FC48;
 			SetTweeningTable = safetyhook::create_inline(Module::exe_ptr(SetTweeningTable_Addr), SetTweeningTable_dest);
-			EventDisplay_midhook = safetyhook::create_mid(Module::exe_ptr(EventDisplay_HookAddr), EventDisplay_dest);
+
+			constexpr int EventDisplay_HookAddr1 = 0x3FC48;
+			constexpr int EventDisplay_HookAddr2 = 0x3FE51;
+			constexpr int DispPlCar_HookAddr = 0x6BE27;
+			EventDisplay_midhook1 = safetyhook::create_mid(Module::exe_ptr(EventDisplay_HookAddr1), EventDisplay_dest);
+			EventDisplay_midhook2 = safetyhook::create_mid(Module::exe_ptr(EventDisplay_HookAddr2), EventDisplay_dest);
+			DispPlCar_midhook = safetyhook::create_mid(Module::exe_ptr(DispPlCar_HookAddr), EventDisplay_dest);
 		}
 		return !!dest_hook;
 	}
