@@ -451,7 +451,7 @@ class TextureReplacement : public Hook
 	//
 	// UI texture replacement code
 	//
-
+	inline static int CurrentTextureIdx = 0;
 	inline static std::filesystem::path CurrentXstsetFilename;
 	inline static int CurrentXstsetIndex = 0;
 
@@ -576,8 +576,13 @@ class TextureReplacement : public Hook
 	inline static SafetyHookMid LoadXstsetSprite_hook = {};
 	static void LoadXstsetSprite_dest(safetyhook::Context& ctx)
 	{
-		CurrentXstsetFilename = (char*)ctx.ecx; // sprite xstset filename
-		CurrentXstsetIndex = (int)(ctx.eax); // index into xstset array
+		const char* xstsetFilename = (char*)ctx.ecx;
+		if (CurrentXstsetFilename != xstsetFilename)
+		{
+			CurrentXstsetFilename = xstsetFilename; // sprite xstset filename
+			CurrentXstsetIndex = (int)(ctx.eax); // index into xstset array
+			CurrentTextureIdx = 0;
+		}
 	};
 
 	static void HandleTexture(void** ppSrcData, UINT* pSrcDataSize, std::filesystem::path texturePackName, bool isUITexture)
@@ -605,11 +610,14 @@ class TextureReplacement : public Hook
 		}
 
 		std::string ddsName = std::format("{:X}_{}x{}.dds", hash, width, height);
+		std::string ddsNameIndexed = std::format("{}_{}", CurrentTextureIdx++, ddsName);
 
 		bool dumpTexture = true;
 		if (allowReplacement)
 		{
-			auto path_load = XmtLoadPath / texturePackName.filename().stem() / ddsName;
+			auto path_load = XmtLoadPath / texturePackName.filename().stem() / ddsNameIndexed;
+			if (!FileSystem.exists(path_load))
+				path_load = XmtLoadPath / texturePackName.filename().stem() / ddsName;
 			if (!FileSystem.exists(path_load))
 				path_load = XmtLoadPath / ddsName;
 
@@ -652,7 +660,7 @@ class TextureReplacement : public Hook
 			if (!FileSystem.exists(path_dump))
 				std::filesystem::create_directories(path_dump);
 
-			path_dump = path_dump / ddsName;
+			path_dump = path_dump / ddsNameIndexed;
 			if (!FileSystem.exists(path_dump))
 			{
 				std::ofstream file(path_dump, std::ios::binary);
@@ -736,6 +744,7 @@ class TextureReplacement : public Hook
 		{
 			CurrentXmtsetFilename = XmtFileName;
 			PrevXmtName = XmtFileName;
+			CurrentTextureIdx = 0;
 		}
 
 		return LoadXmtsetObject.call<int>(XmtFileName, XmtIndex);
