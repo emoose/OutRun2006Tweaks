@@ -36,6 +36,22 @@ class FixParticleRendering : public Hook
 		}
 	}
 
+	// Fix metropolis firework texture issue (https://github.com/emoose/OutRun2006Tweaks/issues/52)
+	// DispStage tries to draw object 0x630001, but since no CollNode list is passed it uses default CollNode 0, which likely causes road barriers to get drawn
+	// We'll fix this by making it draw stage object with CollNode list used by DrawDistanceBehind = 2 instead
+	// This seems to let it draw the fireworks properly, though this is a little hacky
+	// I'm not really sure if there's any other way to fix it, seems that a CollNode array is required for it to draw model correctly...
+	inline static SafetyHookMid midhook_fireworks{};
+	static void destination_fireworks(SafetyHookContext& ctx)
+	{
+		static uint16_t DrawDistBehind_equals_2_CollNodes[] = 
+		{ 0, 4, 5, 6, 7, 0xB, 0xC, 0xD, 0xE, 0x12, 0x13, 0x14, 0x15, 0x1A, 0x1B, 0x1F, 0x20, 0x21, 0xFFFF };
+
+		Game::DrawObject_Internal(0x001a000a, 0, DrawDistBehind_equals_2_CollNodes, 0, -1, 0);
+
+		ctx.eip = (uintptr_t)Module::exe_ptr(0x4E190);
+	}
+
 public:
 	std::string_view description() override
 	{
@@ -52,11 +68,8 @@ public:
 		constexpr int particle_draw_rect2_HookAddr = 0x19009;
 		midhook = safetyhook::create_mid(Module::exe_ptr(particle_draw_rect2_HookAddr), destination);
 
-		// Fix metropolis firework texture issue (https://github.com/emoose/OutRun2006Tweaks/issues/52)
-		// DispStage will draw object 0x630001 once goal is passed, but seems that model is for road barriers
-		// 0x630002 seems to be the right firework model
-		constexpr int DispStage_PatchAddr = 0x4E183 + 1;
-		Memory::VP::Patch(Module::exe_ptr<uint32_t>(DispStage_PatchAddr), 0x630002);
+		constexpr int DispStage_HookAddr = 0x4E179;
+		midhook_fireworks = safetyhook::create_mid(Module::exe_ptr(DispStage_HookAddr), destination_fireworks);
 
 		return !!midhook;
 	}

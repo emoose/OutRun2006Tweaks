@@ -230,14 +230,15 @@ class ReplaceGameUpdateLoop : public Hook
 		}
 	}
 
-	// EventDisplay adds to sin_param every frame, if GetPauseFlag is false
+	// EventDisplay adds 0.10471975 to sin_param every frame, if GetPauseFlag is false
 	// This causes speed of flashing cars to change depending on framerate
 	// We'll update it similar to SetTweeningTable so it only increments if a game tick is being ran
+	// TODO: would probably be smoother to scale that 0.10471975 by deltatime instead
 	inline static SafetyHookMid EventDisplay_midhook = {};
 	static void EventDisplay_dest(SafetyHookContext& ctx)
 	{
 		if (*Game::sprani_num_ticks == 0)
-			ctx.eax = 1; // make func think that game is paused
+			ctx.eax = 1; // make func skip adding to sin_param
 	}
 
 public:
