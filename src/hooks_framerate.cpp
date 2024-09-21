@@ -125,12 +125,12 @@ class ReplaceGameUpdateLoop : public Hook
 
 			do
 			{
+				if (Settings::FramerateFastLoad == 3)
+					Game::FileLoad_Ctrl();
+
 				QueryPerformanceCounter(&counter);
 				timeCurrent = double(counter.QuadPart) / FramelimiterFrequency;
 				timeElapsed = timeCurrent - FramelimiterPrevCounter;
-
-				if (Settings::FramerateFastLoad == 3)
-					Game::FileLoad_Ctrl();
 
 				if (Settings::FramerateLimitMode == 0) // "efficient" mode
 				{
@@ -304,6 +304,19 @@ public:
 			EventDisplay_midhook2 = safetyhook::create_mid(Module::exe_ptr(EventDisplay_HookAddr2), EventDisplay_dest);
 			DispPlCar_midhook = safetyhook::create_mid(Module::exe_ptr(DispPlCar_HookAddr), EventDisplay_dest);
 		}
+
+		// Increase reflection update rate, default is 3 (30fps)
+		// Set it to framerate limit div 10 (add 9 to make it round up to nearest 10)
+		int numUpdates = (Settings::FramerateLimit + 9) / 10;
+		if (numUpdates > 3)
+		{
+			constexpr int Envmap_RenderToCubeMap_PatchAddr = 0x1447E;
+			Memory::VP::Nop(Module::exe_ptr(Envmap_RenderToCubeMap_PatchAddr), 2);
+
+			constexpr int Envmap_RenderToCubeMap_PatchAddr2 = 0x14480 + 1;
+			Memory::VP::Patch(Module::exe_ptr(Envmap_RenderToCubeMap_PatchAddr2), numUpdates);
+		}
+
 		return !!dest_hook;
 	}
 
@@ -313,7 +326,6 @@ ReplaceGameUpdateLoop ReplaceGameUpdateLoop::instance;
 
 class FullscreenRefreshRate : public Hook
 {
-	const static int PatchAddr = 0xE9B9;
 
 public:
 	std::string_view description() override
@@ -328,8 +340,8 @@ public:
 
 	bool apply() override
 	{
-		auto* patch_addr = Module::exe_ptr<uint8_t>(PatchAddr);
-		Memory::VP::Patch(patch_addr, Settings::FramerateLimit);
+		constexpr int PatchAddr = 0xE9B9;
+		Memory::VP::Patch(Module::exe_ptr<uint8_t>(PatchAddr), Settings::FramerateLimit);
 
 		return true;
 	}
