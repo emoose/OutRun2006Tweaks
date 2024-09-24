@@ -115,6 +115,7 @@ namespace Settings
 	inline std::string DemonwareServerOverride = "clarissa.port0.org";
 
 	inline bool FixPegasusClopping = true;
+	inline bool FixRightSideBunkiAnimations = true;
 	inline bool FixC2CRankings = true;
 	inline bool PreventDESTSaveCorruption = true;
 	inline bool FixLensFlarePath = true;

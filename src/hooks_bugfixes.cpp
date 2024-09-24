@@ -5,6 +5,38 @@
 #include "plugin.hpp"
 #include "game_addrs.hpp"
 
+class FixRightSideBunkiAnimations : public Hook
+{
+	// When heading through bunki on right side certain animations become inverted, with backside vertices appearing in front
+	// These anims are normally setup for playing on left side, for the right side the game has to invert some matrices for them
+	// However it also sets a flag on the model for the anim too, the purpose of the flag is unknown
+	// With the flag set PutModel will cause D3DRS_CULLMODE to be set to D3DCULL_CCW, forcing backside vertices to become culled
+	// This sounds like it should be correct, but somehow this causes the vertices issue above...
+	// 
+	// Fortunately removing the flag from being setup seems to remedy this (though it would be nice to know the true reason why)
+public:
+	std::string_view description() override
+	{
+		return "FixRightSideBunkiAnimations";
+	}
+
+	bool validate() override
+	{
+		return true;
+	}
+
+	bool apply() override
+	{
+		constexpr int LoadBranchRenditionObject_SetsCCWFlag_PatchAddr = 0x4F6DC;
+		Memory::VP::Nop(Module::exe_ptr(LoadBranchRenditionObject_SetsCCWFlag_PatchAddr), 7);
+
+		return true;
+	}
+
+	static FixRightSideBunkiAnimations instance;
+};
+FixRightSideBunkiAnimations FixRightSideBunkiAnimations::instance;
+
 class FixParticleRendering : public Hook
 {
 	// Code for rendering grass particles is same as Xbox ver, which scales some vertices based on screen resolution
