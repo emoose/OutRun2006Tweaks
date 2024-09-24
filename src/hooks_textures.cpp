@@ -306,6 +306,13 @@ public:
 
 	void cacheFile(std::filesystem::path filename)
 	{
+		auto extension = filename.extension().string();
+		std::transform(extension.begin(), extension.end(), extension.begin(),
+			[](unsigned char c) { return std::tolower(c); });
+
+		if (extension != ".dds")
+			return;
+
 		std::lock_guard _(mtx1);
 
 		if (cache.find(filename) != cache.end())
