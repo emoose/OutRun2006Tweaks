@@ -2,7 +2,96 @@
 #include "plugin.hpp"
 #include "game_addrs.hpp"
 
+// from timeapi.h, which we can't include since our proxy timeBeginPeriod etc funcs will conflict...
+typedef struct timecaps_tag {
+	UINT    wPeriodMin;     /* minimum period supported  */
+	UINT    wPeriodMax;     /* maximum period supported  */
+} TIMECAPS;
+
 #include <d3d9.h>
+
+class Snooze
+{
+	// Based on https://github.com/blat-blatnik/Snippets/blob/main/precise_sleep.c
+
+	static inline HANDLE Timer;
+	static inline int SchedulerPeriodMs;
+	static inline INT64 QpcPerSecond;
+
+public:
+	static void PreciseSleep(double seconds)
+	{
+		LARGE_INTEGER qpc;
+		QueryPerformanceCounter(&qpc);
+		INT64 targetQpc = (INT64)(qpc.QuadPart + seconds * QpcPerSecond);
+
+		if (Timer) // Try using a high resolution timer first.
+		{
+			const double TOLERANCE = 0.001'02;
+			INT64 maxTicks = (INT64)SchedulerPeriodMs * 9'500;
+			for (;;) // Break sleep up into parts that are lower than scheduler period.
+			{
+				double remainingSeconds = (targetQpc - qpc.QuadPart) / (double)QpcPerSecond;
+				INT64 sleepTicks = (INT64)((remainingSeconds - TOLERANCE) * 10'000'000);
+				if (sleepTicks <= 0)
+					break;
+
+				LARGE_INTEGER due;
+				due.QuadPart = -(sleepTicks > maxTicks ? maxTicks : sleepTicks);
+				SetWaitableTimerEx(Timer, &due, 0, NULL, NULL, NULL, 0);
+				WaitForSingleObject(Timer, INFINITE);
+				QueryPerformanceCounter(&qpc);
+			}
+		}
+		else // Fallback to Sleep.
+		{
+			const double TOLERANCE = 0.000'02;
+			double sleepMs = (seconds - TOLERANCE) * 1000 - SchedulerPeriodMs; // Sleep for 1 scheduler period less than requested.
+			int sleepSlices = (int)(sleepMs / SchedulerPeriodMs);
+			if (sleepSlices > 0)
+				Sleep((DWORD)sleepSlices * SchedulerPeriodMs);
+			QueryPerformanceCounter(&qpc);
+		}
+
+		while (qpc.QuadPart < targetQpc) // Spin for any remaining time.
+		{
+			YieldProcessor();
+			QueryPerformanceCounter(&qpc);
+		}
+	}
+
+	static void Init(void)
+	{
+#ifndef PROCESS_POWER_THROTTLING_IGNORE_TIMER_RESOLUTION
+#define PROCESS_POWER_THROTTLING_IGNORE_TIMER_RESOLUTION 4
+#endif
+		// Prevent timer resolution getting reset on Win11
+		// https://stackoverflow.com/questions/77182958/windows-11-application-timing-becomes-uneven-when-backgrounded
+		// (SPI call will silently fail on other OS)
+		PROCESS_POWER_THROTTLING_STATE state = { 0 };
+		state.Version = PROCESS_POWER_THROTTLING_CURRENT_VERSION;
+		state.ControlMask = PROCESS_POWER_THROTTLING_IGNORE_TIMER_RESOLUTION;
+		state.StateMask = 0;
+		SetProcessInformation(GetCurrentProcess(), ProcessPowerThrottling, &state, sizeof(state));
+
+		typedef int(__stdcall* timeBeginPeriod_Fn) (int Period);
+		typedef int(__stdcall* timeGetDevCaps_Fn) (TIMECAPS* ptc, UINT cbtc);
+
+		auto winmm = LoadLibraryA("winmm.dll");
+		auto timeBeginPeriod = (timeBeginPeriod_Fn)GetProcAddress(winmm, "timeBeginPeriod");
+		auto timeGetDevCaps = (timeGetDevCaps_Fn)GetProcAddress(winmm, "timeGetDevCaps");
+
+		// Initialization
+		Timer = CreateWaitableTimerExW(NULL, NULL, CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, TIMER_ALL_ACCESS);
+		TIMECAPS caps;
+		timeGetDevCaps(&caps, sizeof caps);
+		timeBeginPeriod(caps.wPeriodMin);
+		SchedulerPeriodMs = (int)caps.wPeriodMin;
+		LARGE_INTEGER qpf;
+		QueryPerformanceFrequency(&qpf);
+		QpcPerSecond = qpf.QuadPart;
+	}
+};
 
 class SumoUIFlashingTextFix : public Hook
 {
@@ -61,7 +150,7 @@ class ReplaceGameUpdateLoop : public Hook
 
 	inline static double FramelimiterTargetFrametime = double(1000.f) / double(60.f);
 
-	inline static double FramelimiterMaxDeviation = FramelimiterTargetFrametime / 160.f;
+	inline static double FramelimiterMaxDeviation = FramelimiterTargetFrametime / (16.f * 1000.f);
 	inline static double FramelimiterDeviation = 0;
 
 	inline static SafetyHookMid dest_hook = {};
@@ -140,7 +229,7 @@ class ReplaceGameUpdateLoop : public Hook
 						break;
 					}
 					else if ((FramelimiterTargetFrametime + FramelimiterDeviation) - timeElapsed > 2.0)
-						Sleep(1); // Sleep for ~1ms
+						Snooze::PreciseSleep(1.f / 1000.f); // Sleep for ~1ms
 					else
 						Sleep(0); // Yield thread's time-slice (does not actually sleep)
 				}
@@ -151,7 +240,7 @@ class ReplaceGameUpdateLoop : public Hook
 			timeElapsed = timeCurrent - FramelimiterPrevCounter;
 
 #if 0
-			// Compensate for the deviation in the next frame (based on dxvk util_fps_limiter)
+			// Compensate for any deviation, in the next frame (based on dxvk util_fps_limiter)
 			double deviation = timeElapsed - FramelimiterTargetFrametime;
 			FramelimiterDeviation += deviation;
 			// Limit the cumulative deviation
@@ -258,12 +347,10 @@ public:
 	{
 		// framelimiter init
 		{
+			Snooze::Init();
+
 			LARGE_INTEGER frequency;
 			LARGE_INTEGER counter;
-
-			typedef int(__stdcall* timeBeginPeriod_Fn) (int Period);
-			auto timeBeginPeriod = (timeBeginPeriod_Fn)GetProcAddress(LoadLibraryA("winmm.dll"), "timeBeginPeriod");
-			timeBeginPeriod(1);
 
 			QueryPerformanceFrequency(&frequency);
 			FramelimiterFrequency = double(frequency.QuadPart) / double(1000.f);
@@ -271,7 +358,7 @@ public:
 			FramelimiterPrevCounter = double(counter.QuadPart) / FramelimiterFrequency;
 
 			FramelimiterTargetFrametime = double(1000.f) / double(Settings::FramerateLimit);
-			FramelimiterMaxDeviation = FramelimiterTargetFrametime / 160.f;
+			FramelimiterMaxDeviation = FramelimiterTargetFrametime / (16.f * 1000.f);
 		}
 
 		constexpr int HookAddr = 0x17C7B;
