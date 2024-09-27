@@ -239,13 +239,11 @@ class ReplaceGameUpdateLoop : public Hook
 			timeCurrent = double(counter.QuadPart) / FramelimiterFrequency;
 			timeElapsed = timeCurrent - FramelimiterPrevCounter;
 
-#if 0
 			// Compensate for any deviation, in the next frame (based on dxvk util_fps_limiter)
 			double deviation = timeElapsed - FramelimiterTargetFrametime;
 			FramelimiterDeviation += deviation;
 			// Limit the cumulative deviation
 			FramelimiterDeviation = std::clamp(FramelimiterDeviation, -FramelimiterMaxDeviation, FramelimiterMaxDeviation);
-#endif
 
 			FramelimiterPrevCounter = timeCurrent;
 		}
