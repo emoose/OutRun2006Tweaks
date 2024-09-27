@@ -302,11 +302,29 @@ struct OBJECT_Raw // in-file OBJECT, at runtime the game fixes up these offsets 
     }
 };
 
-struct BufferPtr // aka Handle?
+local long VidMemStart = 0;
+
+struct BufferPtr(byte vertexBuffer) // aka Handle?
 {
     int runtime_ptr_0; // filled at runtime
     int data_ptr_4;
     int unk_8; // zero
+    
+    if (data_ptr_4 > 0)
+    {
+        local long pos = FTell();
+        if (vertexBuffer == 1)
+        {
+            FSeek(VidMemStart + data_ptr_4);
+            float data;
+        }
+        else
+        {
+            FSeek(sizeof(PMTHEAD) + data_ptr_4);
+            uint16 data;
+        }
+        FSeek(pos);
+    }
 };
 
 struct VertexBuffer(int xmtPos)
@@ -318,7 +336,7 @@ struct VertexBuffer(int xmtPos)
     for(i = 0; i < 4; i++)
     {
         FSeek(VertexBufferPtrs_8[i] + xmtPos);
-        BufferPtr VertexBuffer;
+        BufferPtr VertexBuffer(1);
     }
     
     FSeek(pos);
@@ -330,7 +348,7 @@ struct IndexBuffer(int xmtPos)
     local long pos = FTell();
     
     FSeek(xmtPos + IndexBufferPtr);
-    BufferPtr IndexBuffer;   
+    BufferPtr IndexBuffer(0);   
     
     FSeek(pos);
 };
@@ -501,6 +519,8 @@ struct TexData(int size)
 
 PMTHEAD PmtHead;
 
+VidMemStart = PmtHead.SysMemDataSize_8 + sizeof(PMTHEAD);
+
 local long xmtPos = FTell();
 XMTHEAD XmtHead;
 OBJECT Object(xmtPos)[XmtHead.objnum]<optimize=false>;
@@ -511,9 +531,7 @@ int RuntimeTexPointersUnk<hidden=true>; // who knows, this might come before Run
 XPR_HEADER XPRHeader;
 D3DTexture XPREntries[XmtHead.texnum];
 
-local long texDataStart = PmtHead.SysMemDataSize_8 + sizeof(PMTHEAD);
-
-FSeek(texDataStart);
+FSeek(VidMemStart);
 
 local int i = 0;
 local int size = 0;
