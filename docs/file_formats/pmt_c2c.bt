@@ -12,12 +12,14 @@
 //------------------------------------------------
 
 // C2C PMTs use most of the same structures as Lindbergh XMT
-// A couple extra structs are also included, seems they're mostly the actual in-memory structures used by game at runtime
+// Though a lot of extra in-memory pre-filled structs are also included, pretty much the structs used by game at runtime
 // Instead of C2C reading in each XMT struct individually, it'll pretty much just load the whole SysMem section as a blob, fix up some memory addresses, and use it as-is
 // Xbox OR2 uses very similar "SMT" format instead, which has mostly the same in-memory structs as PMT, but unfortunately has many differences in the struct layouts
 
 // Not totally sure if this runtime stuff was something added on to XMT later, or if maybe Lindbergh XMTs were just stripped down versions of these PMTs?
 // Need to get a look at Chihiro versions...
+
+local int ShouldReadVertexData = 0; // if enabled will try reading/parsing each vertex, can take a while for large files...
 
 struct D3DVECTOR4
 {
@@ -27,12 +29,19 @@ struct D3DVECTOR4
     float w;
 };
 
+struct D3DVECTOR
+{
+    float x;
+    float y;
+    float z;
+};
+
 struct PMTHEAD
 {
     int objnum_0;
     int texnum_4;
-    int SysMemDataSize_8; // VidMem begin
-    int VidMemDataSize_C; // VidMem end
+    int SysMemDataSize_8<format=hex>; // VidMem begin
+    int VidMemDataSize_C<format=hex>; // VidMem end
 };
 
 struct XMTHEAD
@@ -138,31 +147,13 @@ union vertex_format_bf
 struct VtxFormatList(int header_offset)
 {
     int numof_stream;
-    unsigned int offset_indices;
-    unsigned int offset_vertices[4];
-    unsigned int index_buffer_size;
-    unsigned int vertex_buffer_size;
+    unsigned int offset_indices<format=hex>;
+    unsigned int offset_vertices[4]<format=hex>;
+    unsigned int index_buffer_size<format=hex>;
+    unsigned int vertex_buffer_size<format=hex>;
     vertex_format_bf vertex_format;
-    unsigned int vertex_format_size;
+    unsigned int vertex_format_size<format=hex>;
     VertexShaderType vertex_shader_type;
-    
-    // TODO: offset_indices / offset_vertices[0] are left zeroed in PMT/SMT
-    // Instead the OBJECT_Raw points to some runtime structs which then point to the actual index/vertex data
-    // TODO: offset_vertices[1 - 3] does contain some other data in PMT/SMT, what is it?
-    
-    /*
-    local long pos = FTell();
-    FSeek(header_offset + offset_indices);
-    char index_buffer_data[index_buffer_size]<optimize=false>;
-    
-    // TODO: theres sometimes data between offset_indices & offset_vertices[0], what is it?
-    // TODO: offset_vertices has 4 entries, but only a single vertex_buffer_size, how should it be handled?
-    
-    FSeek(header_offset + offset_vertices[0]);
-    char vertex_buffer_data[vertex_buffer_size]<optimize=false>;
-    
-    FSeek(pos);
-    */
 };
 
 struct M_MatAttrFlags
@@ -243,9 +234,6 @@ struct MaterialList
     int index_color;
     MatAttrib attrib;
     MatTexInfo texture[4];
-    
-    if (attrib.w & 5 == 5)
-        Printf("Attrib @ %x\n", pos);
 };
 
 struct MaterialColor
@@ -260,15 +248,15 @@ struct MaterialColor
 
 struct ObjectHeader
 {
-    unsigned int offset_cull_nodes;
-    unsigned int offset_matrices;
-    unsigned int offset_models;
-    unsigned int offset_vtx_groups;
-    unsigned int offset_mat_groups;
-    unsigned int offset_primitives;
-    unsigned int offset_vtx_formats;
-    unsigned int offset_materials;
-    unsigned int offset_mat_colors;
+    unsigned int offset_cull_nodes<format=hex>;
+    unsigned int offset_matrices<format=hex>;
+    unsigned int offset_models<format=hex>;
+    unsigned int offset_vtx_groups<format=hex>;
+    unsigned int offset_mat_groups<format=hex>;
+    unsigned int offset_primitives<format=hex>;
+    unsigned int offset_vtx_formats<format=hex>;
+    unsigned int offset_materials<format=hex>;
+    unsigned int offset_mat_colors<format=hex>;
     
     int numof_vtx_formats;
     int numof_mat_groups; // missing in Xbox SMT
@@ -280,21 +268,21 @@ struct OBJECT_Raw // in-file OBJECT, at runtime the game fixes up these offsets 
 {  
     local long pos = FTell();
     
-    int pTextures_0; // filled with IDirect3DTexture9* at runtime ?
-    int IndexBufferPtrs_4;
-    int VertexBufferPtrs_8;
+    int pTextures_0<format=hex>; // filled with IDirect3DTexture9* at runtime ?
+    int IndexBufferPtrs_4<format=hex>;
+    int VertexBufferPtrs_8<format=hex>;
     int unk_C; // points to empty area that gets filled at runtime?
-    int offset_matrices; // seems more like a index buffer imho
-    int ObjectData; // these point to XMT-era ObjectHeader?
-    int ObjHeader; // same value as XmtObject_14?
-    int offset_cull_nodes;
-    int offset_models;
-    int offset_vtx_groups;
-    int offset_mat_groups;
-    int offset_primitives;
-    int offset_vtx_formats;
-    int offset_materials;
-    int offset_mat_colors;
+    int offset_matrices<format=hex>; // seems more like a index buffer imho
+    int ObjectData<format=hex>; // these point to XMT-era ObjectHeader?
+    int ObjHeader<format=hex>; // same value as XmtObject_14?
+    int offset_cull_nodes<format=hex>;
+    int offset_models<format=hex>;
+    int offset_vtx_groups<format=hex>;
+    int offset_mat_groups<format=hex>;
+    int offset_primitives<format=hex>;
+    int offset_vtx_formats<format=hex>;
+    int offset_materials<format=hex>;
+    int offset_mat_colors<format=hex>;
     
     if (ObjectData != ObjHeader)
     {
@@ -336,7 +324,7 @@ struct VertexBuffer(int xmtPos)
     for(i = 0; i < 4; i++)
     {
         FSeek(VertexBufferPtrs_8[i] + xmtPos);
-        BufferPtr VertexBuffer(1);
+        BufferPtr Data(1);
     }
     
     FSeek(pos);
@@ -348,9 +336,149 @@ struct IndexBuffer(int xmtPos)
     local long pos = FTell();
     
     FSeek(xmtPos + IndexBufferPtr);
-    BufferPtr IndexBuffer(0);   
+    BufferPtr Data(0);   
     
     FSeek(pos);
+};
+
+typedef unsigned int NORMPACKED3 <read=NORMPACKED3Read>;
+ 
+string NORMPACKED3Read( NORMPACKED3 packedNormal )
+{
+    // Extract z component (bits 22-31, 10 bits)
+    int zInt = (packedNormal >> 22) & 0x3FF; // 10 bits for z (0x3FF = 10 bits mask)
+    // Handle sign correction for z (9th bit is the sign bit)
+    if (zInt & 0x200) // If the 10th bit is set (indicating a negative number)
+        zInt |= ~0x3FF; // Sign-extend to keep it negative (0x3FF = 10-bit mask)
+    // Convert z back to float (-1.0 to 1.0)
+    float z = (float)zInt / 511.0f;
+
+    // Extract y component (bits 11-21, 11 bits)
+    int yInt = (packedNormal >> 11) & 0x7FF; // 11 bits for y (0x7FF = 11 bits mask)
+    // Handle sign correction for y (10th bit is the sign bit)
+    if (yInt & 0x400) // If the 11th bit is set (indicating a negative number)
+        yInt |= ~0x7FF; // Sign-extend to keep it negative (0x7FF = 11-bit mask)
+    // Convert y back to float (-1.0 to 1.0)
+    float y = (float)yInt / 1023.0f;
+
+    // Extract x component (bits 0-10, 11 bits)
+    int xInt = packedNormal & 0x7FF; // 11 bits for x (0x7FF = 11 bits mask)
+    // Handle sign correction for x (10th bit is the sign bit)
+    if (xInt & 0x400) // If the 11th bit is set (indicating a negative number)
+        xInt |= ~0x7FF; // Sign-extend to keep it negative (0x7FF = 11-bit mask)
+    // Convert x back to float (-1.0 to 1.0)
+    float x = (float)xInt / 1023.0f;
+    
+    string s;
+    SPrintf( s, "%f, %f, %f", x, y, z );
+    return s;
+}
+
+union NORMPACKED3_val
+{
+    NORMPACKED3 m;
+    unsigned int w;
+};
+
+struct Vertex(VtxFormatList& VtxFormat)
+{
+    // Try to detect if this is an Xbox vertex, by adding up expected D3D9 size and comparing
+    local int IsXbox = 0;
+    local int SizeD3D9 = 0;
+    if (VtxFormat.vertex_format.m.vtxType_1 == D3DFVF_XYZRHW)
+    {
+        D3DVECTOR4 XYZW;
+        SizeD3D9 += sizeof(D3DVECTOR4);
+    }
+    else
+    {
+        D3DVECTOR XYZ;
+        SizeD3D9 += sizeof(D3DVECTOR);
+        
+        // TODO: not totally sure about these
+        if (VtxFormat.vertex_format.m.vtxType_1 == D3DFVF_XYZB1)
+        {
+            float Blend[1];
+            SizeD3D9 += (1 * 4);
+        }
+        else if (VtxFormat.vertex_format.m.vtxType_1 == D3DFVF_XYZB2)
+        {
+            float Blend[2];
+            SizeD3D9 += (2 * 4);
+        }
+        else if (VtxFormat.vertex_format.m.vtxType_1 == D3DFVF_XYZB3)
+        {
+            float Blend[3];
+            SizeD3D9 += (3 * 4);
+        }
+        else if (VtxFormat.vertex_format.m.vtxType_1 == D3DFVF_XYZB4)
+        {
+            float Blend[4];
+            SizeD3D9 += (4 * 4);
+        }
+    }
+    
+    if (VtxFormat.vertex_format.m.fvf_normal_4)
+        SizeD3D9 += (4 + 4 + 4); // 3 float normal
+    if (VtxFormat.vertex_format.m.fvf_diffuse_5)
+        SizeD3D9 += 4;
+    if (VtxFormat.vertex_format.m.fvf_specular_6)
+        SizeD3D9 += 4;
+        
+    // TODO: not sure about these neither
+    if (VtxFormat.vertex_format.m.texType_8 == D3DFVF_TEX1)
+        SizeD3D9 += (1 * 8);
+    else if (VtxFormat.vertex_format.m.texType_8 == D3DFVF_TEX2)
+        SizeD3D9 += (2 * 8);
+    else if (VtxFormat.vertex_format.m.texType_8 == D3DFVF_TEX3)
+        SizeD3D9 += (3 * 8);
+    else if (VtxFormat.vertex_format.m.texType_8 == D3DFVF_TEX4)
+        SizeD3D9 += (4 * 8);
+        
+    // If normals are enabled, and there's 8 bytes difference between the expected size & size specified in file
+    // then this is likely Xbox file using packed normals
+    if (VtxFormat.vertex_format.m.fvf_normal_4 == 1 && 
+        VtxFormat.vertex_format_size == (SizeD3D9 - 8))
+    {
+        IsXbox = 1;
+    }    
+    
+    if (VtxFormat.vertex_format.m.fvf_normal_4)
+    {
+        if (IsXbox)
+            NORMPACKED3_val PackedNormal<format=hex>;
+        else
+            D3DVECTOR Normal;
+    }
+    
+    if (VtxFormat.vertex_format.m.fvf_diffuse_5)
+        unsigned int Diffuse<format=hex>;
+        
+    if (VtxFormat.vertex_format.m.fvf_specular_6)
+        unsigned int Specular<format=hex>;
+    
+    struct TexCoord
+    {
+        float u;
+        float v;
+    };
+    // TODO: VtxFormat.vertex_format.m.texType_8
+    if (VtxFormat.vertex_format.m.texType_8 == D3DFVF_TEX1)
+        TexCoord TexCoords;
+    else if (VtxFormat.vertex_format.m.texType_8 == D3DFVF_TEX2)
+        TexCoord TexCoords[2];
+    else if (VtxFormat.vertex_format.m.texType_8 == D3DFVF_TEX3)
+        TexCoord TexCoords[3];
+    else if (VtxFormat.vertex_format.m.texType_8 == D3DFVF_TEX4)
+        TexCoord TexCoords[4];
+};
+
+struct Vertexes(VtxFormatList& fmt, VertexBuffer& data)
+{
+    FSeek(data.Data[0].data_ptr_4 + VidMemStart);
+    
+    local int NumVertices = fmt.vertex_buffer_size / fmt.vertex_format_size;
+    Vertex Vtx(fmt)[NumVertices]<optimize=false>;
 };
 
 struct OBJECT(int xmtPos)
@@ -366,26 +494,26 @@ struct OBJECT(int xmtPos)
     
     local int numof_vtx_formats = ObjHeader.numof_vtx_formats;
     
-    FSeek(xmtPos + Object.IndexBufferPtrs_4);
-    IndexBuffer IdxBuffers(xmtPos)[numof_vtx_formats]<optimize=false>;
-    
-    FSeek(xmtPos + Object.VertexBufferPtrs_8);
-    VertexBuffer VtxBuffers(xmtPos)[numof_vtx_formats]<optimize=false>;
-    
-    FSeek(xmtPos + Object.unk_C);
-    int unk_C; // runtime pointer crap?
-    
     FSeek(xmtPos + Object.offset_matrices);
-    D3DVECTOR4 matrices_begin;
+    D3DVECTOR4 matrices_begin; // Seems to point to index buffer?
     
+    local int CullingNodeCount = 1;
+    if (Object.offset_models > Object.offset_cull_nodes)
+        CullingNodeCount = (Object.offset_models - Object.offset_cull_nodes) / sizeof(CullingNode);
     FSeek(xmtPos + Object.offset_cull_nodes);
-    CullingNode CullingNodes[1]; // TODO: work out actual cullingnode amount
+    CullingNode CullingNodes[CullingNodeCount]<optimize=false>;
     
+    local int ModelHeaderCount = 1;
+    if (Object.offset_vtx_groups > Object.offset_models)
+        ModelHeaderCount = (Object.offset_vtx_groups - Object.offset_models) / sizeof(ModelHeader);
     FSeek(xmtPos + Object.offset_models);
-    ModelHeader ModelHeaders[1]; // TODO: work out actual modelheader amount
+    ModelHeader ModelHeaders[ModelHeaderCount]<optimize=false>;
     
+    local int VtxGroupCount = 1;
+    if (Object.offset_mat_groups > Object.offset_vtx_groups)
+        VtxGroupCount = (Object.offset_mat_groups - Object.offset_vtx_groups) / sizeof(VtxGroupInfo);
     FSeek(xmtPos + Object.offset_vtx_groups);
-    VtxGroupInfo VtxGroups[(Object.offset_mat_groups - Object.offset_vtx_groups) / 0x14];
+    VtxGroupInfo VtxGroups[VtxGroupCount]<optimize=false>;
     
     FSeek(xmtPos + Object.offset_mat_groups);
     MatGroupInfo MatGroups[ObjHeader.numof_mat_groups]<optimize=false>;
@@ -402,14 +530,29 @@ struct OBJECT(int xmtPos)
     FSeek(xmtPos + Object.offset_mat_colors);
     MaterialColor MaterialColors[ObjHeader.numof_mat_colors]<optimize=false>;
     
+    FSeek(xmtPos + Object.IndexBufferPtrs_4);
+    IndexBuffer IdxBuffers(xmtPos)[numof_vtx_formats]<optimize=false>;
+    
+    FSeek(xmtPos + Object.unk_C);
+    int unk_C; // runtime pointer crap?
+    
+    FSeek(xmtPos + Object.VertexBufferPtrs_8);
+    VertexBuffer VtxBuffers(xmtPos)[numof_vtx_formats]<optimize=false>;
+    
+    if (ShouldReadVertexData)
+    {
+        local int i = 0;
+        for(i = 0; i < numof_vtx_formats; i++)
+            Vertexes Vertices(VtxFormats[i], VtxBuffers[i])<optimize=false>;
+    }
     FSeek(pos);
 };
 
 struct XPR_HEADER
 {
     uint32 Magic;
-    uint32 TotalSize;
-    uint32 HeaderSize;
+    uint32 TotalSize<format=hex>;
+    uint32 HeaderSize<format=hex>;
 };
 
 enum X_D3DFMT
@@ -509,7 +652,7 @@ struct D3DTexture
     uint32 Data;
     uint32 Lock;
     D3DFORMAT Format;
-    uint32 Size;
+    uint32 Size<format=hex>;
 };
 
 struct TexData(int size)
