@@ -12,7 +12,7 @@ Online games are regularly setup on the OutRun2006Tweaks discord: https://discor
 ### Features
 **Graphics:**
 - UI can now scale to different aspect ratios without stretching
-- Game scene & UI textures can be dumped out, and replaced with higher-resolution versions
+- Game scene & UI textures can be extracted from game, and replaced with higher-resolution versions
 - Allows disabling vehicle LODs, reducing the ugly pop-in as they get closer
 - Fixed Z-buffer precision issues that caused heavy Z-fighting and distant object pop-in
 - Lens flare effect now loads from correct path without needing to change game files
@@ -25,7 +25,7 @@ Online games are regularly setup on the OutRun2006Tweaks discord: https://discor
 
 **Gameplay:**
 - Points game toward new online servers, restoring the online multiplayer modes
-- Restored XInput rumble code from the Xbox release, allowing gear shifts/drifts/crashes/etc to give feedback
+- Restored XInput rumble code from the Xbox release can be enabled inside INI, allowing gear shifts/drifts/crashes/etc to give feedback
 - Xbox Series impulse triggers are supported and can be tweaked inside INI
 - Steering deadzone can be customized from the default 20%
 - Horn button can be made functional during normal gameplay, outside of the "honk your horn!" girl requests
@@ -39,7 +39,7 @@ Online games are regularly setup on the OutRun2006Tweaks discord: https://discor
 - Prevents save corruption bug when remapping controls with many input devices connected
 - Fixed C2C ranking scoreboards not updating on Steam and other releases due to faulty anti-piracy checks
 - Pegasus animation's clopping sound effect will now end correctly
-- Text related to the now-defunct online service can be hidden
+- Text related to the online service can optionally be hidden
 - Automatically disables DPI scaling on the game window to fix scaling issues
 - Fixes issues with shading on certain character/stage models (eg. the ending cutscene models)
 - Allows particles like grass/gravel to be drawn correctly, like in the console versions
@@ -88,4 +88,4 @@ If the batch script succeeds you should see a `build\outrun2006tweaks-proj.sln` 
 ### Thanks
 Thanks to [debugging.games](http://debugging.games) for hosting debug symbols for OutRun 2 SP (Lindburgh), very useful for looking into Outrun2006.
 
-(**if you own any prototype of Coast 2 Coast or Online Arcade** it may also contain debug symbols inside, which would let us improve even more on the C2C side of the game - please consider getting in touch at my email: abc at cock dot li)
+(**if you own any prototype of Coast 2 Coast or Online Arcade** it may also contain debug symbols inside, which would let us improve even more on the C2C side of the game - please consider getting in touch at my email: lucknut.xbl at gmail dot com)
