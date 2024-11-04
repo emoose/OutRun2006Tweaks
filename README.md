@@ -5,9 +5,13 @@ A wrapper DLL that can patch in some minor fixes & tweaks into OutRun 2006: Coas
 
 Latest builds can be found under the releases section: https://github.com/emoose/OutRun2006Tweaks/releases
 
+**Tweaks will also point the game to new multiplayer servers**, just head to the multiplayer section in-game and pick a username & password there!
+
+Online games are regularly setup on the OutRun2006Tweaks discord: https://discord.gg/GFjKAMg83t
+
 ### Features
 **Graphics:**
-- UI can now scale to different aspect ratios without stretching (requires `UIScalingMode = 1` in INI)
+- UI can now scale to different aspect ratios without stretching
 - Game scene & UI textures can be dumped out, and replaced with higher-resolution versions
 - Allows disabling vehicle LODs, reducing the ugly pop-in as they get closer
 - Fixed Z-buffer precision issues that caused heavy Z-fighting and distant object pop-in
