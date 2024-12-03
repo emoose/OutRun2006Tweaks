@@ -579,6 +579,9 @@ inline const bool INIReader::BoolConverter(std::string s) const {
 inline int INIReader::ValueHandler(void* user, const char* section,
                                    const char* name, const char* value) {
     INIReader* reader = (INIReader*)user;
+    if (!stricmp(section, "CDTracks"))
+        return 1; // HACK: ignore CDTracks section, OR2006Tweaks handles that seperately
+
     if (reader->_values[section][name].size() > 0) {
         throw std::runtime_error("duplicate key '" + std::string(name) +
                                  "' in section '" + section + "'.");
