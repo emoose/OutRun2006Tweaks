@@ -144,6 +144,7 @@ set(outrun2006tweaks_SOURCES
 	"external/ModUtils/MemoryMgr.h"
 	"external/ModUtils/Patterns.cpp"
 	"external/ModUtils/Patterns.h"
+	"external/ini-cpp/ini/ini.h"
 	"external/miniz/miniz.c"
 	"external/miniz/miniz.h"
 	"external/xxHash/xxhash.c"
