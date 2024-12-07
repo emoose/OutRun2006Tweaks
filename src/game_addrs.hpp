@@ -28,11 +28,16 @@ namespace Game
 
 	inline IDirectInput8A** DirectInput8_ptr = nullptr;
 
+	inline HWND* hWnd_ptr = nullptr;
+
 	inline IDirect3DDevice9* D3DDevice() {
 		return *D3DDevice_ptr;
 	}
 	inline IDirectInput8A* DirectInput8() {
 		return *DirectInput8_ptr;
+	}
+	inline HWND GameHwnd() {
+		return *hWnd_ptr;
 	}
 
 	inline uint32_t* navipub_disp_flg = nullptr;
@@ -136,6 +141,7 @@ namespace Game
 		D3DPresentParams = Module::exe_ptr<D3DPRESENT_PARAMETERS>(0x49BD64);
 		D3DDevice_ptr = Module::exe_ptr<IDirect3DDevice9*>(0x49BD60);
 		DirectInput8_ptr = Module::exe_ptr<IDirectInput8A*>(0x4606E8);
+		hWnd_ptr = Module::exe_ptr<HWND>(0x4A8C88);
 
 		navipub_disp_flg = Module::exe_ptr<uint32_t>(0x4447F8);
 

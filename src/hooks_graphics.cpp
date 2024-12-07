@@ -548,51 +548,6 @@ public:
 };
 TransparencySupersampling TransparencySupersampling::instance;
 
-class WindowedHideMouseCursor : public Hook
-{
-	const static int WndProc_Addr = 0x17F90;
-
-	inline static SafetyHookInline dest_orig = {};
-	static LRESULT __stdcall destination(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
-	{
-		if (msg == WM_SETFOCUS || (msg == WM_ACTIVATE && lParam != WA_INACTIVE))
-		{
-			ShowCursor(false);
-		}
-		else if (msg == WM_ERASEBKGND) // erase window to white during device reset
-		{
-			RECT rect;
-			GetClientRect(hwnd, &rect);
-			HBRUSH brush = CreateSolidBrush(RGB(0xFF, 0xFF, 0xFF));
-			FillRect((HDC)wParam, &rect, brush);
-			DeleteObject(brush);
-			return 1;
-		}
-		// Other message handling
-		return dest_orig.stdcall<LRESULT>(hwnd, msg, wParam, lParam);
-	}
-
-public:
-	std::string_view description() override
-	{
-		return "WindowedHideMouseCursor";
-	}
-
-	bool validate() override
-	{
-		return Settings::WindowedHideMouseCursor;
-	}
-
-	bool apply() override
-	{
-		dest_orig = safetyhook::create_inline(Module::exe_ptr(WndProc_Addr), destination);
-		return !!dest_orig;
-	}
-
-	static WindowedHideMouseCursor instance;
-};
-WindowedHideMouseCursor WindowedHideMouseCursor::instance;
-
 class WindowedBorderless : public Hook
 {
 	const static int WinMain_BorderlessWindow_WndStyleExAddr = 0x18175;

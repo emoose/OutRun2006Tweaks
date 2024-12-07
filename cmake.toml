@@ -55,9 +55,26 @@ miniupnpc = { git = "https://github.com/miniupnp/miniupnp", tag = "miniupnpd_2_3
 
 [target.outrun2006tweaks]
 type = "shared"
-sources = ["src/**.cpp", "src/**.c", "src/**.def", "src/Resource.rc", "external/ModUtils/Patterns.cpp", "external/xxHash/xxhash.c", "external/miniz/miniz.c"]
+sources = ["src/**.cpp", "src/**.c", "src/**.def", "src/Resource.rc",
+    "external/ModUtils/Patterns.cpp",
+    "external/xxHash/xxhash.c",
+    "external/miniz/miniz.c",
+    "external/imgui/backends/imgui_impl_win32.cpp",
+    "external/imgui/backends/imgui_impl_dx9.cpp",
+    "external/imgui/imgui.cpp",
+    "external/imgui/imgui_demo.cpp",
+    "external/imgui/imgui_draw.cpp",
+    "external/imgui/imgui_tables.cpp",
+    "external/imgui/imgui_widgets.cpp",
+]
 headers = ["src/**.hpp", "src/**.h", "external/ModUtils/Patterns.h", "external/ModUtils/MemoryMgr.h", "external/xxHash/xxhash.h", "external/miniz/miniz.h", "external/ini-cpp/ini/ini.h"]
-include-directories = ["shared/", "src/", "include/", "external/ModUtils/", "external/ini-cpp/ini/", "external/xxHash/", "external/miniz/"]
+include-directories = ["shared/", "src/", "include/", 
+    "external/ModUtils/",
+    "external/ini-cpp/ini/",
+    "external/xxHash/",
+    "external/miniz/",
+    "external/imgui/"
+]
 compile-options = ["/GR-", "/GS-", "/bigobj", "/EHa", "/MP"]
 link-options = ["/DEBUG", "/OPT:REF", "/OPT:ICF"]
 compile-features = ["cxx_std_20"]

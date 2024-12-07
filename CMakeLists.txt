@@ -144,6 +144,13 @@ set(outrun2006tweaks_SOURCES
 	"external/ModUtils/MemoryMgr.h"
 	"external/ModUtils/Patterns.cpp"
 	"external/ModUtils/Patterns.h"
+	"external/imgui/backends/imgui_impl_dx9.cpp"
+	"external/imgui/backends/imgui_impl_win32.cpp"
+	"external/imgui/imgui.cpp"
+	"external/imgui/imgui_demo.cpp"
+	"external/imgui/imgui_draw.cpp"
+	"external/imgui/imgui_tables.cpp"
+	"external/imgui/imgui_widgets.cpp"
 	"external/ini-cpp/ini/ini.h"
 	"external/miniz/miniz.c"
 	"external/miniz/miniz.h"
@@ -168,6 +175,7 @@ set(outrun2006tweaks_SOURCES
 	"src/hooks_graphics.cpp"
 	"src/hooks_input.cpp"
 	"src/hooks_misc.cpp"
+	"src/hooks_overlay.cpp"
 	"src/hooks_textures.cpp"
 	"src/hooks_uiscaling.cpp"
 	"src/plugin.hpp"
@@ -205,6 +213,7 @@ target_include_directories(outrun2006tweaks PUBLIC
 	"external/ini-cpp/ini/"
 	"external/xxHash/"
 	"external/miniz/"
+	"external/imgui/"
 )
 
 target_link_libraries(outrun2006tweaks PUBLIC
