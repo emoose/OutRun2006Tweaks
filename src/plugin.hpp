@@ -22,6 +22,7 @@ namespace Module
 	inline std::filesystem::path LogPath{};
 	inline std::filesystem::path IniPath{};
 	inline std::filesystem::path UserIniPath{};
+	inline std::filesystem::path LodIniPath{};
 
 	template <typename T>
 	inline T* exe_ptr(uintptr_t offset) { if (ExeHandle) return (T*)(((uintptr_t)ExeHandle) + offset); else return nullptr; }

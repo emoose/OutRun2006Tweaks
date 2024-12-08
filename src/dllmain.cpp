@@ -16,6 +16,7 @@ namespace Module
 
 	constexpr std::string_view IniFileName = "OutRun2006Tweaks.ini";
 	constexpr std::string_view UserIniFileName = "OutRun2006Tweaks.user.ini";
+	constexpr std::string_view LodIniFileName = "OutRun2006Tweaks.lods.ini";
 	constexpr std::string_view LogFileName = "OutRun2006Tweaks.log";
 
 	void init()
@@ -34,6 +35,7 @@ namespace Module
 		LogPath = dllParent / LogFileName;
 		IniPath = dllParent / IniFileName;
 		UserIniPath = dllParent / UserIniFileName;
+		LodIniPath = dllParent / LodIniFileName;
 
 		Game::init();
 	}

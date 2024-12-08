@@ -4,6 +4,7 @@
 #include <array>
 #include <bitset>
 #include <imgui.h>
+#include <ini.h>
 
 std::array<std::vector<uint16_t>, 256> ObjectNodes;
 std::array<std::array<std::bitset<16384>, 256>, 128> ObjectExclusionsPerStage;
@@ -49,11 +50,24 @@ void Overlay_DrawDistOverlay()
 	}
 
 	ImGui::SliderInt("Draw Distance", &Settings::DrawDistanceIncrease, 0, 1024);
+
 	if (ImGui::Button("<<<"))
-		Settings::DrawDistanceIncrease--;
+		Settings::DrawDistanceIncrease -= 10;
+	ImGui::SameLine();
+	if (ImGui::Button("<<"))
+		Settings::DrawDistanceIncrease -= 5;
+	ImGui::SameLine();
+	if (ImGui::Button("<"))
+		Settings::DrawDistanceIncrease -= 1;
+	ImGui::SameLine();
+	if (ImGui::Button(">"))
+		Settings::DrawDistanceIncrease += 1;
+	ImGui::SameLine();
+	if (ImGui::Button(">>"))
+		Settings::DrawDistanceIncrease += 5;
 	ImGui::SameLine();
 	if (ImGui::Button(">>>"))
-		Settings::DrawDistanceIncrease++;
+		Settings::DrawDistanceIncrease += 10;
 
 	if (num_columns > 0)
 	{
@@ -133,7 +147,7 @@ void Overlay_DrawDistOverlay()
 			}
 		}
 		if (!clipboard.empty())
-			clipboard = std::format("[Stage {}]{}", cur_stage_num, clipboard);
+			clipboard = std::format("# {}\n[Stage {}]{}", Game::GetStageUniqueName(cur_stage_num), cur_stage_num, clipboard);
 
 		HGLOBAL hMem = GlobalAlloc(GMEM_MOVEABLE, clipboard.length() + 1);
 		if (hMem)
@@ -286,6 +300,129 @@ class DrawDistanceIncrease : public Hook
 		}
 	}
 
+	static int get_number(std::string_view sectionName)
+	{
+		int number = -1;
+
+		// Find the position of the numeric part
+		auto pos = sectionName.find_first_of("0123456789");
+		if (pos != std::string::npos)
+		{
+			auto result = std::from_chars(sectionName.data() + pos, sectionName.data() + sectionName.size(), number);
+			if (result.ec == std::errc())
+				return number;
+		}
+
+		return -1;
+	}
+
+	bool read_exclusions()
+	{
+		// Try reading exclusions
+		std::filesystem::path& iniPath = Module::LodIniPath;
+
+		if (!std::filesystem::exists(Module::LodIniPath))
+		{
+			spdlog::error("DrawDistanceIncrease::read_exclusions - failed to locate exclusion INI from path {}", iniPath.string());
+			return false;
+		}
+
+		spdlog::info("DrawDistanceIncrease::read_exclusions - reading INI from {}", iniPath.string());
+
+		const std::wstring iniPathStr = iniPath.wstring();
+
+		// Read INI via FILE* since INIReader doesn't support wstring
+		FILE* iniFile;
+		errno_t result = _wfopen_s(&iniFile, iniPathStr.c_str(), L"r");
+		if (result != 0 || !iniFile)
+		{
+			spdlog::error("DrawDistanceIncrease::read_exclusions - INI read failed! Error code {}", result);
+			return false;
+		}
+
+		inih::INIReader ini;
+		try
+		{
+			ini = inih::INIReader(iniFile);
+		}
+		catch (...)
+		{
+			spdlog::error("DrawDistanceIncrease::read_exclusions - INI read failed! The file may be invalid or have duplicate settings inside");
+			fclose(iniFile);
+			return false;
+		}
+		fclose(iniFile);
+
+		for (auto& section : ini.Sections())
+		{
+			int stageNum = get_number(section);
+			if (stageNum >= ObjectExclusionsPerStage.size())
+			{
+				spdlog::error("DrawDistanceIncrease::read_exclusions - INI contains invalid stage section \"{}\", skipping...", section);
+				continue;
+			}
+
+			for (auto& key : ini.Keys(section))
+			{
+				int objectId = -1;
+				try
+				{
+					objectId = std::stol(key, nullptr, 0);
+				}
+				catch (const std::invalid_argument& e)
+				{
+					continue;
+				}
+				catch (const std::out_of_range& e)
+				{
+					continue;
+				}
+
+				if (objectId < 0)
+					continue;
+
+				if (objectId >= ObjectExclusionsPerStage[stageNum].size())
+				{
+					spdlog::error("DrawDistanceIncrease::read_exclusions - INI contains invalid object number \"{}\", skipping...", key);
+					continue;
+				}
+
+				std::vector<int> nodes;
+
+				auto value = ini.Get(section, key);
+				std::istringstream stream(value);
+				std::string token;
+
+				// Tokenize the string using ',' as the delimiter
+				while (std::getline(stream, token, ','))
+				{
+					// Remove leading/trailing whitespace
+					token.erase(0, token.find_first_not_of(" \t"));
+					token.erase(token.find_last_not_of(" \t") + 1);
+
+					// Convert the token to an integer
+					try
+					{
+						nodes.push_back(std::stol(token, nullptr, 0));
+					}
+					catch (const std::invalid_argument& e)
+					{
+					}
+					catch (const std::out_of_range& e)
+					{
+					}
+				}
+
+				for (auto& node : nodes)
+				{
+					ObjectExclusionsPerStage[stageNum][objectId][node] = true;
+				}
+			}
+		}
+
+		return true;
+	}
+
 public:
 	std::string_view description() override
 	{
@@ -308,6 +445,8 @@ public:
 			ObjectNodes[i].reserve(4096);
 
 		DrawDistanceIncreaseEnabled = true;
+
+		read_exclusions();
 
 		return true;
 	}

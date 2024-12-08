@@ -91,6 +91,7 @@ namespace Game
 	inline fn_1arg_int GetNowStageNum = nullptr;
 	inline fn_1arg_int GetStageUniqueNum = nullptr;
 	inline fn_1arg_int GetMaxCsLen = nullptr;
+	inline fn_1arg_char GetStageUniqueName = nullptr;
 
 	inline fn_stdcall_1arg_int Sumo_CheckRacerUnlocked = nullptr;
 
@@ -192,6 +193,7 @@ namespace Game
 		GetNowStageNum = Module::fn_ptr<fn_1arg_int>(0x50380);
 		GetStageUniqueNum = Module::fn_ptr<fn_1arg_int>(0x4DC50);
 		GetMaxCsLen = Module::fn_ptr<fn_1arg_int>(0x3D470);
+		GetStageUniqueName = Module::fn_ptr<fn_1arg_char>(0x4BE80);
 
 		Sumo_CheckRacerUnlocked = Module::fn_ptr<fn_stdcall_1arg_int>(0xE8410);
 

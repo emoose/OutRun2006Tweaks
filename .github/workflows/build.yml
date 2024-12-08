@@ -37,6 +37,7 @@ jobs:
         shell: pwsh
         run: |
           cp OutRun2006Tweaks.ini build/bin/OutRun2006Tweaks.ini
+          cp OutRun2006Tweaks.lods.ini build/bin/OutRun2006Tweaks.lods.ini
           
       - name: Download OR2006C2C
         shell: pwsh
