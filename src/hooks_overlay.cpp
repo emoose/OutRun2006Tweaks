@@ -211,21 +211,22 @@ class WndprocHook : public Hook
 		}
 		else
 		{
-			if (Settings::WindowedHideMouseCursor)
+			if (!Settings::OverlayEnabled && Settings::WindowedHideMouseCursor)
 			{
 				if (msg == WM_SETFOCUS || (msg == WM_ACTIVATE && lParam != WA_INACTIVE))
 				{
 					ShowCursor(false);
 				}
-				else if (msg == WM_ERASEBKGND) // erase window to white during device reset
-				{
-					RECT rect;
-					GetClientRect(hwnd, &rect);
-					HBRUSH brush = CreateSolidBrush(RGB(0xFF, 0xFF, 0xFF));
-					FillRect((HDC)wParam, &rect, brush);
-					DeleteObject(brush);
-					return 1;
-				}
+			}
+
+			if (msg == WM_ERASEBKGND) // erase window to white during device reset
+			{
+				RECT rect;
+				GetClientRect(hwnd, &rect);
+				HBRUSH brush = CreateSolidBrush(RGB(0xFF, 0xFF, 0xFF));
+				FillRect((HDC)wParam, &rect, brush);
+				DeleteObject(brush);
+				return 1;
 			}
 		}
 		// Other message handling
