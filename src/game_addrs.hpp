@@ -50,6 +50,8 @@ namespace Game
 	inline int* app_time = nullptr; // used by SetTweeningTable etc
 	inline int* sprani_num_ticks = nullptr; // number of game ticks being ran in the current frame (can be 0 if above 60FPS)
 
+	inline int* stg_stage_num = nullptr;
+
 	inline D3DXVECTOR2* screen_scale = nullptr;
 
 	// ini cfg
@@ -153,6 +155,8 @@ namespace Game
 
 		app_time = Module::exe_ptr<int>(0x49EDB8);
 		sprani_num_ticks = Module::exe_ptr<int>(0x380278);
+
+		stg_stage_num = Module::exe_ptr<int>(0x3D2E8C);
 
 		screen_scale = Module::exe_ptr<D3DXVECTOR2>(0x340C94);
 

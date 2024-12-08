@@ -13,11 +13,10 @@ int NumObjects = 0;
 bool DrawDistanceIncreaseEnabled = false;
 bool EnablePauseMenu = true;
 
+bool DrawDist_ReadExclusions();
+
 void Overlay_DrawDistOverlay()
 {
-	uint32_t cur_stage_num = Game::GetStageUniqueNum(Game::GetNowStageNum(8));
-	auto& objectExclusions = ObjectExclusionsPerStage[cur_stage_num];
-
 	ImGui::Begin("Draw Distance Debugger");
 
 	ImGui::Checkbox("Countdown timer enabled", Game::Sumo_CountdownTimerEnable);
@@ -49,6 +48,18 @@ void Overlay_DrawDistOverlay()
 		return;
 	}
 
+	if (*Game::current_mode != GameState::STATE_GAME && *Game::current_mode != GameState::STATE_SMPAUSEMENU)
+	{
+		ImGui::Text("Nodes will be displayed once in-game.");
+		ImGui::End();
+		return;
+	}
+
+	int cur_stage_num = *Game::stg_stage_num;
+	const char* cur_stage_name = Game::GetStageUniqueName(cur_stage_num);
+	auto& objectExclusions = ObjectExclusionsPerStage[cur_stage_num];
+
+	ImGui::Text("Stage: %d (%s)", cur_stage_num, cur_stage_name);
 	ImGui::SliderInt("Draw Distance", &Settings::DrawDistanceIncrease, 0, 1024);
 
 	if (ImGui::Button("<<<"))
@@ -147,7 +158,7 @@ void Overlay_DrawDistOverlay()
 			}
 		}
 		if (!clipboard.empty())
-			clipboard = std::format("# {}\n[Stage {}]{}", Game::GetStageUniqueName(cur_stage_num), cur_stage_num, clipboard);
+			clipboard = std::format("# {}\n[Stage {}]{}", cur_stage_name, cur_stage_num, clipboard);
 
 		HGLOBAL hMem = GlobalAlloc(GMEM_MOVEABLE, clipboard.length() + 1);
 		if (hMem)
@@ -162,7 +173,7 @@ void Overlay_DrawDistOverlay()
 	}
 
 	static bool showReallyPrompt = false;
-	if (ImGui::Button(showReallyPrompt ? "Are you sure?" : "Clear all exclusions"))
+	if (ImGui::Button(showReallyPrompt ? "Are you sure?##clear" : "Clear all exclusions"))
 	{
 		if (!showReallyPrompt)
 		{
@@ -176,7 +187,148 @@ void Overlay_DrawDistOverlay()
 		}
 	}
 
+	static bool showReallyPrompt2 = false;
+	if (ImGui::Button(showReallyPrompt2 ? "Are you sure?##reload" : "Reload exclusions from INI"))
+	{
+		if (!showReallyPrompt2)
+		{
+			showReallyPrompt2 = true;
+		}
+		else
+		{
+			DrawDist_ReadExclusions();
+			showReallyPrompt2 = false;
+		}
+	}
+
 	ImGui::End();
+}
+
+
+static int get_number(std::string_view sectionName)
+{
+	int number = -1;
+
+	// Find the position of the numeric part
+	auto pos = sectionName.find_first_of("0123456789");
+	if (pos != std::string::npos)
+	{
+		auto result = std::from_chars(sectionName.data() + pos, sectionName.data() + sectionName.size(), number);
+		if (result.ec == std::errc())
+			return number;
+	}
+
+	return -1;
+}
+
+bool DrawDist_ReadExclusions()
+{
+	for (int x = 0; x < ObjectExclusionsPerStage.size(); x++)
+		for (int y = 0; y < ObjectExclusionsPerStage[x].size(); y++)
+			ObjectExclusionsPerStage[x][y].reset();
+
+	// Try reading exclusions
+	std::filesystem::path& iniPath = Module::LodIniPath;
+	if (!std::filesystem::exists(iniPath))
+	{
+		spdlog::error("DrawDist_ReadExclusions - failed to locate exclusion INI from path {}", iniPath.string());
+		return false;
+	}
+
+	spdlog::info("DrawDist_ReadExclusions - reading INI from {}", iniPath.string());
+
+	const std::wstring iniPathStr = iniPath.wstring();
+
+	// Read INI via FILE* since INIReader doesn't support wstring
+	FILE* iniFile;
+	errno_t result = _wfopen_s(&iniFile, iniPathStr.c_str(), L"r");
+	if (result != 0 || !iniFile)
+	{
+		spdlog::error("DrawDist_ReadExclusions - INI read failed! Error code {}", result);
+		return false;
+	}
+
+	inih::INIReader ini;
+	try
+	{
+		ini = inih::INIReader(iniFile);
+	}
+	catch (...)
+	{
+		spdlog::error("DrawDist_ReadExclusions - INI read failed! The file may be invalid or have duplicate settings inside");
+		fclose(iniFile);
+		return false;
+	}
+	fclose(iniFile);
+
+	for (auto& section : ini.Sections())
+	{
+		int stageNum = get_number(section);
+		if (stageNum >= ObjectExclusionsPerStage.size())
+		{
+			spdlog::error("DrawDist_ReadExclusions - INI contains invalid stage section \"{}\", skipping...", section);
+			continue;
+		}
+
+		for (auto& key : ini.Keys(section))
+		{
+			int objectId = -1;
+			try
+			{
+				objectId = std::stol(key, nullptr, 0);
+			}
+			catch (const std::invalid_argument& e)
+			{
+				continue;
+			}
+			catch (const std::out_of_range& e)
+			{
+				continue;
+			}
+
+			if (objectId < 0)
+				continue;
+
+			if (objectId >= ObjectExclusionsPerStage[stageNum].size())
+			{
+				spdlog::error("DrawDist_ReadExclusions - INI contains invalid object number \"{}\", skipping...", key);
+				continue;
+			}
+
+			std::vector<int> nodes;
+
+			auto value = ini.Get(section, key);
+			std::istringstream stream(value);
+			std::string token;
+
+			// Tokenize the string using ',' as the delimiter
+			while (std::getline(stream, token, ','))
+			{
+				// Remove leading/trailing whitespace
+				token.erase(0, token.find_first_not_of(" \t"));
+				token.erase(token.find_last_not_of(" \t") + 1);
+
+				// Convert the token to an integer
+				try
+				{
+					nodes.push_back(std::stol(token, nullptr, 0));
+				}
+				catch (const std::invalid_argument& e)
+				{
+				}
+				catch (const std::out_of_range& e)
+				{
+				}
+			}
+
+			for (auto& node : nodes)
+			{
+				ObjectExclusionsPerStage[stageNum][objectId][node] = true;
+			}
+		}
+	}
+
+	return true;
 }
 
 class DrawDistanceIncrease : public Hook
@@ -218,7 +370,7 @@ class DrawDistanceIncrease : public Hook
 	//   ??? = breaks trees
 
 	inline static uint16_t CollisionNodeIdxArray[4096];
-	inline static std::bitset<4096> CollisionNodesToDisplay;
+	inline static std::array<uint8_t, 4096> CollisionNodesToDisplay;
 
 	inline static SafetyHookMid dest_hook = {};
 	static void destination(safetyhook::Context& ctx)
@@ -234,13 +386,12 @@ class DrawDistanceIncrease : public Hook
 		int v6 = ctx.ebx;
 		uint32_t* v11 = (uint32_t*)(v6 + 8);
 
-		uint32_t cur_stage_num = Game::GetStageUniqueNum(Game::GetNowStageNum(8));
-		auto& objectExclusions = ObjectExclusionsPerStage[cur_stage_num];
+		auto& objectExclusions = ObjectExclusionsPerStage[*Game::stg_stage_num];
 
 		NumObjects = *(int*)(ctx.esp + 0x18);
 		for (int ObjectNum = 0; ObjectNum < NumObjects; ObjectNum++)
 		{
-			CollisionNodesToDisplay.reset();
+			memset(CollisionNodesToDisplay.data(), 0, CollisionNodesToDisplay.size());
 			uint16_t* cur = CollisionNodeIdxArray;
 
 			for (int csOffset = -Settings::DrawDistanceBehind; csOffset < (Settings::DrawDistanceIncrease + 1); csOffset++)
@@ -274,8 +425,8 @@ class DrawDistanceIncrease : public Hook
 						CollisionNodesToDisplay[*sectionCollList] = true;
 
 						// DEBUG: check exclusions here before adding to *cur
-						// (if we're at csOffset = 0, exclusions are ignored, since that is what vanilla game would display)
-						if (!Settings::OverlayEnabled || !objectExclusions[ObjectNum][*sectionCollList] || csOffset == 0)
+						// (if we're at csOffset = 0 exclusions are ignored, since this is what vanilla game would display)
+						if (csOffset == 0 || !objectExclusions[ObjectNum][*sectionCollList])
 						{
 							*cur = *sectionCollList;
 							cur++;
@@ -298,129 +449,6 @@ class DrawDistanceIncrease : public Hook
 
 			v11++;
 		}
-	}
-
-	static int get_number(std::string_view sectionName)
-	{
-		int number = -1;
-
-		// Find the position of the numeric part
-		auto pos = sectionName.find_first_of("0123456789");
-		if (pos != std::string::npos)
-		{
-			auto result = std::from_chars(sectionName.data() + pos, sectionName.data() + sectionName.size(), number);
-			if (result.ec == std::errc())
-				return number;
-		}
-
-		return -1;
-	}
-
-	bool read_exclusions()
-	{
-		// Try reading exclusions
-		std::filesystem::path& iniPath = Module::LodIniPath;
-
-		if (!std::filesystem::exists(Module::LodIniPath))
-		{
-			spdlog::error("DrawDistanceIncrease::read_exclusions - failed to locate exclusion INI from path {}", iniPath.string());
-			return false;
-		}
-
-		spdlog::info("DrawDistanceIncrease::read_exclusions - reading INI from {}", iniPath.string());
-
-		const std::wstring iniPathStr = iniPath.wstring();
-
-		// Read INI via FILE* since INIReader doesn't support wstring
-		FILE* iniFile;
-		errno_t result = _wfopen_s(&iniFile, iniPathStr.c_str(), L"r");
-		if (result != 0 || !iniFile)
-		{
-			spdlog::error("DrawDistanceIncrease::read_exclusions - INI read failed! Error code {}", result);
-			return false;
-		}
-
-		inih::INIReader ini;
-		try
-		{
-			ini = inih::INIReader(iniFile);
-		}
-		catch (...)
-		{
-			spdlog::error("DrawDistanceIncrease::read_exclusions - INI read failed! The file may be invalid or have duplicate settings inside");
-			fclose(iniFile);
-			return false;
-		}
-		fclose(iniFile);
-
-		for (auto& section : ini.Sections())
-		{
-			int stageNum = get_number(section);
-			if (stageNum >= ObjectExclusionsPerStage.size())
-			{
-				spdlog::error("DrawDistanceIncrease::read_exclusions - INI contains invalid stage section \"{}\", skipping...", section);
-				continue;
-			}
-
-			for (auto& key : ini.Keys(section))
-			{
-				int objectId = -1;
-				try
-				{
-					objectId = std::stol(key, nullptr, 0);
-				}
-				catch (const std::invalid_argument& e)
-				{
-					continue;
-				}
-				catch (const std::out_of_range& e)
-				{
-					continue;
-				}
-
-				if (objectId < 0)
-					continue;
-
-				if (objectId >= ObjectExclusionsPerStage[stageNum].size())
-				{
-					spdlog::error("DrawDistanceIncrease::read_exclusions - INI contains invalid object number \"{}\", skipping...", key);
-					continue;
-				}
-
-				std::vector<int> nodes;
-
-				auto value = ini.Get(section, key);
-				std::istringstream stream(value);
-				std::string token;
-
-				// Tokenize the string using ',' as the delimiter
-				while (std::getline(stream, token, ','))
-				{
-					// Remove leading/trailing whitespace
-					token.erase(0, token.find_first_not_of(" \t"));
-					token.erase(token.find_last_not_of(" \t") + 1);
-
-					// Convert the token to an integer
-					try
-					{
-						nodes.push_back(std::stol(token, nullptr, 0));
-					}
-					catch (const std::invalid_argument& e)
-					{
-					}
-					catch (const std::out_of_range& e)
-					{
-					}
-				}
-
-				for (auto& node : nodes)
-				{
-					ObjectExclusionsPerStage[stageNum][objectId][node] = true;
-				}
-			}
-		}
-
-		return true;
 	}
 
 public:
@@ -446,7 +474,7 @@ public:
 
 		DrawDistanceIncreaseEnabled = true;
 
-		read_exclusions();
+		DrawDist_ReadExclusions();
 
 		return true;
 	}
