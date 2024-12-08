@@ -3,6 +3,7 @@
 #include "plugin.hpp"
 #include <d3d9.h>
 #include <dinput.h>
+#include "game.hpp"
 
 typedef void(__stdcall* D3DXVec4Transform_fn)(D3DXVECTOR4*, D3DXVECTOR4*, D3DMATRIX*);
 
@@ -53,6 +54,9 @@ namespace Game
 	inline int* stg_stage_num = nullptr;
 
 	inline D3DXVECTOR2* screen_scale = nullptr;
+
+	inline DrawBuffer* s_ImmDrawBuffer = nullptr;
+	inline DrawBuffer* s_AftDrawBuffer = nullptr;
 
 	// ini cfg
 	inline D3DXVECTOR2* screen_resolution = nullptr;
@@ -159,6 +163,9 @@ namespace Game
 		stg_stage_num = Module::exe_ptr<int>(0x3D2E8C);
 
 		screen_scale = Module::exe_ptr<D3DXVECTOR2>(0x340C94);
+
+		s_ImmDrawBuffer = Module::exe_ptr<DrawBuffer>(0x00464EF8);
+		s_AftDrawBuffer = Module::exe_ptr<DrawBuffer>(0x004612D8);
 
 		screen_resolution = Module::exe_ptr<D3DXVECTOR2>(0x340C8C);
 

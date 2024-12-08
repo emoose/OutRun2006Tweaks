@@ -591,7 +591,7 @@ typedef struct tagSPRARGS2
 } SPRARGS2;
 static_assert(sizeof(SPRARGS2) == 0xB8);
 
-struct tagEvWorkRobot
+typedef struct tagEvWorkRobot
 {
 	uint32_t workId_0;
 	uint32_t dword4;
@@ -611,8 +611,26 @@ struct tagEvWorkRobot
 	char byte85;
 	uint8_t unk_86[2];
 	uint8_t unk_88[8];
-};
-static_assert(sizeof(tagEvWorkRobot) == 0x90);
+} EvWorkRobot;
+static_assert(sizeof(EvWorkRobot) == 0x90);
+
+typedef struct TDrawEntry
+{
+	uint8_t todo[0x3C];
+} DrawEntry;
+static_assert(sizeof(DrawEntry) == 0x3C);
+
+typedef struct TDrawBuffer
+{
+	int NumBuffers_0;
+	int MaxBuffers_4;
+	int unk_8[1];
+	int MaxBuffers_C;
+	DrawEntry** BufferPtrs_10;
+	DrawEntry* Buffer_14;
+	void* UnkBuffer_18;
+} DrawBuffer;
+static_assert(sizeof(DrawBuffer) == 0x1C);
 
 inline void WaitForDebugger()
 {

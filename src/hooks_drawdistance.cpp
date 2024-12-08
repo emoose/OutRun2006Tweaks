@@ -484,32 +484,6 @@ public:
 };
 DrawDistanceIncrease DrawDistanceIncrease::instance;
 
-// TODO: move this to game.h, should probably remove the resize function
-struct TDrawBuffer
-{
-	int NumBuffers_0;
-	int MaxBuffers_4;
-	int unk_8[1];
-	int MaxBuffers_C;
-	struct TDrawEntry** BufferPtrs_10;
-	struct TDrawEntry* Buffer_14;
-	void* UnkBuffer_18;
-
-	void resize(int new_size)
-	{
-		int bufferPtrsSize_Imm = new_size * 4;
-		int buffersSize_Imm = new_size * 0x3C;
-		int unkbuffersSize_Imm = new_size * 0x40;
-
-		MaxBuffers_4 = new_size;
-		MaxBuffers_C = new_size;
-
-		BufferPtrs_10 = (TDrawEntry**)malloc(bufferPtrsSize_Imm);
-		Buffer_14 = (TDrawEntry*)malloc(buffersSize_Imm);
-		UnkBuffer_18 = malloc(unkbuffersSize_Imm);
-	}
-};
-
 class DrawBufferExtension : public Hook
 {
 	inline static SafetyHookInline drawbufferinit_hook = {};
@@ -517,14 +491,25 @@ class DrawBufferExtension : public Hook
 	{
 		drawbufferinit_hook.call();
 
-		TDrawBuffer* s_ImmDrawBuffer = Module::exe_ptr<TDrawBuffer>(0x00464EF8);
-		TDrawBuffer* s_AftDrawBuffer = Module::exe_ptr<TDrawBuffer>(0x004612D8);
+		auto resize_buffer = [](DrawBuffer* buffer, int max_size)
+		{
+			int bufferPtrsSize_Imm = max_size * sizeof(DrawEntry*);
+			int buffersSize_Imm = max_size * sizeof(DrawEntry);
+			int unkbuffersSize_Imm = max_size * 0x40; // todo: what 0x40 byte struct is this?
+
+			buffer->MaxBuffers_4 = max_size;
+			buffer->MaxBuffers_C = max_size;
+
+			buffer->BufferPtrs_10 = (DrawEntry**)malloc(bufferPtrsSize_Imm);
+			buffer->Buffer_14 = (DrawEntry*)malloc(buffersSize_Imm);
+			buffer->UnkBuffer_18 = malloc(unkbuffersSize_Imm);
+		};
 
 		constexpr int s_ImmDrawBufferSizeVanilla = 0x100;
 		constexpr int s_AftDrawBufferSizeVanilla = 0x600;
 
-		s_ImmDrawBuffer->resize(s_ImmDrawBufferSizeVanilla * 0x10);
-		s_AftDrawBuffer->resize(s_AftDrawBufferSizeVanilla * 2);
+		resize_buffer(Game::s_ImmDrawBuffer, s_ImmDrawBufferSizeVanilla * 0x10);
+		resize_buffer(Game::s_AftDrawBuffer, s_AftDrawBufferSizeVanilla * 2);
 	}
 
 public:
