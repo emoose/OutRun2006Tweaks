@@ -169,6 +169,18 @@ class ImguiOverlay : public Hook
 			Overlay_Render();
 	}
 
+	inline static SafetyHookMid midhook_d3dTemporariesRelease{};
+	static void dest_d3dTemporariesRelease(SafetyHookContext& ctx)
+	{
+		ImGui_ImplDX9_InvalidateDeviceObjects();
+	}
+
+	inline static SafetyHookMid midhook_d3dTemporariesCreate{};
+	static void dest_d3dTemporariesCreate(SafetyHookContext& ctx)
+	{
+		ImGui_ImplDX9_CreateDeviceObjects();
+	}
+
 public:
 	std::string_view description() override
 	{
@@ -184,9 +196,14 @@ public:
 	{
 		constexpr int InitDirectX_CallerResult_Addr = 0x1775E;
 		constexpr int Direct3D_EndScene_CallerAddr = 0x17D4E;
+		constexpr int D3D_ReleaseTemporaries_Addr = 0x17970;
+		constexpr int D3D_CreateTemporaries_Addr = 0x17A20;
 
 		midhook_d3dinit = safetyhook::create_mid(Module::exe_ptr(InitDirectX_CallerResult_Addr), dest_d3dinit);
 		midhook_d3dendscene = safetyhook::create_mid(Module::exe_ptr(Direct3D_EndScene_CallerAddr), dest_d3dendscene);
+
+		midhook_d3dTemporariesRelease = safetyhook::create_mid(Module::exe_ptr(D3D_ReleaseTemporaries_Addr), dest_d3dTemporariesRelease);
+		midhook_d3dTemporariesCreate = safetyhook::create_mid(Module::exe_ptr(D3D_CreateTemporaries_Addr), dest_d3dTemporariesCreate);
 
 		return !!midhook_d3dinit && !!midhook_d3dendscene;
 	}
