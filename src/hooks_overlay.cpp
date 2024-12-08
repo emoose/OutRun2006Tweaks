@@ -13,7 +13,7 @@ bool show_demo_window = true;
 bool f11_prev_state = false; // previously seen F11 state
 
 bool overlay_visible = false; // user wants overlay to show?
-bool overlay_active = false; // overlay is active?
+bool overlay_showing = false;
 
 bool Overlay_Update()
 {
@@ -56,8 +56,8 @@ bool Overlay_Update()
 
 void Overlay_Render()
 {
-	overlay_active = Overlay_Update();
-	if (overlay_active)
+	overlay_showing = Overlay_Update();
+	if (overlay_showing)
 	{
 		ImGui::Render();
 		ImGui_ImplDX9_RenderDrawData(ImGui::GetDrawData());
@@ -80,6 +80,7 @@ class ImguiOverlay : public Hook
 		ImGuiIO& io = ImGui::GetIO(); (void)io;
 		io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
 		io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
+		io.FontGlobalScale = Settings::OverlayFontScale;
 
 		// Setup Dear ImGui style
 		ImGui::StyleColorsDark();
@@ -89,7 +90,6 @@ class ImguiOverlay : public Hook
 		ImGui_ImplWin32_Init(Game::GameHwnd());
 		ImGui_ImplDX9_Init(Game::D3DDevice());
 
-		spdlog::info("Imgui inited!");
 		overlayInited = true;
 	}
 
@@ -108,7 +108,7 @@ public:
 
 	bool validate() override
 	{
-		return true;
+		return Settings::OverlayEnabled;
 	}
 
 	bool apply() override
@@ -135,7 +135,7 @@ class WndprocHook : public Hook
 	inline static SafetyHookInline dest_orig = {};
 	static LRESULT __stdcall destination(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 	{
-		if (overlay_active)
+		if (overlay_showing)
 		{
 			if (ImGui_ImplWin32_WndProcHandler(hwnd, msg, wParam, lParam))
 				return 1;

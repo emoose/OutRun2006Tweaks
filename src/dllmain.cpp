@@ -124,6 +124,9 @@ namespace Settings
 		spdlog::info(" - RandomHighwayAnimSets: {}", RandomHighwayAnimSets);
 		spdlog::info(" - DemonwareServerOverride: {}", DemonwareServerOverride);
 
+		spdlog::info(" - OverlayEnabled: {}", OverlayEnabled);
+		spdlog::info(" - OverlayFontScale: {}", OverlayFontScale);
+
 		spdlog::info(" - FixPegasusClopping: {}", FixPegasusClopping);
 		spdlog::info(" - FixRightSideBunkiAnimations: {}", FixRightSideBunkiAnimations);
 		spdlog::info(" - FixC2CRankings: {}", FixC2CRankings);
@@ -248,6 +251,9 @@ namespace Settings
 		AllowCharacterSelection = ini.Get("Misc", "AllowCharacterSelection", std::move(AllowCharacterSelection));
 		RandomHighwayAnimSets = ini.Get("Misc", "RandomHighwayAnimSets", std::move(RandomHighwayAnimSets));
 		DemonwareServerOverride = ini.Get("Misc", "DemonwareServerOverride", std::move(DemonwareServerOverride));
+
+		OverlayEnabled = ini.Get("Overlay", "Enabled", std::move(OverlayEnabled));
+		OverlayFontScale = ini.Get("Overlay", "FontScale", std::move(OverlayFontScale));
 
 		FixPegasusClopping = ini.Get("Bugfixes", "FixPegasusClopping", std::move(FixPegasusClopping));
 		FixRightSideBunkiAnimations = ini.Get("Bugfixes", "FixRightSideBunkiAnimations", std::move(FixRightSideBunkiAnimations));

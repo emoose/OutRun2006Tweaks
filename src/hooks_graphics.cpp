@@ -11,6 +11,8 @@ std::array<std::bitset<16384>, 256> ObjectExclusions;
 int ExclusionsStageNum = 0; // stageid the exclusions are setup for, if stageid doesn't match current exclusions will be cleared
 int NumObjects = 0;
 
+bool DrawDistanceIncreaseEnabled = false;
+
 void Overlay_DrawDistOverlay()
 {
 	uint32_t cur_stage_num = Game::GetStageUniqueNum(Game::GetNowStageNum(8));
@@ -30,13 +32,20 @@ void Overlay_DrawDistOverlay()
 
 	static ImGuiTableFlags table_flags = ImGuiTableFlags_NoSavedSettings | ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_HighlightHoveredColumn;
 
-	ImGui::Text("How to use:");
-	ImGui::Text("- When you see an ugly LOD object, pause the game with ESC, and press F11 to bring up this window");
-	ImGui::Text("- Reduce the Draw Distance below to the lowest value which still shows the LOD object for you");
-	ImGui::Text("- Once you find the draw-distance that shows the object, click each node checkbox until you find the node responsible");
-	ImGui::Text("- After finding the node, you can hover over the checkbox to get the IDs for it");
+	ImGui::Text("Usage:");
+	ImGui::Text("- When an ugly LOD object appears, pause the game with ESC and press F11 to bring up this window");
+	ImGui::Text("- Reduce the Draw Distance below to the lowest value which still has the LOD object appearing");
+	ImGui::Text("- Once you find the draw-distance that shows the object, click each node checkbox to disable nodes");
+	ImGui::Text("- After you find the node responsible, you can use \"Copy to clipboard\" below to copy the IDs of them, or hover over the node");
 	ImGui::Text("- Post the IDs for LODs you find in the \"DrawDistanceIncrease issue reports\" github thread and we can add exclusions for them!");
 	ImGui::NewLine();
+
+	if (!DrawDistanceIncreaseEnabled)
+	{
+		ImGui::Text("Error: DrawDistanceIncrease must be enabled in INI before launching.");
+		ImGui::End();
+		return;
+	}
 
 	ImGui::SliderInt("Draw Distance", &Settings::DrawDistanceIncrease, 0, 1024);
 	if (ImGui::Button("<<<"))
@@ -45,14 +54,12 @@ void Overlay_DrawDistOverlay()
 	if (ImGui::Button(">>>"))
 		Settings::DrawDistanceIncrease++;
 
-	ImGui::Text("cur_stage_num = 0x%X", cur_stage_num);
-
 	if (num_columns > 0)
 	{
 		ImGui::Text("Nodes at DrawDistance %d:", Settings::DrawDistanceIncrease);
 
 		num_columns += 1;
-		if (ImGui::BeginTable("table_angled_headers", num_columns, table_flags))
+		if (ImGui::BeginTable("NodeTable", num_columns, table_flags))
 		{
 			ImGui::TableSetupColumn("Object ID", ImGuiTableColumnFlags_NoHide | ImGuiTableColumnFlags_NoReorder);
 			for (int n = 1; n < num_columns; n++)
@@ -63,8 +70,25 @@ void Overlay_DrawDistOverlay()
 				ImGui::PushID(objectIdx);
 				ImGui::TableNextRow();
 				ImGui::TableSetColumnIndex(0);
-				//ImGui::AlignTextToFramePadding();
-				ImGui::Text("Object %d", objectIdx);
+				if (ImGui::Button(std::format("Object {}", objectIdx).c_str()))
+				{
+					bool areAllExcluded = true;
+					for (int i = 0; i < ObjectNodes[objectIdx].size(); i++)
+					{
+						auto nodeId = ObjectNodes[objectIdx][i];
+						if (!ObjectExclusions[objectIdx][nodeId])
+						{
+							areAllExcluded = false;
+							break;
+						}
+					}
+
+					for (int i = 0; i < ObjectNodes[objectIdx].size(); i++)
+					{
+						auto nodeId = ObjectNodes[objectIdx][i];
+						ObjectExclusions[objectIdx][nodeId] = areAllExcluded ? false : true;
+					}
+				}
 
 				for (int i = 0; i < ObjectNodes[objectIdx].size(); i++)
 					if (ImGui::TableSetColumnIndex(i + 1))
@@ -77,7 +101,7 @@ void Overlay_DrawDistOverlay()
 						if (ImGui::Checkbox("", &excluded))
 							ObjectExclusions[objectIdx][nodeId] = excluded;
 
-						ImGui::SetItemTooltip("StageNum 0x%X, object 0x%X node 0x%X", cur_stage_num, objectIdx, nodeId);
+						ImGui::SetItemTooltip("Stage %d, object 0x%X, node 0x%X", cur_stage_num, objectIdx, nodeId);
 
 						ImGui::PopID();
 					}
@@ -95,22 +119,30 @@ void Overlay_DrawDistOverlay()
 	}
 	if (ImGui::Button("Copy exclusions to clipboard"))
 	{
-		std::string clipboard = "";
+		std::string clipboard = "";// 
 		for (int objId = 0; objId < ObjectExclusions.size(); objId++)
 		{
+			std::string objLine = "";
 			for (int i = 0; i < ObjectExclusions[objId].size(); i++)
 			{
 				if (ObjectExclusions[objId][i])
 				{
-					clipboard += std::format("StageNum 0x{:X}, object 0x{:X} node 0x{:X}\r\n", cur_stage_num, objId, i);
+					objLine += std::format(", 0x{:X}", i);
 				}
 			}
-		}
 
-		HGLOBAL hMem = GlobalAlloc(GMEM_MOVEABLE, clipboard.length());
+			if (objLine.length() > 2)
+			{
+				clipboard += std::format("\n0x{:X} = {}", objId, objLine.substr(2));
+			}
+		}
+		if (!clipboard.empty())
+			clipboard = std::format("[Stage {}]{}", cur_stage_num, clipboard);
+
+		HGLOBAL hMem = GlobalAlloc(GMEM_MOVEABLE, clipboard.length() + 1);
 		if (hMem)
 		{
-			memcpy(GlobalLock(hMem), clipboard.c_str(), clipboard.length());
+			memcpy(GlobalLock(hMem), clipboard.c_str(), clipboard.length() + 1);
 			GlobalUnlock(hMem);
 			OpenClipboard(0);
 			EmptyClipboard();
@@ -178,7 +210,7 @@ class DrawDistanceIncrease : public Hook
 		uint32_t* v11 = (uint32_t*)(v6 + 8);
 
 		uint32_t cur_stage_num = Game::GetStageUniqueNum(Game::GetNowStageNum(8));
-		if (ExclusionsStageNum != cur_stage_num)
+		if (Settings::OverlayEnabled && ExclusionsStageNum != cur_stage_num)
 		{
 			for (int i = 0; i < ObjectExclusions.size(); i++)
 				ObjectExclusions[i].reset();
@@ -205,7 +237,7 @@ class DrawDistanceIncrease : public Hook
 				}
 
 				// DEBUG: clear lastadds for this objectnum here
-				if (csOffset == Settings::DrawDistanceIncrease)
+				if (Settings::OverlayEnabled && csOffset == Settings::DrawDistanceIncrease)
 				{
 					ObjectNodes[ObjectNum].clear();
 				}
@@ -223,14 +255,14 @@ class DrawDistanceIncrease : public Hook
 
 						// DEBUG: check exclusions here before adding to *cur
 						// (if we're at csOffset = 0, exclusions are ignored, since that is what vanilla game would display)
-						if (!ObjectExclusions[ObjectNum][*sectionCollList] || csOffset == 0)
+						if (!Settings::OverlayEnabled || !ObjectExclusions[ObjectNum][*sectionCollList] || csOffset == 0)
 						{
 							*cur = *sectionCollList;
 							cur++;
 						}
 
 						// DEBUG: add *sectionCollList to lastadds list here
-						if (csOffset == Settings::DrawDistanceIncrease)
+						if (Settings::OverlayEnabled && csOffset == Settings::DrawDistanceIncrease)
 							ObjectNodes[ObjectNum].push_back(*sectionCollList);
 
 						num++;
@@ -268,6 +300,8 @@ public:
 
 		for (int i = 0; i < ObjectNodes.size(); i++)
 			ObjectNodes[i].reserve(4096);
+
+		DrawDistanceIncreaseEnabled = true;
 
 		return true;
 	}

@@ -115,6 +115,9 @@ namespace Settings
 	inline bool RandomHighwayAnimSets = false;
 	inline std::string DemonwareServerOverride = "clarissa.port0.org";
 
+	inline bool OverlayEnabled = false;
+	inline float OverlayFontScale = 1.5f;
+
 	inline bool FixPegasusClopping = true;
 	inline bool FixRightSideBunkiAnimations = true;
 	inline bool FixC2CRankings = true;
