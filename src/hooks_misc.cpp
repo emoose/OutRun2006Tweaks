@@ -778,6 +778,19 @@ GameDefaultConfigOverride GameDefaultConfigOverride::instance;
 
 class EnableLevelSelect : public Hook
 {
+	inline static SafetyHookMid midhook = {};
+	static void destination(SafetyHookContext& ctx)
+	{
+		// Game checked SwitchNow(0x10) which checks for X/horn press
+		// but because of how we force level-select to show, that will display sumo sign-in screen instead...
+		// we'll add an extra SwitchNow(0x100) check here to check for LS press as well
+		
+		if (Game::SwitchNow(0x100))
+			ctx.eax = 1;
+		if (GetAsyncKeyState(VK_SHIFT))
+			ctx.eax = 1;
+	}
+
 public:
 	std::string_view description() override
 	{
@@ -793,9 +806,11 @@ public:
 	{
 		// Change the param for "GetMenuForId" call from 0 to 0x1B
 		constexpr int SumoFrontEnd__eventStep1_GetMenuForIdCall_Param = 0x45756 + 1;
+		constexpr int SumoLevelSelect__update_SwitchNowResult_Addr = 0xE7838;
 		Memory::VP::Patch(Module::exe_ptr(SumoFrontEnd__eventStep1_GetMenuForIdCall_Param), uint8_t(0x1B));
 
-		return true;
+		midhook = safetyhook::create_mid(Module::exe_ptr(SumoLevelSelect__update_SwitchNowResult_Addr), destination);
+		return !!midhook;
 	}
 
 	static EnableLevelSelect instance;
