@@ -16,7 +16,7 @@ bool EnablePauseMenu = true;
 
 bool DrawDist_ReadExclusions();
 
-void Overlay_DrawDistOverlay()
+void DrawDist_DrawOverlay()
 {
 	ImGui::Begin("Draw Distance Debugger");
 

@@ -15,6 +15,73 @@ bool f11_prev_state = false; // previously seen F11 state
 bool overlay_visible = false; // user wants overlay to show?
 bool overlay_showing = false;
 
+void Overlay_GlobalsWindow()
+{
+	extern bool EnablePauseMenu;
+
+	ImGui::Begin("Globals");
+
+	ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.51f, 0.00f, 0.14f, 0.00f));
+	if (ImGui::Button("-"))
+	{
+		if (ImGui::GetIO().FontGlobalScale > 1.0f)
+		{
+			ImGui::GetIO().FontGlobalScale -= 0.05f;
+		}
+	}
+
+	ImGui::SameLine();
+
+	if (ImGui::Button("+"))
+	{
+		if (ImGui::GetIO().FontGlobalScale < 4.0f)
+		{
+			ImGui::GetIO().FontGlobalScale += 0.05f;
+		}
+	}
+
+	ImGui::PopStyleColor();
+	ImGui::SameLine();
+	ImGui::Text("Overlay Font Size");
+
+	ImGui::Separator();
+	ImGui::Text("Info");
+	EVWORK_CAR* car = Game::event(8)->data<EVWORK_CAR>();
+	ImGui::Text("Car position: %.3f %.3f %.3f", car->position_14.x, car->position_14.y, car->position_14.z);
+	ImGui::Text("OnRoadPlace coli %d, stg %d, section %d", 
+		car->OnRoadPlace_5C.loadColiType_0, 
+		car->OnRoadPlace_5C.curStageIdx_C, 
+		car->OnRoadPlace_5C.roadSectionNum_8);
+
+	int cur_stage_num = *Game::stg_stage_num;
+	const char* cur_stage_name = Game::GetStageUniqueName(cur_stage_num);
+	ImGui::Text("Loaded Stage: %d (%s)", cur_stage_num, cur_stage_name);
+
+	ImGui::Separator();
+	ImGui::Text("Gameplay");
+
+	ImGui::Checkbox("Countdown timer enabled", Game::Sumo_CountdownTimerEnable);
+	ImGui::Checkbox("Pause menu enabled", &EnablePauseMenu);
+	ImGui::Checkbox("HUD enabled", (bool*)Game::navipub_disp_flg);
+
+	ImGui::Separator();
+	ImGui::Text("Controls");
+
+	ImGui::SliderFloat("SteeringDeadZone", &Settings::SteeringDeadZone, 0.01, 1.0f);
+	ImGui::SliderInt("VibrationStrength", &Settings::VibrationStrength, 0, 10);
+	ImGui::SliderFloat("ImpulseVibrationLeftMultiplier", &Settings::ImpulseVibrationLeftMultiplier, 0.1, 1);
+	ImGui::SliderFloat("ImpulseVibrationRightMultiplier", &Settings::ImpulseVibrationRightMultiplier, 0.1, 1);
+
+	ImGui::Separator();
+	ImGui::Text("Graphics");
+
+	ImGui::SliderInt("FramerateLimit", &Settings::FramerateLimit, 30, 300);
+	ImGui::SliderInt("DrawDistanceIncrease", &Settings::DrawDistanceIncrease, 0, 4096);
+	ImGui::SliderInt("DrawDistanceBehind", &Settings::DrawDistanceBehind, 0, 4096);
+
+	ImGui::End();
+}
+
 bool Overlay_Update()
 {
 	bool f11_pressed = (GetAsyncKeyState(VK_F11) & 1);
@@ -46,8 +113,10 @@ bool Overlay_Update()
 	}
 #endif
 
-	void Overlay_DrawDistOverlay();
-	Overlay_DrawDistOverlay();
+	Overlay_GlobalsWindow();
+
+	void DrawDist_DrawOverlay();
+	DrawDist_DrawOverlay();
 
 	ImGui::EndFrame();
 

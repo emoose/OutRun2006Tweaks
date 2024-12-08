@@ -148,9 +148,6 @@ class ReplaceGameUpdateLoop : public Hook
 	inline static double FramelimiterFrequency = 0;
 	inline static double FramelimiterPrevCounter = 0;
 
-	inline static double FramelimiterTargetFrametime = double(1000.f) / double(60.f);
-
-	inline static double FramelimiterMaxDeviation = FramelimiterTargetFrametime / (16.f * 1000.f);
 	inline static double FramelimiterDeviation = 0;
 
 	inline static SafetyHookMid dest_hook = {};
@@ -211,6 +208,9 @@ class ReplaceGameUpdateLoop : public Hook
 			double timeElapsed = 0;
 			double timeCurrent = 0;
 			LARGE_INTEGER counter;
+
+			double FramelimiterTargetFrametime = double(1000.f) / double(Settings::FramerateLimit);
+			double FramelimiterMaxDeviation = FramelimiterTargetFrametime / (16.f * 1000.f);
 
 			do
 			{
@@ -354,9 +354,6 @@ public:
 			FramelimiterFrequency = double(frequency.QuadPart) / double(1000.f);
 			QueryPerformanceCounter(&counter);
 			FramelimiterPrevCounter = double(counter.QuadPart) / FramelimiterFrequency;
-
-			FramelimiterTargetFrametime = double(1000.f) / double(Settings::FramerateLimit);
-			FramelimiterMaxDeviation = FramelimiterTargetFrametime / (16.f * 1000.f);
 		}
 
 		constexpr int HookAddr = 0x17C7B;
