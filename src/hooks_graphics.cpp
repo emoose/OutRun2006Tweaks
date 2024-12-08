@@ -12,6 +12,45 @@ int ExclusionsStageNum = 0; // stageid the exclusions are setup for, if stageid 
 int NumObjects = 0;
 
 bool DrawDistanceIncreaseEnabled = false;
+bool EnablePauseMenu = true;
+
+class PauseMenuVisibility : public Hook
+{
+	inline static SafetyHookInline sprani_hook = {};
+	static void sprani_dest()
+	{
+		if (EnablePauseMenu)
+			sprani_hook.call();
+	}
+
+	inline static SafetyHookInline pauseframedisp_hook = {};
+	static void __fastcall pauseframedisp_dest(void* thisptr, void* unused)
+	{
+		if (EnablePauseMenu)
+			pauseframedisp_hook.thiscall(thisptr);
+	}
+
+public:
+	std::string_view description() override
+	{
+		return "PauseMenuVisibility";
+	}
+
+	bool validate() override
+	{
+		return Settings::OverlayEnabled;
+	}
+
+	bool apply() override
+	{
+		sprani_hook = safetyhook::create_inline(Module::exe_ptr(0x28170), sprani_dest);
+		pauseframedisp_hook = safetyhook::create_inline(Module::exe_ptr(0x8C5F0), pauseframedisp_dest);
+		return true;
+	}
+
+	static PauseMenuVisibility instance;
+};
+PauseMenuVisibility PauseMenuVisibility::instance;
 
 void Overlay_DrawDistOverlay()
 {
@@ -20,6 +59,7 @@ void Overlay_DrawDistOverlay()
 	ImGui::Begin("Draw Distance Debugger");
 
 	ImGui::Checkbox("Countdown timer enabled", Game::Sumo_CountdownTimerEnable);
+	ImGui::Checkbox("Pause menu enabled", &EnablePauseMenu);
 
 	// get max column count
 	int num_columns = 0;
@@ -33,10 +73,10 @@ void Overlay_DrawDistOverlay()
 	static ImGuiTableFlags table_flags = ImGuiTableFlags_NoSavedSettings | ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_HighlightHoveredColumn;
 
 	ImGui::Text("Usage:");
-	ImGui::Text("- When an ugly LOD object appears, pause the game with ESC and press F11 to bring up this window");
-	ImGui::Text("- Reduce the Draw Distance below to the lowest value which still has the LOD object appearing");
+	ImGui::Text("- If an ugly LOD object appears, pause game with ESC and press F11 to bring up this window");
+	ImGui::Text("- Reduce Draw Distance below to lowest value that still has the LOD object appearing");
 	ImGui::Text("- Once you find the draw-distance that shows the object, click each node checkbox to disable nodes");
-	ImGui::Text("- After you find the node responsible, you can use \"Copy to clipboard\" below to copy the IDs of them, or hover over the node");
+	ImGui::Text("- After finding the node responsible, you can use \"Copy to clipboard\" below to copy the IDs of them, or hover over the node");
 	ImGui::Text("- Post the IDs for LODs you find in the \"DrawDistanceIncrease issue reports\" github thread and we can add exclusions for them!");
 	ImGui::NewLine();
 
