@@ -9,6 +9,7 @@
 std::array<std::vector<uint16_t>, 256> ObjectNodes;
 std::array<std::array<std::bitset<16384>, 256>, 128> ObjectExclusionsPerStage;
 int NumObjects = 0;
+int CsLengthNum = 0;
 
 bool DrawDistanceIncreaseEnabled = false;
 bool EnablePauseMenu = true;
@@ -80,10 +81,10 @@ void Overlay_DrawDistOverlay()
 	if (ImGui::Button(">>>"))
 		Settings::DrawDistanceIncrease += 10;
 
+	ImGui::Text("Nodes at distance +%d (track section #%d):", Settings::DrawDistanceIncrease, (CsLengthNum + Settings::DrawDistanceIncrease));
+
 	if (num_columns > 0)
 	{
-		ImGui::Text("Nodes at DrawDistance %d:", Settings::DrawDistanceIncrease);
-
 		num_columns += 1;
 		if (ImGui::BeginTable("NodeTable", num_columns, table_flags))
 		{
@@ -381,7 +382,7 @@ class DrawDistanceIncrease : public Hook
 		int a5 = ctx.edx;
 
 		int CsMaxLength = Game::GetMaxCsLen(0);
-		int CsLengthNum = ctx.ebp;
+		CsLengthNum = ctx.ebp;
 
 		int v6 = ctx.ebx;
 		uint32_t* v11 = (uint32_t*)(v6 + 8);
