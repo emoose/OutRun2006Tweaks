@@ -4,21 +4,123 @@
 #include <array>
 #include <bitset>
 #include <iostream>
+#include <imgui.h>
 
-#ifdef _DEBUG
-#define ENABLE_NODE_ID_TESTER 1
-#endif
+std::array<std::vector<uint16_t>, 256> ObjectNodes;
+std::array<std::bitset<16384>, 256> ObjectExclusions;
+int ExclusionsStageNum = 0; // stageid the exclusions are setup for, if stageid doesn't match current exclusions will be cleared
+int NumObjects = 0;
 
-#ifdef ENABLE_NODE_ID_TESTER
-// creates a list of which CullingNode IDs were added by the last distance increase loop
-// and allow testing the distance increase with a given CullingNode skipped
-// can help us to find which CullingNodes cause ugly LOD issues, and hopefully add them to filter list eventually
-std::vector<uint16_t> lastAdds; // list of IDs added
-uint16_t* lastAddsPtr = 0; // ptr to the lastAdds data, for ease of use with CE
-int lastAddsNum = 0; // ObjectNum that we want to populate lastAdds for
-int skipAddNum = -1; // if set, skips drawing this CullingNode ID, can be used to find which specific ID is troublesome
-int skipObjNum = -1; // skips distance-increase for this ObjectNum, can be used to find which ObjectNum is troublesome
-#endif
+void Overlay_DrawDistOverlay()
+{
+	uint32_t cur_stage_num = Game::GetStageUniqueNum(Game::GetNowStageNum(8));
+
+	ImGui::Begin("Draw Distance Debugger");
+
+	ImGui::Checkbox("Countdown timer enabled", Game::Sumo_CountdownTimerEnable);
+
+	// get max column count
+	int num_columns = 0;
+	for (int i = 0; i < NumObjects; i++)
+	{
+		size_t size = ObjectNodes[i].size();
+		if (size > num_columns)
+			num_columns = size;
+	}
+
+	static ImGuiTableFlags table_flags = ImGuiTableFlags_NoSavedSettings | ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_HighlightHoveredColumn;
+
+	ImGui::Text("How to use:");
+	ImGui::Text("- When you see an ugly LOD object, pause the game with ESC, and press F11 to bring up this window");
+	ImGui::Text("- Reduce the Draw Distance below to the lowest value which still shows the LOD object for you");
+	ImGui::Text("- Once you find the draw-distance that shows the object, click each node checkbox until you find the node responsible");
+	ImGui::Text("- After finding the node, you can hover over the checkbox to get the IDs for it");
+	ImGui::Text("- Post the IDs for LODs you find in the \"DrawDistanceIncrease issue reports\" github thread and we can add exclusions for them!");
+	ImGui::NewLine();
+
+	ImGui::SliderInt("Draw Distance", &Settings::DrawDistanceIncrease, 0, 1024);
+	if (ImGui::Button("<<<"))
+		Settings::DrawDistanceIncrease--;
+	ImGui::SameLine();
+	if (ImGui::Button(">>>"))
+		Settings::DrawDistanceIncrease++;
+
+	ImGui::Text("cur_stage_num = 0x%X", cur_stage_num);
+
+	if (num_columns > 0)
+	{
+		ImGui::Text("Nodes at DrawDistance %d:", Settings::DrawDistanceIncrease);
+
+		num_columns += 1;
+		if (ImGui::BeginTable("table_angled_headers", num_columns, table_flags))
+		{
+			ImGui::TableSetupColumn("Object ID", ImGuiTableColumnFlags_NoHide | ImGuiTableColumnFlags_NoReorder);
+			for (int n = 1; n < num_columns; n++)
+				ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed);
+
+			for (int objectIdx = 0; objectIdx < NumObjects; objectIdx++)
+			{
+				ImGui::PushID(objectIdx);
+				ImGui::TableNextRow();
+				ImGui::TableSetColumnIndex(0);
+				//ImGui::AlignTextToFramePadding();
+				ImGui::Text("Object %d", objectIdx);
+
+				for (int i = 0; i < ObjectNodes[objectIdx].size(); i++)
+					if (ImGui::TableSetColumnIndex(i + 1))
+					{
+						ImGui::PushID(i + 1);
+
+						auto nodeId = ObjectNodes[objectIdx][i];
+						bool excluded = ObjectExclusions[objectIdx][nodeId];
+
+						if (ImGui::Checkbox("", &excluded))
+							ObjectExclusions[objectIdx][nodeId] = excluded;
+
+						ImGui::SetItemTooltip("StageNum 0x%X, object 0x%X node 0x%X", cur_stage_num, objectIdx, nodeId);
+
+						ImGui::PopID();
+					}
+
+				ImGui::PopID();
+			}
+			ImGui::EndTable();
+		}
+	}
+
+	if (ImGui::Button("Clear all exclusions"))
+	{
+		for (int i = 0; i < ObjectExclusions.size(); i++)
+			ObjectExclusions[i].reset();
+	}
+	if (ImGui::Button("Copy exclusions to clipboard"))
+	{
+		std::string clipboard = "";
+		for (int objId = 0; objId < ObjectExclusions.size(); objId++)
+		{
+			for (int i = 0; i < ObjectExclusions[objId].size(); i++)
+			{
+				if (ObjectExclusions[objId][i])
+				{
+					clipboard += std::format("StageNum 0x{:X}, object 0x{:X} node 0x{:X}\r\n", cur_stage_num, objId, i);
+				}
+			}
+		}
+
+		HGLOBAL hMem = GlobalAlloc(GMEM_MOVEABLE, clipboard.length());
+		if (hMem)
+		{
+			memcpy(GlobalLock(hMem), clipboard.c_str(), clipboard.length());
+			GlobalUnlock(hMem);
+			OpenClipboard(0);
+			EmptyClipboard();
+			SetClipboardData(CF_TEXT, hMem);
+			CloseClipboard();
+		}
+	}
+
+	ImGui::End();
+}
 
 class DrawDistanceIncrease : public Hook
 {
@@ -75,7 +177,15 @@ class DrawDistanceIncrease : public Hook
 		int v6 = ctx.ebx;
 		uint32_t* v11 = (uint32_t*)(v6 + 8);
 
-		int NumObjects = *(int*)(ctx.esp + 0x18);
+		uint32_t cur_stage_num = Game::GetStageUniqueNum(Game::GetNowStageNum(8));
+		if (ExclusionsStageNum != cur_stage_num)
+		{
+			for (int i = 0; i < ObjectExclusions.size(); i++)
+				ObjectExclusions[i].reset();
+			ExclusionsStageNum = cur_stage_num;
+		}
+
+		NumObjects = *(int*)(ctx.esp + 0x18);
 		for (int ObjectNum = 0; ObjectNum < NumObjects; ObjectNum++)
 		{
 			CollisionNodesToDisplay.reset();
@@ -94,44 +204,40 @@ class DrawDistanceIncrease : public Hook
 						break;
 				}
 
-#ifdef ENABLE_NODE_ID_TESTER
-				if (ObjectNum == lastAddsNum && csOffset == Settings::DrawDistanceIncrease)
+				// DEBUG: clear lastadds for this objectnum here
+				if (csOffset == Settings::DrawDistanceIncrease)
 				{
-					lastAdds.clear();
+					ObjectNodes[ObjectNum].clear();
 				}
-#endif
+
 				uint32_t sectionCollListOffset = *(uint32_t*)(v6 + *v11 + ((CsLengthNum + csOffset) * 4));
 				uint16_t* sectionCollList = (uint16_t*)(v6 + *v11 + sectionCollListOffset);
+
+				int num = 0;
 				while (*sectionCollList != 0xFFFF)
 				{
 					// If we haven't seen this CollisionNode idx already lets add it to our IdxArray
 					if (!CollisionNodesToDisplay[*sectionCollList])
 					{
-#ifdef ENABLE_NODE_ID_TESTER
-						if (skipObjNum != ObjectNum || csOffset == 0)
-							if (skipAddNum != *sectionCollList || skipAddNum < 0 || csOffset == 0)
-#endif
-							{
-								CollisionNodesToDisplay[*sectionCollList] = true;
-								*cur = *sectionCollList;
+						CollisionNodesToDisplay[*sectionCollList] = true;
 
-#ifdef ENABLE_NODE_ID_TESTER
-								if (ObjectNum == lastAddsNum && csOffset == Settings::DrawDistanceIncrease)
-									lastAdds.push_back(*cur);
-#endif
-								cur++;
-							}
+						// DEBUG: check exclusions here before adding to *cur
+						// (if we're at csOffset = 0, exclusions are ignored, since that is what vanilla game would display)
+						if (!ObjectExclusions[ObjectNum][*sectionCollList] || csOffset == 0)
+						{
+							*cur = *sectionCollList;
+							cur++;
+						}
+
+						// DEBUG: add *sectionCollList to lastadds list here
+						if (csOffset == Settings::DrawDistanceIncrease)
+							ObjectNodes[ObjectNum].push_back(*sectionCollList);
+
+						num++;
 					}
 
 					sectionCollList++;
 				}
-
-#ifdef ENABLE_NODE_ID_TESTER
-				if (ObjectNum == lastAddsNum && csOffset == Settings::DrawDistanceIncrease)
-				{
-					lastAddsPtr = lastAdds.data();
-				}
-#endif
 			}
 
 			*cur = 0xFFFF;
@@ -155,14 +261,13 @@ public:
 
 	bool apply() override
 	{
-#ifdef ENABLE_NODE_ID_TESTER
-		lastAdds.reserve(100);
-#endif
-
 		constexpr int DispStage_HookAddr = 0x4DF6D;
 
 		Memory::VP::Nop(Module::exe_ptr(DispStage_HookAddr), 0x4B);
 		dest_hook = safetyhook::create_mid(Module::exe_ptr(DispStage_HookAddr), destination);
+
+		for (int i = 0; i < ObjectNodes.size(); i++)
+			ObjectNodes[i].reserve(4096);
 
 		return true;
 	}

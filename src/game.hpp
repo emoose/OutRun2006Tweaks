@@ -188,12 +188,12 @@ static_assert(sizeof(EvWorkCamera) == 0x3B4);
 
 struct OnRoadPlace
 {
-	DWORD loadColiType_0;
+	uint32_t loadColiType_0;
 	uint32_t field_4;
 	__int16 roadSectionNum_8;
 	uint8_t field_A;
 	uint8_t unk_B;
-	DWORD curStageIdx_C;
+	uint32_t curStageIdx_C;
 };
 static_assert(sizeof(OnRoadPlace) == 0x10);
 

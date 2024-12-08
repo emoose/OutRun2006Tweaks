@@ -20,8 +20,9 @@ namespace Game
 	inline int* game_start_progress_code = nullptr;
 	inline int* file_load_progress_code = nullptr;
 
-	inline uint8_t* Sumo_CountdownTimerEnable = nullptr;
-	inline uint8_t* Sumo_IntroLogosEnable = nullptr;
+	static_assert(sizeof(bool) == sizeof(uint8_t)); // the following bools take 1 byte each
+	inline bool* Sumo_CountdownTimerEnable = nullptr;
+	inline bool* Sumo_IntroLogosEnable = nullptr;
 
 	inline D3DPRESENT_PARAMETERS* D3DPresentParams = nullptr;
 	inline IDirect3DDevice9** D3DDevice_ptr = nullptr;
@@ -135,8 +136,8 @@ namespace Game
 		current_mode = Module::exe_ptr<GameState>(0x38026C);
 		game_start_progress_code = Module::exe_ptr<int>(0x4367A8);
 		file_load_progress_code = Module::exe_ptr<int>(0x436718);
-		Sumo_CountdownTimerEnable = Module::exe_ptr<uint8_t>(0x237911);
-		Sumo_IntroLogosEnable = Module::exe_ptr<uint8_t>(0x2319A1);
+		Sumo_CountdownTimerEnable = Module::exe_ptr<bool>(0x237911);
+		Sumo_IntroLogosEnable = Module::exe_ptr<bool>(0x2319A1);
 
 		D3DPresentParams = Module::exe_ptr<D3DPRESENT_PARAMETERS>(0x49BD64);
 		D3DDevice_ptr = Module::exe_ptr<IDirect3DDevice9*>(0x49BD60);
