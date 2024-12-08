@@ -116,6 +116,7 @@ namespace Settings
 		spdlog::info(" - EnableHollyCourse2: {}", EnableHollyCourse2);
 		spdlog::info(" - SkipIntroLogos: {}", SkipIntroLogos);
 		spdlog::info(" - DisableCountdownTimer: {}", DisableCountdownTimer);
+		spdlog::info(" - EnableLevelSelect: {}", EnableLevelSelect);
 		spdlog::info(" - HudToggleKey: {}", HudToggleKey);
 		spdlog::info(" - RestoreJPClarissa: {}", RestoreJPClarissa);
 		spdlog::info(" - ShowOutRunMilesOnMenu: {}", ShowOutRunMilesOnMenu);
@@ -241,6 +242,7 @@ namespace Settings
 		EnableHollyCourse2 = ini.Get("Misc", "EnableHollyCourse2", std::move(EnableHollyCourse2));
 		SkipIntroLogos = ini.Get("Misc", "SkipIntroLogos", std::move(SkipIntroLogos));
 		DisableCountdownTimer = ini.Get("Misc", "DisableCountdownTimer", std::move(DisableCountdownTimer));
+		EnableLevelSelect = ini.Get("Misc", "EnableLevelSelect", std::move(EnableLevelSelect));
 		RestoreJPClarissa = ini.Get("Misc", "RestoreJPClarissa", std::move(RestoreJPClarissa));
 		ShowOutRunMilesOnMenu = ini.Get("Misc", "ShowOutRunMilesOnMenu", std::move(ShowOutRunMilesOnMenu));
 		AllowCharacterSelection = ini.Get("Misc", "AllowCharacterSelection", std::move(AllowCharacterSelection));

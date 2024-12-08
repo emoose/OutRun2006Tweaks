@@ -708,6 +708,12 @@ public:
 					spdlog::info("CommandLineArguments: DisableCountdownTimer = true");
 					Settings::DisableCountdownTimer = true;
 				}
+				else if (!wcsicmp(argv[i], L"-LevelSelect"))
+				{
+					spdlog::info("CommandLineArguments: EnableLevelSelect = true");
+					Settings::EnableLevelSelect = true;
+					Settings::SkipIntroLogos = true;
+				}
 			}
 			catch (...) {}
 		}
@@ -769,3 +775,29 @@ public:
 	static GameDefaultConfigOverride instance;
 };
 GameDefaultConfigOverride GameDefaultConfigOverride::instance;
+
+class EnableLevelSelect : public Hook
+{
+public:
+	std::string_view description() override
+	{
+		return "EnableLevelSelect";
+	}
+
+	bool validate() override
+	{
+		return Settings::EnableLevelSelect;
+	}
+
+	bool apply() override
+	{
+		// Change the param for "GetMenuForId" call from 0 to 0x1B
+		constexpr int SumoFrontEnd__eventStep1_GetMenuForIdCall_Param = 0x45756 + 1;
+		Memory::VP::Patch(Module::exe_ptr(SumoFrontEnd__eventStep1_GetMenuForIdCall_Param), uint8_t(0x1B));
+
+		return true;
+	}
+
+	static EnableLevelSelect instance;
+};
+EnableLevelSelect EnableLevelSelect::instance;

@@ -108,6 +108,7 @@ namespace Settings
 	inline int EnableHollyCourse2 = 1;
 	inline bool SkipIntroLogos = false;
 	inline bool DisableCountdownTimer = false;
+	inline bool EnableLevelSelect = false;
 	inline bool RestoreJPClarissa = false;
 	inline bool ShowOutRunMilesOnMenu = true;
 	inline bool AllowCharacterSelection = false;
