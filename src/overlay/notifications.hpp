@@ -75,8 +75,6 @@ public:
 
 			ImGui::SetNextWindowPos(ImVec2(startX, curY));
 
-			curY += windowSize.y + notificationSpacing;
-
 			std::string windowName = "Notification " + std::to_string(i);
 			ImGui::Begin(windowName.c_str(), nullptr, ImGuiWindowFlags_NoDecoration |
 				ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoInputs |
@@ -90,6 +88,8 @@ public:
 				windowSize.y = textSize.y + 40.0f;
 
 			ImGui::SetWindowSize(windowSize);
+
+			curY += windowSize.y + notificationSpacing;
 
 			// Center text with padding
 			float paddingX = 10.0f, paddingY = 5.0f;
