@@ -38,6 +38,8 @@ namespace Game
 {
 	inline std::chrono::system_clock::time_point StartupTime;
 	inline float DeltaTime = (1.f / 60.f);
+
+	inline bool DrawDistanceDebugEnabled = false;
 };
 
 namespace Settings
@@ -116,7 +118,7 @@ namespace Settings
 	inline bool RandomHighwayAnimSets = false;
 	inline std::string DemonwareServerOverride = "clarissa.port0.org";
 
-	inline bool OverlayEnabled = false;
+	inline bool OverlayEnabled = true;
 	inline float OverlayFontScale = 1.5f;
 	inline int OverlayOnlineUpdateFrequency = 10000;
 

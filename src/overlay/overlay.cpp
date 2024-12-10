@@ -60,6 +60,10 @@ void Overlay_GlobalsWindow()
 	const char* cur_stage_name = Game::GetStageUniqueName(cur_stage_num);
 	ImGui::Text("Loaded Stage: %d (%s)", cur_stage_num, cur_stage_name);
 
+	if (Settings::DrawDistanceIncrease > 0)
+		if (ImGui::Button("Open Draw Distance Debugger"))
+			Game::DrawDistanceDebugEnabled = true;
+
 	ImGui::Separator();
 	ImGui::Text("Gameplay");
 
@@ -128,8 +132,11 @@ bool Overlay_Update()
 
 		Overlay_GlobalsWindow();
 
-		void DrawDist_DrawOverlay();
-		DrawDist_DrawOverlay();
+		if (Game::DrawDistanceDebugEnabled)
+		{
+			void DrawDist_DrawOverlay();
+			DrawDist_DrawOverlay();
+		}
 	}
 
 	ImGui::EndFrame();

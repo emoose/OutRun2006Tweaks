@@ -18,7 +18,7 @@ bool DrawDist_ReadExclusions();
 
 void DrawDist_DrawOverlay()
 {
-	ImGui::Begin("Draw Distance Debugger");
+	ImGui::Begin("Draw Distance Debugger", &Game::DrawDistanceDebugEnabled);
 
 	ImGui::Checkbox("Countdown timer enabled", Game::Sumo_CountdownTimerEnable);
 	ImGui::Checkbox("Pause menu enabled", &EnablePauseMenu);
@@ -403,7 +403,7 @@ class DrawDistanceIncrease : public Hook
 				}
 
 				// DEBUG: clear lastadds for this objectnum here
-				if (Settings::OverlayEnabled && csOffset == Settings::DrawDistanceIncrease)
+				if (Game::DrawDistanceDebugEnabled && csOffset == Settings::DrawDistanceIncrease)
 				{
 					ObjectNodes[ObjectNum].clear();
 				}
@@ -428,7 +428,7 @@ class DrawDistanceIncrease : public Hook
 						}
 
 						// DEBUG: add *sectionCollList to lastadds list here
-						if (Settings::OverlayEnabled && csOffset == Settings::DrawDistanceIncrease)
+						if (Game::DrawDistanceDebugEnabled && csOffset == Settings::DrawDistanceIncrease)
 							ObjectNodes[ObjectNum].push_back(*sectionCollList);
 
 						num++;
