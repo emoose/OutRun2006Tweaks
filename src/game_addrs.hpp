@@ -101,6 +101,8 @@ namespace Game
 
 	inline fn_stdcall_1arg_int Sumo_CheckRacerUnlocked = nullptr;
 
+	inline const char* SumoNet_OnlineUserName = nullptr;
+
 	// 2d sprite drawing
 	inline fn_1arg sprSetFontPriority = nullptr;
 	inline fn_1arg sprSetPrintFont = nullptr;
@@ -224,6 +226,8 @@ namespace Game
 		GetStageUniqueName = Module::fn_ptr<fn_1arg_char>(0x4BE80);
 
 		Sumo_CheckRacerUnlocked = Module::fn_ptr<fn_stdcall_1arg_int>(0xE8410);
+
+		SumoNet_OnlineUserName = Module::exe_ptr<const char>(0x430C20);
 
 		sprSetFontPriority = Module::fn_ptr<fn_1arg>(0x2CCB0);
 		sprSetPrintFont = Module::fn_ptr<fn_1arg>(0x2CA60);

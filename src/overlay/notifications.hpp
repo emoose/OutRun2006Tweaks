@@ -7,6 +7,7 @@ inline std::chrono::seconds displayDuration = std::chrono::seconds(7);
 
 inline ImVec2 notificationSize = { 600, 100 };
 inline float notificationSpacing = 10.0f;
+inline float notificationTextScale = 1.5f;
 
 class Notifications
 {
@@ -15,16 +16,17 @@ private:
 	{
 		std::string message;
 		std::chrono::time_point<std::chrono::steady_clock> timestamp;
+		int minDisplaySeconds;
 	};
 
 	std::deque<Notification> notifications;
 	std::mutex notificationsMutex;
 
 public:
-	void add(const std::string& message)
+	void add(const std::string& message, int minDisplaySeconds = 0)
 	{
 		std::lock_guard<std::mutex> lock(notificationsMutex);
-		notifications.push_back({ message, std::chrono::steady_clock::now() });
+		notifications.push_back({ message, std::chrono::steady_clock::now(), minDisplaySeconds });
 
 		if (notifications.size() > maxNotifications)
 			notifications.pop_front();
@@ -36,8 +38,20 @@ public:
 		auto now = std::chrono::steady_clock::now();
 		{
 			std::lock_guard<std::mutex> lock(notificationsMutex);
-			while (!notifications.empty() && now - notifications.front().timestamp > displayDuration)
+
+			while (!notifications.empty())
+			{
+				auto& front = notifications.front();
+
+				auto duration = displayDuration;
+				if (front.minDisplaySeconds > 0)
+					duration = std::chrono::seconds(front.minDisplaySeconds);
+
+				if (now - front.timestamp <= duration) // notif time hasn't elapsed yet?
+					break;
+
 				notifications.pop_front();
+			}
 		}
 
 		ImVec2 screenSize = ImGui::GetIO().DisplaySize;
@@ -50,39 +64,43 @@ public:
 			borderWidth = 0;
 
 		float startX = screenSize.x - notificationSize.x - borderWidth - 10.f;  // 10px padding from the right
-		float startY = (screenSize.y / 4.0f) - (notifications.size() * (notificationSize.y + notificationSpacing) / 2.0f);
+		float curY = (screenSize.y / 4.0f) - (notifications.size() * (notificationSize.y + notificationSpacing) / 2.0f);
 
 		std::lock_guard<std::mutex> lock(notificationsMutex);
 
 		for (size_t i = 0; i < notifications.size(); ++i)
 		{
+			auto windowSize = notificationSize;
 			const auto& notification = notifications[i];
 
-			float posY = startY + i * (notificationSize.y + notificationSpacing);
-			ImGui::SetNextWindowPos(ImVec2(startX, posY));
-			ImGui::SetNextWindowSize(notificationSize);
+			ImGui::SetNextWindowPos(ImVec2(startX, curY));
+
+			curY += windowSize.y + notificationSpacing;
 
 			std::string windowName = "Notification " + std::to_string(i);
 			ImGui::Begin(windowName.c_str(), nullptr, ImGuiWindowFlags_NoDecoration |
 				ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoInputs |
 				ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing);
 
-			ImGui::SetWindowFontScale(1.5f);
+			ImGui::SetWindowFontScale(notificationTextScale);
+			ImVec2 textSize = ImGui::CalcTextSize(notification.message.c_str(), nullptr, true, windowSize.x - 20.0f); // Account for padding
 
-			// Calculate offsets to center text
-			ImVec2 textSize = ImGui::CalcTextSize(notification.message.c_str());
-			float offsetX = (notificationSize.x - textSize.x) / 2.0f;
-			float offsetY = (notificationSize.y - textSize.y) / 2.0f;
+			// Adjust window height if text is larger than current window height
+			if (textSize.y + 40.0f > windowSize.y)
+				windowSize.y = textSize.y + 40.0f;
 
-			// Padding
-			float paddingX = 10.0f;
-			float paddingY = 5.0f;
+			ImGui::SetWindowSize(windowSize);
+
+			// Center text with padding
+			float paddingX = 10.0f, paddingY = 5.0f;
+			float offsetX = (windowSize.x - textSize.x) / 2.0f;
+			float offsetY = (windowSize.y - textSize.y) / 2.0f;
 			offsetX = max(offsetX, paddingX);
 			offsetY = max(offsetY, paddingY);
 
-			// Position cursor for centered text
 			ImGui::SetCursorPos(ImVec2(offsetX, offsetY));
 			ImGui::TextWrapped("%s", notification.message.c_str());
+
 			ImGui::End();
 		}
 	}

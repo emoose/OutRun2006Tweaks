@@ -37,6 +37,8 @@ private:
 	Json::Value previousServers;
 	std::mutex dataMutex;
 
+	int numServerUpdates = 0;
+
 	void monitorServers()
 	{
 		while (running)
@@ -57,6 +59,8 @@ private:
 					// Save the current state as the previous state for the next check
 					std::lock_guard<std::mutex> lock(dataMutex);
 					previousServers = currentServers;
+
+					numServerUpdates++;
 				}
 			}
 			catch (const std::exception& e)
@@ -149,25 +153,48 @@ private:
 			}
 		}
 
+		int numValid = 0;
+
 		// Compare current servers to previous identifiers
 		for (const auto& server : currentServers)
 		{
 			if (server.isMember("HostName") && server.isMember("Platform") && server.isMember("Reachable"))
 			{
-				if (server["Reachable"].asBool())
+				bool reachable = server["Reachable"].asBool();
+				if (reachable)
 				{
-					std::string identifier = server["HostName"].asString() + "_" + server["Platform"].asString();
+					numValid++;
+				}
 
-					if (previousIdentifiers.find(identifier) == previousIdentifiers.end())
-						newServer(server);
+				if (numServerUpdates > 0) // have we fetched server info before?
+				{
+					auto hostName = server["HostName"].asString();
+
+					if (!hostName.empty())
+					{
+						std::string identifier = hostName + "_" + server["Platform"].asString();
+						bool ourLobby = !strncmp(hostName.c_str(), Game::SumoNet_OnlineUserName, 16);
+						if (!ourLobby)
+						{
+							if (reachable && previousIdentifiers.find(identifier) == previousIdentifiers.end())
+								Notifications::instance.add(hostName + " started hosting a lobby!");
+						}
+						else
+						{
+							Notifications::instance.add(reachable ?
+								"Your lobby is active & accessible!" :
+								"Your lobby cannot be reached by the master server!\nYou may need to setup port-forwarding for UDP ports 41455/41456/41457.", reachable ? 0 : 20);
+						}
+					}
 				}
 			}
 		}
-	}
 
-	void newServer(const Json::Value& server)
-	{
-		Notifications::instance.add(server["HostName"].asString() + " started hosting a lobby!");
+		if (numServerUpdates == 0 && numValid > 0)
+		{
+			// First update since game launch and we have some servers, write a notify about it
+			Notifications::instance.add("There are " + std::to_string(numValid) + " online lobbies active!");
+		}
 	}
 
 public:
