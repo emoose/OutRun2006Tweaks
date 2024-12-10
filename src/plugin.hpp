@@ -118,6 +118,7 @@ namespace Settings
 
 	inline bool OverlayEnabled = false;
 	inline float OverlayFontScale = 1.5f;
+	inline int OverlayOnlineUpdateFrequency = 10000;
 
 	inline bool FixPegasusClopping = true;
 	inline bool FixRightSideBunkiAnimations = true;

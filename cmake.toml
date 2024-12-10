@@ -20,9 +20,16 @@ set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
 set(UPNPC_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(UPNPC_BUILD_SAMPLE OFF CACHE BOOL "" FORCE)
 set(UPNPC_BUILD_SHARED OFF CACHE BOOL "" FORCE)
+set(JSONCPP_STATIC_WINDOWS_RUNTIME OFF CACHE BOOL "" FORCE)
+set(JSONCPP_WITH_TESTS OFF CACHE BOOL "" FORCE)
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+set(BUILD_STATIC_LIBS ON CACHE BOOL "" FORCE)
+set(BUILD_OBJECT_LIBS ON CACHE BOOL "" FORCE)
 
 option(ZYDIS_BUILD_TOOLS "" OFF)
 option(ZYDIS_BUILD_EXAMPLES "" OFF)
+option(JSONCPP_WITH_TESTS "" OFF)
+option(JSONCPP_STATIC_WINDOWS_RUNTIME "" OFF)
 
 if ("${CMAKE_BUILD_TYPE}" MATCHES "Release")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /MT")
@@ -52,6 +59,7 @@ safetyhook = { git = "https://github.com/cursey/safetyhook", tag = "629558c64009
 ogg = { git = "https://github.com/xiph/ogg", tag = "v1.3.5" }
 flac = { git = "https://github.com/xiph/flac", tag = "1.4.3" }
 miniupnpc = { git = "https://github.com/miniupnp/miniupnp", tag = "miniupnpd_2_3_7", subdir = "miniupnpc" }
+jsoncpp = { git = "https://github.com/open-source-parsers/jsoncpp.git", tag = "1.9.6" }
 
 [target.outrun2006tweaks]
 type = "shared"
@@ -84,6 +92,7 @@ link-libraries = [
     "safetyhook",
     "ogg",
     "FLAC",
+    "jsoncpp_static",
     "version.lib",
     "xinput9_1_0.lib",
     "Hid.lib",

@@ -128,6 +128,7 @@ namespace Settings
 
 		spdlog::info(" - OverlayEnabled: {}", OverlayEnabled);
 		spdlog::info(" - OverlayFontScale: {}", OverlayFontScale);
+		spdlog::info(" - OverlayOnlineUpdateFrequency: {}", OverlayOnlineUpdateFrequency);
 
 		spdlog::info(" - FixPegasusClopping: {}", FixPegasusClopping);
 		spdlog::info(" - FixRightSideBunkiAnimations: {}", FixRightSideBunkiAnimations);
@@ -256,6 +257,7 @@ namespace Settings
 
 		OverlayEnabled = ini.Get("Overlay", "Enabled", std::move(OverlayEnabled));
 		OverlayFontScale = ini.Get("Overlay", "FontScale", std::move(OverlayFontScale));
+		OverlayOnlineUpdateFrequency = ini.Get("Overlay", "OnlineUpdateFrequency", std::move(OverlayOnlineUpdateFrequency));
 
 		FixPegasusClopping = ini.Get("Bugfixes", "FixPegasusClopping", std::move(FixPegasusClopping));
 		FixRightSideBunkiAnimations = ini.Get("Bugfixes", "FixRightSideBunkiAnimations", std::move(FixRightSideBunkiAnimations));
@@ -305,7 +307,7 @@ void Plugin_Init()
 
 	}
 
-	spdlog::info("OutRun2006Tweaks v{} - github.com/emoose/OutRun2006Tweaks", MODULE_VERSION_STR);
+	spdlog::info("OutRun2006Tweaks v" MODULE_VERSION_STR " - github.com/emoose/OutRun2006Tweaks");
 	Module::to_log();
 
 	if (!Settings::read(Module::IniPath))

@@ -364,12 +364,6 @@ class DrawDistanceIncrease : public Hook
 	//   (or possibly all the faces are already included in the current maps, and it's something CullingNode-related which skips drawing them?
 	//    I'm not hopeful about that though, doubt they would have included data for parts that wouldn't be shown)
 
-	// Known bad CullingNode IDs:
-	//  Palm Beach
-	//   (obj4,node0xF1) = breaks railings at the beginning
-	//  Metropolis
-	//   ??? = breaks trees
-
 	inline static uint16_t CollisionNodeIdxArray[4096];
 	inline static std::array<uint8_t, 4096> CollisionNodesToDisplay;
 

@@ -41,9 +41,16 @@ set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
 set(UPNPC_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(UPNPC_BUILD_SAMPLE OFF CACHE BOOL "" FORCE)
 set(UPNPC_BUILD_SHARED OFF CACHE BOOL "" FORCE)
+set(JSONCPP_STATIC_WINDOWS_RUNTIME OFF CACHE BOOL "" FORCE)
+set(JSONCPP_WITH_TESTS OFF CACHE BOOL "" FORCE)
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+set(BUILD_STATIC_LIBS ON CACHE BOOL "" FORCE)
+set(BUILD_OBJECT_LIBS ON CACHE BOOL "" FORCE)
 
 option(ZYDIS_BUILD_TOOLS "" OFF)
 option(ZYDIS_BUILD_EXAMPLES "" OFF)
+option(JSONCPP_WITH_TESTS "" OFF)
+option(JSONCPP_STATIC_WINDOWS_RUNTIME "" OFF)
 
 if ("${CMAKE_BUILD_TYPE}" MATCHES "Release")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /MT")
@@ -112,6 +119,15 @@ FetchContent_Declare(miniupnpc
 )
 FetchContent_MakeAvailable(miniupnpc)
 
+message(STATUS "Fetching jsoncpp (1.9.6)...")
+FetchContent_Declare(jsoncpp
+	GIT_REPOSITORY
+		"https://github.com/open-source-parsers/jsoncpp.git"
+	GIT_TAG
+		1.9.6
+)
+FetchContent_MakeAvailable(jsoncpp)
+
 # Target: spdlog
 set(spdlog_SOURCES
 	cmake.toml
@@ -176,9 +192,12 @@ set(outrun2006tweaks_SOURCES
 	"src/hooks_graphics.cpp"
 	"src/hooks_input.cpp"
 	"src/hooks_misc.cpp"
-	"src/hooks_overlay.cpp"
 	"src/hooks_textures.cpp"
 	"src/hooks_uiscaling.cpp"
+	"src/overlay/hooks_overlay.cpp"
+	"src/overlay/notifications.hpp"
+	"src/overlay/overlay.cpp"
+	"src/overlay/server_notifications.cpp"
 	"src/plugin.hpp"
 	"src/resource.h"
 )
@@ -222,6 +241,7 @@ target_link_libraries(outrun2006tweaks PUBLIC
 	safetyhook
 	ogg
 	FLAC
+	jsoncpp_static
 	version.lib
 	xinput9_1_0.lib
 	Hid.lib
