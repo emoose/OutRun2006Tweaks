@@ -143,6 +143,18 @@ namespace Game
 		return event(8)->data<EVWORK_CAR>();
 	}
 
+	inline bool is_in_game()
+	{
+		return
+			*Game::current_mode == GameState::STATE_GAME ||
+			*Game::current_mode == GameState::STATE_GOAL ||
+			*Game::current_mode == GameState::STATE_TIMEUP ||
+			*Game::current_mode == GameState::STATE_TRYAGAIN ||
+			*Game::current_mode == GameState::STATE_OUTRUNMILES ||
+			*Game::current_mode == GameState::STATE_SMPAUSEMENU ||
+			(*Game::current_mode == GameState::STATE_START && *Game::game_start_progress_code == 65);
+	}
+
 	inline void init()
 	{
 		current_mode = Module::exe_ptr<GameState>(0x38026C);

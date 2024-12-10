@@ -43,7 +43,13 @@ public:
 		ImVec2 screenSize = ImGui::GetIO().DisplaySize;
 
 		// Calculate starting position for the latest notification
-		float startX = screenSize.x - notificationSize.x - 10.0f;  // 10px padding from the right
+		// (move it outside of letterbox if letterboxing enabled)
+		float contentWidth = screenSize.y / (3.f / 4.f);
+		float borderWidth = ((screenSize.x - contentWidth) / 2) + 0.5f;
+		if (Settings::UILetterboxing != 1 || Game::is_in_game())
+			borderWidth = 0;
+
+		float startX = screenSize.x - notificationSize.x - borderWidth - 10.f;  // 10px padding from the right
 		float startY = (screenSize.y / 4.0f) - (notifications.size() * (notificationSize.y + notificationSpacing) / 2.0f);
 
 		std::lock_guard<std::mutex> lock(notificationsMutex);
