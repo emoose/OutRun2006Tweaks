@@ -138,6 +138,11 @@ namespace Game
 		return &s_EventWork[event_id];
 	}
 
+	inline EVWORK_CAR* pl_car()
+	{
+		return event(8)->data<EVWORK_CAR>();
+	}
+
 	inline void init()
 	{
 		current_mode = Module::exe_ptr<GameState>(0x38026C);

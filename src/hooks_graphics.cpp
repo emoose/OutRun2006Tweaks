@@ -62,7 +62,7 @@ class RestoreCarBaseShadow : public Hook
 	static void __cdecl CalcPeraShadow(int a1, int a2, int a3, float a4)
 	{
 		// CalcPeraShadow code from C2C Xbox
-		EVWORK_CAR* car = Game::event(8)->data<EVWORK_CAR>();
+		EVWORK_CAR* car = Game::pl_car();
 
 		Game::mxPushLoadMatrix(&car->matrix_B0);
 		Game::mxTranslate(0.0f, 0.05f, 0.0f);
@@ -283,7 +283,17 @@ class FixZBufferPrecision : public Hook
 				if (camera->camera_mode_timer_364 != 0 || *Game::current_mode != STATE_GAME)
 					camera->perspective_znear_BC = 0.1f; // set znear to 0.1 during camera switch / cutscene
 				else
-					camera->perspective_znear_BC = 0.3f; // 0.3 seems fine for in-car view, doesn't improve as much as 1.0f but still better than 0.1f
+				{
+					float in_car_view_znear = 0.25f; // 0.25 seems fine for in-car view, doesn't improve as much as 1.0f but still better than 0.1f
+					auto* pl_car = Game::pl_car();
+					if (pl_car)
+					{
+						if (pl_car->car_kind_11 == 7) // 360SP still shows gap with 0.25
+							in_car_view_znear = 0.2f;
+					}
+
+					camera->perspective_znear_BC = in_car_view_znear;
+				} 
 			}
 		}
 		CalcCameraMatrix.call(camera);

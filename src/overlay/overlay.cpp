@@ -49,7 +49,8 @@ void Overlay_GlobalsWindow()
 
 	ImGui::Separator();
 	ImGui::Text("Info");
-	EVWORK_CAR* car = Game::event(8)->data<EVWORK_CAR>();
+	EVWORK_CAR* car = Game::pl_car();
+	ImGui::Text("Car kind: %d", int(car->car_kind_11));
 	ImGui::Text("Car position: %.3f %.3f %.3f", car->position_14.x, car->position_14.y, car->position_14.z);
 	ImGui::Text("OnRoadPlace coli %d, stg %d, section %d",
 		car->OnRoadPlace_5C.loadColiType_0,
