@@ -296,6 +296,8 @@ void CDSwitcher_ReadIni(const std::filesystem::path& iniPath)
 		Settings::CDSwitcherEnable = false;
 	}
 
+	std::vector<std::pair<std::string, std::string>> iniTracks;
+
 	std::ifstream file(iniPath);
 	if (file && file.is_open())
 	{
@@ -319,7 +321,7 @@ void CDSwitcher_ReadIni(const std::filesystem::path& iniPath)
 				{
 					std::string path = Util::trim(line.substr(0, delimiterPos));
 					std::string name = Util::trim(line.substr(delimiterPos + 1));
-					Settings::CDTracks.emplace_back(path, name);
+					iniTracks.emplace_back(path, name);
 					spdlog::info(" - CDTracks: Added track {} ({})", name, path);
 
 					// Check both paths that the CDSwitcher code looks in
@@ -336,12 +338,19 @@ void CDSwitcher_ReadIni(const std::filesystem::path& iniPath)
 		file.close();
 	}
 
+	if (iniTracks.size() <= 0)
+		return;
+
 	if (Settings::CDSwitcherShuffleTracks)
 	{
 		std::random_device rd;
 		std::mt19937 g(rd());
 
 		// Use std::shuffle to shuffle the vector
-		std::shuffle(Settings::CDTracks.begin(), Settings::CDTracks.end(), g);
+		std::shuffle(iniTracks.begin(), iniTracks.end(), g);
 	}
+
+	// replace old tracklist with the one from this INI
+	// (if user had specified tracks in user.ini they likely meant to replace the defaults)
+	Settings::CDTracks = iniTracks;
 }
