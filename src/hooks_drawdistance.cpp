@@ -383,13 +383,24 @@ class DrawDistanceIncrease : public Hook
 
 		auto& objectExclusions = ObjectExclusionsPerStage[*Game::stg_stage_num];
 
+		int maxDrawDistance = Settings::DrawDistanceIncrease;
+
+		// Per-stage overrides
+		if (!Game::DrawDistanceDebugEnabled)
+		{
+			// CANYON: when cur section is lower than 30 (car inside bunki), limit draw dist to ~80
+			// prevents some far-off stage parts drawing in the air
+			if (*Game::stg_stage_num == 20 /* CANYON */ && CsLengthNum < 30)
+				maxDrawDistance = min(maxDrawDistance, 80);
+		}
+
 		NumObjects = *(int*)(ctx.esp + 0x18);
 		for (int ObjectNum = 0; ObjectNum < NumObjects; ObjectNum++)
 		{
 			memset(CollisionNodesToDisplay.data(), 0, CollisionNodesToDisplay.size());
 			uint16_t* cur = CollisionNodeIdxArray;
 
-			for (int csOffset = -Settings::DrawDistanceBehind; csOffset < (Settings::DrawDistanceIncrease + 1); csOffset++)
+			for (int csOffset = -Settings::DrawDistanceBehind; csOffset < (maxDrawDistance + 1); csOffset++)
 			{
 				if (csOffset != 0)
 				{
@@ -403,7 +414,7 @@ class DrawDistanceIncrease : public Hook
 				}
 
 				// DEBUG: clear lastadds for this objectnum here
-				if (Game::DrawDistanceDebugEnabled && csOffset == Settings::DrawDistanceIncrease)
+				if (Game::DrawDistanceDebugEnabled && csOffset == maxDrawDistance)
 				{
 					ObjectNodes[ObjectNum].clear();
 				}
@@ -428,7 +439,7 @@ class DrawDistanceIncrease : public Hook
 						}
 
 						// DEBUG: add *sectionCollList to lastadds list here
-						if (Game::DrawDistanceDebugEnabled && csOffset == Settings::DrawDistanceIncrease)
+						if (Game::DrawDistanceDebugEnabled && csOffset == maxDrawDistance)
 							ObjectNodes[ObjectNum].push_back(*sectionCollList);
 
 						num++;

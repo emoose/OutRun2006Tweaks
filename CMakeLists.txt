@@ -156,6 +156,8 @@ target_include_directories(spdlog PUBLIC
 
 # Target: outrun2006tweaks
 set(outrun2006tweaks_SOURCES
+	OutRun2006Tweaks.ini
+	OutRun2006Tweaks.lods.ini
 	cmake.toml
 	"external/ModUtils/MemoryMgr.h"
 	"external/ModUtils/Patterns.cpp"

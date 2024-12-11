@@ -63,7 +63,7 @@ jsoncpp = { git = "https://github.com/open-source-parsers/jsoncpp.git", tag = "1
 
 [target.outrun2006tweaks]
 type = "shared"
-sources = ["src/**.cpp", "src/**.c", "src/**.def", "src/Resource.rc",
+sources = ["*.ini", "src/**.cpp", "src/**.c", "src/**.def", "src/Resource.rc",
     "external/ModUtils/Patterns.cpp",
     "external/xxHash/xxhash.c",
     "external/miniz/miniz.c",
