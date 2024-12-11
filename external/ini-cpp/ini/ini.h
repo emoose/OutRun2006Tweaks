@@ -228,7 +228,7 @@ class INIReader {
 
     template <typename T>
     T Get(const std::string& section, const std::string& name,
-          T&& default_v) const;
+          T& default_v) const;
 
     template <typename T = std::string>
     std::vector<T> GetVector(const std::string& section,
@@ -395,7 +395,7 @@ inline T INIReader::Get(const std::string& section,
  */
 template <typename T>
 inline T INIReader::Get(const std::string& section, const std::string& name,
-                        T&& default_v) const {
+                        T& default_v) const {
     try {
         return Get<T>(section, name);
     } catch (std::runtime_error& e) {
