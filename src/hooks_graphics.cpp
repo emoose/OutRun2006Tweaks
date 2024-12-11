@@ -274,7 +274,7 @@ class FixZBufferPrecision : public Hook
 			// only set znear to 1 if...
 			if ((camera->camera_mode_34A == 2 || camera->camera_mode_34A == 0) // ... in third-person or FPV
 				&& camera->camera_mode_timer_364 == 0 // ... not switching cameras
-				&& *Game::current_mode == STATE_GAME) // ... we're in main game state (not in STATE_START cutscene etc)
+				&& (*Game::current_mode == STATE_GAME || *Game::current_mode == STATE_GOAL)) // ... we're in main game state (not in STATE_START cutscene etc)
 			{
 				camera->perspective_znear_BC = 1.0f;
 			}
