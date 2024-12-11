@@ -122,7 +122,7 @@ class WndprocHook : public Hook
 		}
 		else
 		{
-			if (!Settings::OverlayEnabled && Settings::WindowedHideMouseCursor)
+			if (Settings::WindowedHideMouseCursor)
 			{
 				if (msg == WM_SETFOCUS || (msg == WM_ACTIVATE && lParam != WA_INACTIVE))
 				{

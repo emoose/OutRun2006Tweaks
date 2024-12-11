@@ -66,6 +66,10 @@ private:
 			catch (const std::exception& e)
 			{
 			}
+
+			if (Settings::OverlayNotifyOnlineUpdateTime < 10)
+				Settings::OverlayNotifyOnlineUpdateTime = 10; // pls don't hammer us
+
 			std::this_thread::sleep_for(std::chrono::seconds(Settings::OverlayNotifyOnlineUpdateTime));
 		}
 	}

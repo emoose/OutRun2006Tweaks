@@ -122,7 +122,7 @@ namespace Settings
 	inline float OverlayFontScale = 1.5f;
 	inline int OverlayNotifyDisplayTime = 7;
 	inline bool OverlayNotifyOnlineEnable = true;
-	inline int OverlayNotifyOnlineUpdateTime = 10;
+	inline int OverlayNotifyOnlineUpdateTime = 20;
 	inline int OverlayNotifyHideMode = 1;
 
 	enum NotifyHideMode
