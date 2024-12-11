@@ -20,7 +20,7 @@ void Overlay_GlobalsWindow()
 {
 	extern bool EnablePauseMenu;
 
-	ImGui::Begin("Globals");
+	ImGui::Begin("Globals", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
 
 	ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.51f, 0.00f, 0.14f, 0.00f));
 	if (ImGui::Button("-"))
@@ -44,8 +44,6 @@ void Overlay_GlobalsWindow()
 	ImGui::PopStyleColor();
 	ImGui::SameLine();
 	ImGui::Text("Overlay Font Size");
-
-	ImGui::SliderInt("Online Update Freq.", &Settings::OverlayOnlineUpdateFrequency, 0, 30000);
 
 	ImGui::Separator();
 	ImGui::Text("Info");
@@ -90,7 +88,34 @@ void Overlay_GlobalsWindow()
 	ImGui::End();
 }
 
-bool overlay_show_tip = true;
+void Overlay_NotificationSettings()
+{
+	ImVec2 screenSize = ImGui::GetIO().DisplaySize;
+
+	// Calculate starting position for the latest notification
+	// (move it outside of letterbox if letterboxing enabled)
+	float contentWidth = screenSize.y / (3.f / 4.f);
+	float borderWidth = ((screenSize.x - contentWidth) / 2) + 0.5f;
+	if (Settings::UILetterboxing != 1 || Game::is_in_game())
+		borderWidth = 0;
+
+	float startX = screenSize.x - notificationSize.x - borderWidth - 10.f;  // 10px padding from the right
+	float curY = (screenSize.y / 4.0f);
+
+	ImGui::SetNextWindowPos(ImVec2(startX, curY));
+
+	ImGui::Begin("Notification Settings", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
+
+	ImGui::SliderInt("Display Time", &Settings::OverlayNotifyDisplayTime, 0, 60);
+
+	ImGui::Checkbox("Enable Online Lobby Notifications", &Settings::OverlayNotifyOnlineEnable);
+	ImGui::SliderInt("Online Update Time", &Settings::OverlayNotifyOnlineUpdateTime, 10, 60);
+
+	static const char* items[]{ "Never Hide", "Online Race", "Any Race" };
+	ImGui::Combo("Hide During", &Settings::OverlayNotifyHideMode, items, IM_ARRAYSIZE(items));
+
+	ImGui::End();
+}
 
 void Overlay_Init()
 {
@@ -105,7 +130,6 @@ bool Overlay_Update()
 	bool f11_pressed = (GetAsyncKeyState(VK_F11) & 1);
 	if (f11_prev_state && !f11_pressed) // f11 was pressed and now released?
 	{
-		overlay_show_tip = false;
 		overlay_visible = !overlay_visible;
 		if (overlay_visible)
 			ShowCursor(true);
@@ -132,6 +156,7 @@ bool Overlay_Update()
 #endif
 
 		Overlay_GlobalsWindow();
+		Overlay_NotificationSettings();
 
 		if (Game::DrawDistanceDebugEnabled)
 		{

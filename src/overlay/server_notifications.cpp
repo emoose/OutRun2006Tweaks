@@ -43,7 +43,7 @@ private:
 	{
 		while (running)
 		{
-			if (!Settings::OverlayOnlineUpdateFrequency)
+			if (!Settings::OverlayNotifyOnlineEnable || !Settings::OverlayNotifyOnlineUpdateTime)
 				return;
 
 			try
@@ -66,7 +66,7 @@ private:
 			catch (const std::exception& e)
 			{
 			}
-			std::this_thread::sleep_for(std::chrono::milliseconds(Settings::OverlayOnlineUpdateFrequency));
+			std::this_thread::sleep_for(std::chrono::seconds(Settings::OverlayNotifyOnlineUpdateTime));
 		}
 	}
 

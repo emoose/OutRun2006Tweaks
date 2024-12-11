@@ -54,6 +54,13 @@ public:
 			}
 		}
 
+		if (Game::is_in_game())
+		{
+			if (Settings::OverlayNotifyHideMode == Settings::NotifyHideMode_AllRaces)
+				return;
+			// todo: check if connected to lobby & Settings::NotifyHideMode_OnlineRaces
+		}
+
 		ImVec2 screenSize = ImGui::GetIO().DisplaySize;
 
 		// Calculate starting position for the latest notification

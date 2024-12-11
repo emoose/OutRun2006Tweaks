@@ -128,7 +128,10 @@ namespace Settings
 
 		spdlog::info(" - OverlayEnabled: {}", OverlayEnabled);
 		spdlog::info(" - OverlayFontScale: {}", OverlayFontScale);
-		spdlog::info(" - OverlayOnlineUpdateFrequency: {}", OverlayOnlineUpdateFrequency);
+		spdlog::info(" - OverlayNotifyDisplayTime: {}", OverlayNotifyDisplayTime);
+		spdlog::info(" - OverlayNotifyOnlineEnable: {}", OverlayNotifyOnlineEnable);
+		spdlog::info(" - OverlayNotifyOnlineUpdateTime: {}", OverlayNotifyOnlineUpdateTime);
+		spdlog::info(" - OverlayNotifyHideMode: {}", OverlayNotifyHideMode);
 
 		spdlog::info(" - FixPegasusClopping: {}", FixPegasusClopping);
 		spdlog::info(" - FixRightSideBunkiAnimations: {}", FixRightSideBunkiAnimations);
@@ -257,7 +260,10 @@ namespace Settings
 
 		OverlayEnabled = ini.Get("Overlay", "Enabled", OverlayEnabled);
 		OverlayFontScale = ini.Get("Overlay", "FontScale", OverlayFontScale);
-		OverlayOnlineUpdateFrequency = ini.Get("Overlay", "OnlineUpdateFrequency", OverlayOnlineUpdateFrequency);
+		OverlayNotifyDisplayTime = ini.Get("Overlay", "NotifyDisplayTime", OverlayNotifyDisplayTime);
+		OverlayNotifyOnlineEnable = ini.Get("Overlay", "NotifyOnlineEnable", OverlayNotifyOnlineEnable);
+		OverlayNotifyOnlineUpdateTime = ini.Get("Overlay", "NotifyOnlineUpdateTime", OverlayNotifyOnlineUpdateTime);
+		OverlayNotifyHideMode = ini.Get("Overlay", "NotifyHideMode", OverlayNotifyHideMode);
 
 		FixPegasusClopping = ini.Get("Bugfixes", "FixPegasusClopping", FixPegasusClopping);
 		FixRightSideBunkiAnimations = ini.Get("Bugfixes", "FixRightSideBunkiAnimations", FixRightSideBunkiAnimations);

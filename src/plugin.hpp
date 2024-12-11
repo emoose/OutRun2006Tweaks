@@ -120,7 +120,17 @@ namespace Settings
 
 	inline bool OverlayEnabled = true;
 	inline float OverlayFontScale = 1.5f;
-	inline int OverlayOnlineUpdateFrequency = 10000;
+	inline int OverlayNotifyDisplayTime = 7;
+	inline bool OverlayNotifyOnlineEnable = true;
+	inline int OverlayNotifyOnlineUpdateTime = 10;
+	inline int OverlayNotifyHideMode = 1;
+
+	enum NotifyHideMode
+	{
+		NotifyHideMode_Never = 0,
+		NotifyHideMode_OnlineRaces = 1,
+		NotifyHideMode_AllRaces = 2
+	};
 
 	inline bool FixPegasusClopping = true;
 	inline bool FixRightSideBunkiAnimations = true;
