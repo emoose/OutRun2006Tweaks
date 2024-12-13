@@ -40,6 +40,7 @@ namespace Game
 	inline float DeltaTime = (1.f / 60.f);
 
 	inline bool DrawDistanceDebugEnabled = false;
+	inline bool CourseReplacementEnabled = false;
 };
 
 namespace Settings
@@ -207,4 +208,13 @@ namespace Util
 	{
 		return ltrim(rtrim(s));
 	}
+}
+
+inline void WaitForDebugger()
+{
+#ifdef _DEBUG
+	while (!IsDebuggerPresent())
+	{
+	}
+#endif
 }

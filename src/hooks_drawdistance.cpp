@@ -56,7 +56,7 @@ void DrawDist_DrawOverlay()
 		return;
 	}
 
-	int cur_stage_num = *Game::stg_stage_num;
+	GameStage cur_stage_num = *Game::stg_stage_num;
 	const char* cur_stage_name = Game::GetStageUniqueName(cur_stage_num);
 	auto& objectExclusions = ObjectExclusionsPerStage[cur_stage_num];
 
@@ -159,7 +159,7 @@ void DrawDist_DrawOverlay()
 			}
 		}
 		if (!clipboard.empty())
-			clipboard = std::format("# {}\n[Stage {}]{}", cur_stage_name, cur_stage_num, clipboard);
+			clipboard = std::format("# {}\n[Stage {}]{}", cur_stage_name, int(cur_stage_num), clipboard);
 
 		HGLOBAL hMem = GlobalAlloc(GMEM_MOVEABLE, clipboard.length() + 1);
 		if (hMem)
@@ -390,7 +390,7 @@ class DrawDistanceIncrease : public Hook
 		{
 			// CANYON: when cur section is lower than 30 (car inside bunki), limit draw dist to ~80
 			// prevents some far-off stage parts drawing in the air
-			if (*Game::stg_stage_num == 20 /* CANYON */ && CsLengthNum < 30)
+			if (*Game::stg_stage_num == STAGE_GRAND_CANYON && CsLengthNum < 30)
 				maxDrawDistance = min(maxDrawDistance, 80);
 		}
 

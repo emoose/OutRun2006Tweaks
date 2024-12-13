@@ -166,9 +166,7 @@ private:
 			{
 				bool reachable = server["Reachable"].asBool();
 				if (reachable)
-				{
 					numValid++;
-				}
 
 				if (numServerUpdates > 0) // have we fetched server info before?
 				{
@@ -177,6 +175,7 @@ private:
 					if (!hostName.empty())
 					{
 						std::string identifier = hostName + "_" + server["Platform"].asString();
+
 						bool ourLobby = !strncmp(hostName.c_str(), Game::SumoNet_OnlineUserName, 16);
 						if (!ourLobby)
 						{
@@ -185,9 +184,10 @@ private:
 						}
 						else
 						{
-							Notifications::instance.add(reachable ?
-								"Your lobby is active & accessible!" :
-								"Your lobby cannot be reached by the master server!\nYou may need to setup port-forwarding for UDP ports 41455/41456/41457.", reachable ? 0 : 20);
+							if (*Game::SumoNet_CurNetDriver && (*Game::SumoNet_CurNetDriver)->is_hosting_online())
+								Notifications::instance.add(reachable ?
+									"Your lobby is active & accessible!" :
+									"Your lobby cannot be reached by the master server!\nYou may need to setup port-forwarding for UDP ports 41455/41456/41457.", reachable ? 0 : 20);
 						}
 					}
 				}

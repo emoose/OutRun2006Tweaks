@@ -56,7 +56,7 @@ void Overlay_GlobalsWindow()
 		car->OnRoadPlace_5C.curStageIdx_C,
 		car->OnRoadPlace_5C.roadSectionNum_8);
 
-	int cur_stage_num = *Game::stg_stage_num;
+	GameStage cur_stage_num = *Game::stg_stage_num;
 	const char* cur_stage_name = Game::GetStageUniqueName(cur_stage_num);
 	ImGui::Text("Loaded Stage: %d (%s)", cur_stage_num, cur_stage_name);
 
@@ -158,6 +158,9 @@ bool Overlay_Update()
 
 		Overlay_GlobalsWindow();
 		Overlay_NotificationSettings();
+
+		void Overlay_CourseEditor();
+		Overlay_CourseEditor();
 
 		if (Game::DrawDistanceDebugEnabled)
 		{

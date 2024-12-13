@@ -51,7 +51,7 @@ namespace Game
 	inline int* app_time = nullptr; // used by SetTweeningTable etc
 	inline int* sprani_num_ticks = nullptr; // number of game ticks being ran in the current frame (can be 0 if above 60FPS)
 
-	inline int* stg_stage_num = nullptr;
+	inline GameStage* stg_stage_num = nullptr;
 
 	inline D3DXVECTOR2* screen_scale = nullptr;
 
@@ -102,6 +102,8 @@ namespace Game
 	inline fn_stdcall_1arg_int Sumo_CheckRacerUnlocked = nullptr;
 
 	inline const char* SumoNet_OnlineUserName = nullptr;
+	inline SumoNet_MatchMakingInfo* SumoNet_LobbyInfo = nullptr;
+	inline SumoNet_NetDriver** SumoNet_CurNetDriver = nullptr;
 
 	// 2d sprite drawing
 	inline fn_1arg sprSetFontPriority = nullptr;
@@ -179,7 +181,7 @@ namespace Game
 		app_time = Module::exe_ptr<int>(0x49EDB8);
 		sprani_num_ticks = Module::exe_ptr<int>(0x380278);
 
-		stg_stage_num = Module::exe_ptr<int>(0x3D2E8C);
+		stg_stage_num = Module::exe_ptr<GameStage>(0x3D2E8C);
 
 		screen_scale = Module::exe_ptr<D3DXVECTOR2>(0x340C94);
 
@@ -228,6 +230,8 @@ namespace Game
 		Sumo_CheckRacerUnlocked = Module::fn_ptr<fn_stdcall_1arg_int>(0xE8410);
 
 		SumoNet_OnlineUserName = Module::exe_ptr<const char>(0x430C20);
+		SumoNet_LobbyInfo = Module::exe_ptr<SumoNet_MatchMakingInfo>(0x37FF90);
+		SumoNet_CurNetDriver = Module::exe_ptr<SumoNet_NetDriver*>(0x3D68AC);
 
 		sprSetFontPriority = Module::fn_ptr<fn_1arg>(0x2CCB0);
 		sprSetPrintFont = Module::fn_ptr<fn_1arg>(0x2CA60);

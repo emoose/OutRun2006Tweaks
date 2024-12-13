@@ -121,6 +121,104 @@ enum GameState
 	STATE_SUMOREWARD = 0x24,
 };
 
+enum GameStage : int
+{
+	STAGE_PALM_BEACH,
+	STAGE_DEEP_LAKE,
+	STAGE_INDUSTRIAL_COMPLEX,
+	STAGE_ALPINE,
+	STAGE_SNOW_MOUNTAIN,
+	STAGE_CLOUDY_HIGHLAND,
+	STAGE_CASTLE_WALL,
+	STAGE_GHOST_FOREST,
+	STAGE_CONIFEROUS_FOREST,
+	STAGE_DESERT,
+	STAGE_TULIP_GARDEN,
+	STAGE_METROPOLIS,
+	STAGE_ANCIENT_RUINS,
+	STAGE_CAPE_WAY,
+	STAGE_IMPERIAL_AVENUE,
+	STAGE_BEACH,
+	STAGE_SEQUOIA,
+	STAGE_NIAGARA,
+	STAGE_LAS_VEGAS,
+	STAGE_ALASKA,
+	STAGE_GRAND_CANYON,
+	STAGE_SAN_FRANCISCO,
+	STAGE_AMAZON,
+	STAGE_MACHU_PICCHU,
+	STAGE_YOSEMITE,
+	STAGE_MAYA,
+	STAGE_NEW_YORK,
+	STAGE_PRINCE_EDWARD,
+	STAGE_FLORIDA,
+	STAGE_EASTER_ISLAND,
+	STAGE_PALM_BEACH_R,
+	STAGE_DEEP_LAKE_R,
+	STAGE_INDUSTRIAL_COMPLEX_R,
+	STAGE_ALPINE_R,
+	STAGE_SNOW_MOUNTAIN_R,
+	STAGE_CLOUDY_HIGHLAND_R,
+	STAGE_CASTLE_WALL_R,
+	STAGE_GHOST_FOREST_R,
+	STAGE_CONIFEROUS_FOREST_R,
+	STAGE_DESERT_R,
+	STAGE_TULIP_GARDEN_R,
+	STAGE_METROPOLIS_R,
+	STAGE_ANCIENT_RUINS_R,
+	STAGE_CAPE_WAY_R,
+	STAGE_IMPERIAL_AVENUE_R,
+	STAGE_BEACH_R,
+	STAGE_SEQUOIA_R,
+	STAGE_NIAGARA_R,
+	STAGE_LAS_VEGAS_R,
+	STAGE_ALASKA_R,
+	STAGE_GRAND_CANYON_R,
+	STAGE_SAN_FRANCISCO_R,
+	STAGE_AMAZON_R,
+	STAGE_MACHU_PICCHU_R,
+	STAGE_YOSEMITE_R,
+	STAGE_MAYA_R,
+	STAGE_NEW_YORK_R,
+	STAGE_PRINCE_EDWARD_R,
+	STAGE_FLORIDA_R,
+	STAGE_EASTER_ISLAND_R,
+	STAGE_PALM_BEACH_T,
+	STAGE_BEACH_T,
+	STAGE_PALM_BEACH_BT,
+	STAGE_BEACH_BT,
+	STAGE_PALM_BEACH_BR,
+	STAGE_BEACH_BR
+};
+static_assert(sizeof(GameStage) == 4);
+
+struct TAG_model_info
+{
+	uint8_t todo[0x98];
+};
+static_assert(sizeof(TAG_model_info) == 0x98);
+
+struct StageTable_mb
+{
+	GameStage StageUniqueName_0;
+	int StageTableIdx_4;
+	uint32_t field_8;
+	uint32_t field_C;
+	int ExtendedTime_10;
+	TAG_model_info* CsInfoPtr_14;
+	TAG_model_info* BrInfoPtr_18;
+	int CsInfoId_1C;
+	int BrInfoId_20;
+	int ExitTableIdx_24[2];
+	int ExitIDs_2C[2];
+	uint8_t gap34[48];
+	struct tagOthcarPercentTable* OthcarPercentTablePtr_64;
+	void* OthcarPercentTablePtr_68;
+	uint32_t field_6C;
+	uint32_t field_70;
+	uint32_t field_74;
+};
+
 enum ChrSet
 {
 	CHR_AUT01 = 0,
@@ -500,6 +598,8 @@ typedef struct tagEVWORK_CAR
   float field_10DC;
   float field_10E0;
   uint8_t unk_10E4[12];
+
+  inline bool is_in_bunki() { return OnRoadPlace_5C.loadColiType_0 != 0; }
 } EVWORK_CAR;
 static_assert(sizeof(EVWORK_CAR) == 0x10F0);
 // car0 = 0x7804B0
@@ -632,11 +732,48 @@ typedef struct TDrawBuffer
 } DrawBuffer;
 static_assert(sizeof(DrawBuffer) == 0x1C);
 
-inline void WaitForDebugger()
+struct SumoNet_MatchMakingInfo
 {
-#ifdef _DEBUG
-	while (!IsDebuggerPresent())
+	uint32_t SlotCount_0;
+	uint32_t SlotCount_4;
+	int SlotCount_8;
+	int SlotCount_C;
+	char unk_field_24_10;
+	uint8_t unk_11[3];
+	uint32_t MatchType_14;
+	uint32_t Nationality_18;
+	uint32_t unk_field_54_1C;
+	uint32_t unk_field_58_20;
+	uint32_t CourseType_24;
+	uint32_t Course_28;
+	uint32_t unk_field_64_2C;
+	uint32_t CarClass_30;
+	uint32_t CarType_34;
+	uint32_t CatchUp_38;
+	uint32_t unk_field_74_3C;
+	uint32_t Collision_40;
+	uint32_t unk_field_7C_44;
+	char LobbyName_48[16];
+};
+static_assert(sizeof(SumoNet_MatchMakingInfo) == 0x58);
+
+struct SumoNet_NetDriver
+{
+	uint32_t vftable;
+	uint8_t unk_4;
+	uint8_t is_hosting_5;
+	uint8_t unk_6;
+	uint8_t is_online_7;
+
+	inline bool is_online_driver()
 	{
+		// some other drivers seem to be for lan/online/etc
+		// TODO: should probably use Module::exe_ptr here, but it's not included atm..
+		return vftable == 0x627EB8;
 	}
-#endif
-}
+
+	inline bool is_hosting_online()
+	{
+		return is_online_driver() && is_hosting_5 && is_online_7;
+	}
+};

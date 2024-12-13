@@ -196,6 +196,7 @@ set(outrun2006tweaks_SOURCES
 	"src/hooks_misc.cpp"
 	"src/hooks_textures.cpp"
 	"src/hooks_uiscaling.cpp"
+	"src/overlay/course_editor.cpp"
 	"src/overlay/hooks_overlay.cpp"
 	"src/overlay/notifications.hpp"
 	"src/overlay/overlay.cpp"
