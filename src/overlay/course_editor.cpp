@@ -6,9 +6,12 @@
 #include "game_addrs.hpp"
 #include <imgui.h>
 #include "notifications.hpp"
+#include <array>
 
-StageTable_mb CustomStageTable[0x40];
+std::array<StageTable_mb, 0x40> CustomStageTable;
 int CustomStageTableCount = 0;
+
+char ShareCode[256];
 
 class CourseReplacement : public Hook
 {
@@ -21,12 +24,12 @@ class CourseReplacement : public Hook
 		// If replacement is disabled we'll copy the loaded one into our replacement table, so user has something to modify
 		if (!Game::CourseReplacementEnabled || !CustomStageTableCount)
 		{
-			CustomStageTableCount = *SumoScript_StageTableCount;
-			memcpy(CustomStageTable, (void*)ctx.ebx, sizeof(StageTable_mb) * CustomStageTableCount);
+			CustomStageTableCount = min(*SumoScript_StageTableCount, CustomStageTable.size());
+			memcpy(CustomStageTable.data(), (void*)ctx.ebx, sizeof(StageTable_mb) * CustomStageTableCount);
 		}
 		else
 		{
-			ctx.ebx = (uintptr_t)CustomStageTable;
+			ctx.ebx = (uintptr_t)CustomStageTable.data();
 			ctx.esi = ctx.ebx;
 			*SumoScript_StageTableCount = CustomStageTableCount;
 		}
@@ -61,6 +64,8 @@ public:
 	static CourseReplacement instance;
 };
 CourseReplacement CourseReplacement::instance;
+
+void sharecode_generate();
 
 bool update_stage(StageTable_mb* tableEntry, GameStage newStage, bool isGoalColumn)
 {
@@ -102,7 +107,60 @@ bool update_stage(StageTable_mb* tableEntry, GameStage newStage, bool isGoalColu
 	tableEntry->CsInfoPtr_14 = cs_info_tbl[tableEntry->CsInfoId_1C];
 	tableEntry->BrInfoPtr_18 = br_info_tbl[tableEntry->BrInfoId_20];
 
+	sharecode_generate();
+
 	return true;
+}
+
+void sharecode_generate()
+{
+	std::string code = "";
+	for (int i = 0; i < 15; i++)
+	{
+		auto& stg = CustomStageTable[i];
+		code += std::format("{:X}-", int(stg.StageUniqueName_0));
+	}
+	if (code.empty())
+		return;
+
+	code = code.substr(0, code.length() - 1);
+	strcpy(ShareCode, code.c_str());
+}
+
+void sharecode_apply()
+{
+	std::string code = ShareCode;
+
+	size_t start = 0;
+	size_t end;
+
+	int num = 0;
+	do
+	{
+		if (num >= CustomStageTable.size())
+			break;
+
+		end = code.find('-', start);
+		std::string part = code.substr(start, (end == std::string::npos) ? std::string::npos : end - start);
+
+		int stageNum = 0;
+		try
+		{
+			stageNum = std::stol(part, nullptr, 16);
+		}
+		catch (...)
+		{
+			stageNum = 0;
+		}
+		if (stageNum < 0 || stageNum >= 0x42)
+			stageNum = 0;
+
+		update_stage(&CustomStageTable[num], GameStage(stageNum), num > 9);
+
+		num++;
+
+		start = end + 1;
+	} while (end != std::string::npos);
 }
 
 void Overlay_CourseEditor()
@@ -136,7 +194,8 @@ void Overlay_CourseEditor()
 		if (disable_checkbox)
 			ImGui::BeginDisabled();
 
-		ImGui::Checkbox("Enable Course Override (use in C2C OutRun mode)", &Game::CourseReplacementEnabled);
+		if (ImGui::Checkbox("Enable Course Override (use in C2C OutRun mode)", &Game::CourseReplacementEnabled))
+			sharecode_generate();
 
 		if (disable_checkbox)
 			ImGui::EndDisabled();
@@ -164,7 +223,7 @@ void Overlay_CourseEditor()
 	bool has_updated = false;
 
 	int num = 0;
-	StageTable_mb* curStage = CustomStageTable;
+	StageTable_mb* curStage = CustomStageTable.data();
 	for (int col = 0; col < 5; ++col)
 	{
 		float columnHeight = (comboHeight + verticalSpacing) * (col + 1) - verticalSpacing;
@@ -221,6 +280,14 @@ void Overlay_CourseEditor()
 		if (col + 1 < 5)
 			ImGui::SameLine(0, 20.0f);
 	}
+
+	ImGui::Text("Share Code: ");
+	ImGui::SameLine();
+	ImGui::SetNextItemWidth(400.f);
+	ImGui::InputText("##ShareCode", ShareCode, 256);
+	ImGui::SameLine();
+	if (ImGui::Button("Apply Code"))
+		sharecode_apply();
 
 	if (editor_disabled)
 	{
