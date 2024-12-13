@@ -7,11 +7,89 @@
 #include <imgui.h>
 #include "notifications.hpp"
 #include <array>
+#include <random>
 
 std::array<StageTable_mb, 0x40> CustomStageTable;
 int CustomStageTableCount = 0;
 
 char ShareCode[256];
+
+const std::vector<GameStage> stages_or2_day = {
+	STAGE_PALM_BEACH,
+	STAGE_DEEP_LAKE,
+	STAGE_INDUSTRIAL_COMPLEX,
+	STAGE_ALPINE,
+	STAGE_SNOW_MOUNTAIN,
+	STAGE_CLOUDY_HIGHLAND,
+	STAGE_CASTLE_WALL,
+	STAGE_GHOST_FOREST,
+	STAGE_CONIFEROUS_FOREST,
+	STAGE_DESERT,
+	STAGE_TULIP_GARDEN,
+	STAGE_METROPOLIS,
+	STAGE_ANCIENT_RUINS,
+	STAGE_CAPE_WAY,
+	STAGE_IMPERIAL_AVENUE
+};
+const std::vector<GameStage> stages_or2_night = {
+	STAGE_PALM_BEACH_BT,
+	STAGE_PALM_BEACH_BR,
+};
+const std::vector<GameStage> stages_or2_reverse = {
+	STAGE_PALM_BEACH_R,
+	STAGE_DEEP_LAKE_R,
+	STAGE_INDUSTRIAL_COMPLEX_R,
+	STAGE_ALPINE_R,
+	STAGE_SNOW_MOUNTAIN_R,
+	STAGE_CLOUDY_HIGHLAND_R,
+	STAGE_CASTLE_WALL_R,
+	STAGE_GHOST_FOREST_R,
+	STAGE_CONIFEROUS_FOREST_R,
+	STAGE_DESERT_R,
+	STAGE_TULIP_GARDEN_R,
+	STAGE_METROPOLIS_R,
+	STAGE_ANCIENT_RUINS_R,
+	STAGE_CAPE_WAY_R,
+	STAGE_IMPERIAL_AVENUE_R,
+};
+const std::vector<GameStage> stages_or2sp_day = {
+	STAGE_BEACH,
+	STAGE_SEQUOIA,
+	STAGE_NIAGARA,
+	STAGE_LAS_VEGAS,
+	STAGE_ALASKA,
+	STAGE_GRAND_CANYON,
+	STAGE_SAN_FRANCISCO,
+	STAGE_AMAZON,
+	STAGE_MACHU_PICCHU,
+	STAGE_YOSEMITE,
+	STAGE_MAYA,
+	STAGE_NEW_YORK,
+	STAGE_PRINCE_EDWARD,
+	STAGE_FLORIDA,
+	STAGE_EASTER_ISLAND
+};
+const std::vector<GameStage> stages_or2sp_night = {
+	STAGE_BEACH_BT,
+	STAGE_BEACH_BR
+};
+const std::vector<GameStage> stages_or2sp_reverse = {
+	STAGE_BEACH_R,
+	STAGE_SEQUOIA_R,
+	STAGE_NIAGARA_R,
+	STAGE_LAS_VEGAS_R,
+	STAGE_ALASKA_R,
+	STAGE_GRAND_CANYON_R,
+	STAGE_SAN_FRANCISCO_R,
+	STAGE_AMAZON_R,
+	STAGE_MACHU_PICCHU_R,
+	STAGE_YOSEMITE_R,
+	STAGE_MAYA_R,
+	STAGE_NEW_YORK_R,
+	STAGE_PRINCE_EDWARD_R,
+	STAGE_FLORIDA_R,
+	STAGE_EASTER_ISLAND_R,
+};
 
 class CourseReplacement : public Hook
 {
@@ -216,9 +294,9 @@ void Overlay_CourseEditor()
 
 	float comboHeight = ImGui::GetFrameHeight(); // Height of a single combobox
 	float verticalSpacing = 10.0f; // Additional spacing between comboboxes
-	float comboWidth = 200.0f; // Width of comboboxes
+	float comboWidth = 225.0f; // Width of comboboxes
 
-	float windowHeight = ceil(ImGui::GetWindowHeight());
+	float windowHeight = ImGui::GetCursorPosY() + floor(comboHeight * 5 + (verticalSpacing * 6));
 
 	bool has_updated = false;
 
@@ -226,7 +304,7 @@ void Overlay_CourseEditor()
 	StageTable_mb* curStage = CustomStageTable.data();
 	for (int col = 0; col < 5; ++col)
 	{
-		float columnHeight = (comboHeight + verticalSpacing) * (col + 1) - verticalSpacing;
+		float columnHeight = floor((comboHeight + verticalSpacing) * (col + 1) - verticalSpacing);
 
 		// Start a new column for each level of the pyramid
 		ImGui::BeginGroup();
@@ -288,6 +366,68 @@ void Overlay_CourseEditor()
 	ImGui::SameLine();
 	if (ImGui::Button("Apply Code"))
 		sharecode_apply();
+
+	if (ImGui::TreeNode("Randomizer"))
+	{
+		static bool or2_day = true;
+		static bool or2_night = true;
+		static bool or2_reverse = true;
+		static bool or2sp_day = true;
+		static bool or2sp_night = true;
+		static bool or2sp_reverse = true;
+		static bool allow_duplicates = false;
+
+		ImGui::Checkbox("OutRun2 Day (15 tracks)", &or2_day);
+		ImGui::Checkbox("OutRun2 Night (2 tracks)", &or2_night);
+		ImGui::Checkbox("OutRun2 Reverse (15 tracks)", &or2_reverse);
+		ImGui::Checkbox("OutRun2SP Day (15 tracks)", &or2sp_day);
+		ImGui::Checkbox("OutRun2SP Night (2 tracks)", &or2sp_night);
+		ImGui::Checkbox("OutRun2SP Reverse (15 tracks)", &or2sp_reverse);
+		ImGui::Checkbox("Allow Duplicates", &allow_duplicates);
+
+		if (ImGui::Button("Randomize"))
+		{
+			std::vector<GameStage> chosen;
+			if (or2_day)
+				chosen.insert(chosen.end(), stages_or2_day.begin(), stages_or2_day.end());
+			if (or2_night)
+				chosen.insert(chosen.end(), stages_or2_night.begin(), stages_or2_night.end());
+			if (or2_reverse)
+				chosen.insert(chosen.end(), stages_or2_reverse.begin(), stages_or2_reverse.end());
+			if (or2sp_day)
+				chosen.insert(chosen.end(), stages_or2sp_day.begin(), stages_or2sp_day.end());
+			if (or2sp_night)
+				chosen.insert(chosen.end(), stages_or2sp_night.begin(), stages_or2sp_night.end());
+			if (or2sp_reverse)
+				chosen.insert(chosen.end(), stages_or2sp_reverse.begin(), stages_or2sp_reverse.end());
+
+			// Randomize selection
+			if (!chosen.empty())
+			{
+				std::random_device rd;
+				std::mt19937 gen(rd());
+				std::uniform_int_distribution<> dist(0, chosen.size() - 1);
+
+				std::vector<GameStage> seen;
+				for (int i = 0; i < 15; i++)
+				{
+					GameStage random_stage = chosen[dist(gen)];
+					if (!allow_duplicates && chosen.size() >= 15)
+					{
+						while (std::find(seen.begin(), seen.end(), random_stage) != seen.end())
+						{
+							// Regenerate stage if it's been seen before
+							random_stage = chosen[dist(gen)];
+						}
+					}
+
+					update_stage(&CustomStageTable[i], random_stage, i > 9);
+					seen.push_back(random_stage);
+				}
+			}
+		}
+		ImGui::TreePop();
+	}
 
 	if (editor_disabled)
 	{
