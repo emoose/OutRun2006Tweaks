@@ -145,41 +145,30 @@ CourseReplacement CourseReplacement::instance;
 
 void sharecode_generate();
 
-bool update_stage(StageTable_mb* tableEntry, GameStage newStage, bool isGoalColumn)
+bool update_stage(StageTable_mb* tableEntry, GameStage newStage, int stageTableId)
 {
 	tableEntry->StageUniqueName_0 = newStage;
-	tableEntry->CsInfoId_1C = tableEntry->BrInfoId_20 = newStage;
+	tableEntry->CsInfoId_1C = newStage;
+
+	tableEntry->BrInfoId_20 = 0; // 0 allows highway to always spawn
 
 	TAG_model_info** cs_info_tbl = Module::exe_ptr<TAG_model_info*>(0x2A54E0);
 	TAG_model_info** br_info_tbl = Module::exe_ptr<TAG_model_info*>(0x2A55E8);
 
-	if (newStage == STAGE_PALM_BEACH_T || newStage == STAGE_PALM_BEACH_BT)
-		tableEntry->BrInfoId_20 = STAGE_PALM_BEACH;
-	else if (newStage == STAGE_BEACH_T || newStage == STAGE_BEACH_BT)
-		tableEntry->BrInfoId_20 = STAGE_BEACH;
-	else if (newStage == STAGE_PALM_BEACH_BR)
-		tableEntry->BrInfoId_20 = STAGE_PALM_BEACH_R;
-	else if (newStage == STAGE_BEACH_BR)
-		tableEntry->BrInfoId_20 = STAGE_BEACH_R;
-
-	if (isGoalColumn)
+	if (stageTableId > 9) // goal stage
 	{
-		// If stage is set to one of the existing goal-stages, use the goal bunki for it
-		// (otherwise will default to normal bunki, sadly goal bunki can't be shared between maps)
-
-		if (tableEntry->BrInfoId_20 == STAGE_TULIP_GARDEN)
-			tableEntry->BrInfoId_20 = STAGE_EASTER_ISLAND_R + 1; // ENDA
-		else if (tableEntry->BrInfoId_20 == STAGE_METROPOLIS)
-			tableEntry->BrInfoId_20 = STAGE_EASTER_ISLAND_R + 2; // ENDB
-		else if (tableEntry->BrInfoId_20 == STAGE_ANCIENT_RUINS)
-			tableEntry->BrInfoId_20 = STAGE_EASTER_ISLAND_R + 3; // ENDC
-		else if (tableEntry->BrInfoId_20 == STAGE_CAPE_WAY)
-			tableEntry->BrInfoId_20 = STAGE_EASTER_ISLAND_R + 4; // ENDD
-		else if (tableEntry->BrInfoId_20 == STAGE_IMPERIAL_AVENUE)
-			tableEntry->BrInfoId_20 = STAGE_EASTER_ISLAND_R + 5; // ENDE
-
-		else if (tableEntry->BrInfoId_20 == STAGE_PALM_BEACH)
-			tableEntry->BrInfoId_20 = STAGE_EASTER_ISLAND_R + 5; // ANDA (todo: what are ANDB - ANDJ for?)
+		// TODO: allow swapping to 2SP goal-bunkis somehow?
+		// TODO2: is there a generic goal-bunki we can use? I guess c2c missions probably use one for the non-goal stages?
+		if (stageTableId == 10)
+			tableEntry->BrInfoId_20 = STAGE_TULIP_GARDEN; // goal A
+		else if (stageTableId == 11)
+			tableEntry->BrInfoId_20 = STAGE_METROPOLIS; // goal B
+		else if (stageTableId == 12)
+			tableEntry->BrInfoId_20 = STAGE_ANCIENT_RUINS; // goal C
+		else if (stageTableId == 13)
+			tableEntry->BrInfoId_20 = STAGE_CAPE_WAY; // goal D
+		else if (stageTableId == 14)
+			tableEntry->BrInfoId_20 = STAGE_IMPERIAL_AVENUE; // goal E
 	}
 
 	tableEntry->CsInfoPtr_14 = cs_info_tbl[tableEntry->CsInfoId_1C];
@@ -233,7 +222,7 @@ void sharecode_apply()
 		if (stageNum < 0 || stageNum >= 0x42)
 			stageNum = 0;
 
-		update_stage(&CustomStageTable[num], GameStage(stageNum), num > 9);
+		update_stage(&CustomStageTable[num], GameStage(stageNum), num);
 
 		num++;
 
@@ -334,7 +323,7 @@ void Overlay_CourseEditor()
 
 			std::string name = std::format("{}.{}", (col + 1), (row + 1));
 			if (ImGui::Combo(name.c_str(), &selected, stageNames, 0x42))
-				has_updated |= update_stage(curStage, GameStage(selected), col == 4);
+				has_updated |= update_stage(curStage, GameStage(selected), num);
 
 			curStage++;
 
@@ -361,11 +350,75 @@ void Overlay_CourseEditor()
 
 	ImGui::Text("Share Code: ");
 	ImGui::SameLine();
-	ImGui::SetNextItemWidth(400.f);
+	ImGui::SetNextItemWidth(500.f);
 	ImGui::InputText("##ShareCode", ShareCode, 256);
 	ImGui::SameLine();
 	if (ImGui::Button("Apply Code"))
 		sharecode_apply();
+	ImGui::SameLine();
+	if (ImGui::Button("Copy Code"))
+	{
+		HGLOBAL hMem = GlobalAlloc(GMEM_MOVEABLE, strlen(ShareCode) + 1);
+		if (hMem)
+		{
+			memcpy(GlobalLock(hMem), ShareCode, strlen(ShareCode) + 1);
+			GlobalUnlock(hMem);
+			OpenClipboard(0);
+			EmptyClipboard();
+			SetClipboardData(CF_TEXT, hMem);
+			CloseClipboard();
+		}
+	}
+	ImGui::SameLine();
+	if (ImGui::Button("Paste Code"))
+	{
+		if (OpenClipboard(0))
+		{
+			HANDLE hClipboardData = GetClipboardData(CF_UNICODETEXT);
+			if (hClipboardData == nullptr)
+				hClipboardData = GetClipboardData(CF_TEXT);
+
+			if (hClipboardData != nullptr)
+			{
+				void* clipboardData = GlobalLock(hClipboardData);
+				if (clipboardData)
+				{
+					if (hClipboardData == GetClipboardData(CF_UNICODETEXT))
+					{
+						wchar_t* wideText = static_cast<wchar_t*>(clipboardData);
+
+						// Convert unicode to char
+						int bufferSize = WideCharToMultiByte(CP_UTF8, 0, wideText, -1, nullptr, 0, nullptr, nullptr);
+						if (bufferSize > 0 && bufferSize < sizeof(ShareCode))
+							WideCharToMultiByte(CP_UTF8, 0, wideText, -1, ShareCode, bufferSize, nullptr, nullptr);
+						else
+						{
+							// Handle the case where the buffer is too small, truncate if necessary
+							WideCharToMultiByte(CP_UTF8, 0, wideText, -1, ShareCode, sizeof(ShareCode) - 1, nullptr, nullptr);
+							ShareCode[sizeof(ShareCode) - 1] = '\0'; // Null-terminate
+						}
+					}
+					else if (hClipboardData == GetClipboardData(CF_TEXT))
+					{
+						char* asciiText = static_cast<char*>(clipboardData);
+
+						if (strlen(asciiText) < sizeof(ShareCode))
+							strcpy(ShareCode, asciiText);
+						else
+						{
+							// If the clipboard text is too large, truncate
+							strncpy(ShareCode, asciiText, sizeof(ShareCode) - 1);
+							ShareCode[sizeof(ShareCode) - 1] = '\0'; // Null-terminate
+						}
+					}
+					sharecode_apply();
+
+					GlobalUnlock(hClipboardData);
+				}
+			}
+			CloseClipboard();
+		}
+	}
 
 	if (ImGui::TreeNode("Randomizer"))
 	{
@@ -421,7 +474,7 @@ void Overlay_CourseEditor()
 						}
 					}
 
-					update_stage(&CustomStageTable[i], random_stage, i > 9);
+					update_stage(&CustomStageTable[i], random_stage, i);
 					seen.push_back(random_stage);
 				}
 			}
