@@ -159,6 +159,43 @@ namespace Game
 			(*Game::current_mode == GameState::STATE_START && *Game::game_start_progress_code == 65);
 	}
 
+	inline const char* StageNames[] = {
+		"Palm Beach",
+		"Deep Lake", "Industrial Complex",
+		"Alpine", "Snowy Mountain", "Cloudy Highland",
+		"Castle Wall", "Ghost Forest", "Coniferous Forest", "Desert",
+		"Tulip Garden", "Metropolis", "Ancient Ruins", "Cape Way", "Imperial Avenue",
+
+		"Sunny Beach",
+		"Big Forest", "Waterfalls",
+		"Casino Town", "Ice Scape", "Canyon",
+		"Bay Area", "Jungle", "Lost City", "National Park",
+		"Legend", "Skyscrapers", "Floral Village", "Milky Way", "Giant Statues",
+
+		"(R) Palm Beach",
+		"(R) Deep Lake", "(R) Industrial Complex",
+		"(R) Alpine", "(R) Snowy Mountain", "(R) Cloudy Highland",
+		"(R) Castle Wall", "(R) Ghost Forest", "(R) Coniferous Forest", "(R) Desert",
+		"(R) Tulip Garden", "(R) Metropolis", "(R) Ancient Ruins", "(R) Cape Way", "(R) Imperial Avenue",
+
+		"(R) Sunny Beach",
+		"(R) Big Forest", "(R) Waterfalls",
+		"(R) Casino Town", "(R) Ice Scape", "(R) Canyon",
+		"(R) Bay Area", "(R) Jungle", "(R) Lost City", "(R) National Park",
+		"(R) Legend", "(R) Skyscrapers", "(R) Floral Village", "(R) Milky Way", "(R) Giant Statues",
+
+		"(T) Palm Beach", "(T) Sunny Beach",
+		"(Night) Palm Beach", "(Night) Sunny Beach",
+		"(R-Night) Palm Beach", "(R-Night) Sunny Beach"
+	};
+
+	inline const char* GetStageFriendlyName(GameStage stage)
+	{
+		if (int(stage) < 0x42)
+			return StageNames[int(stage)];
+		return StageNames[0];
+	}
+
 	inline void init()
 	{
 		current_mode = Module::exe_ptr<GameState>(0x38026C);

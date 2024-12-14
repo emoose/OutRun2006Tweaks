@@ -188,7 +188,9 @@ enum GameStage : int
 	STAGE_PALM_BEACH_BT,
 	STAGE_BEACH_BT,
 	STAGE_PALM_BEACH_BR,
-	STAGE_BEACH_BR
+	STAGE_BEACH_BR,
+
+	STAGE_COUNT
 };
 static_assert(sizeof(GameStage) == 4);
 

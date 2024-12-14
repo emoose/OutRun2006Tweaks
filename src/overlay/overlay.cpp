@@ -57,8 +57,7 @@ void Overlay_GlobalsWindow()
 		car->OnRoadPlace_5C.roadSectionNum_8);
 
 	GameStage cur_stage_num = *Game::stg_stage_num;
-	const char* cur_stage_name = Game::GetStageUniqueName(cur_stage_num);
-	ImGui::Text("Loaded Stage: %d (%s)", cur_stage_num, cur_stage_name);
+	ImGui::Text("Loaded Stage: %d (%s / %s)", cur_stage_num, Game::GetStageFriendlyName(cur_stage_num), Game::GetStageUniqueName(cur_stage_num));
 
 	if (Settings::DrawDistanceIncrease > 0)
 		if (ImGui::Button("Open Draw Distance Debugger"))
@@ -103,19 +102,20 @@ void Overlay_NotificationSettings()
 	float startX = screenSize.x - notificationSize.x - borderWidth - 10.f;  // 10px padding from the right
 	float curY = (screenSize.y / 4.0f);
 
-	ImGui::SetNextWindowPos(ImVec2(startX, curY));
+	{
+		ImGui::Begin("Notification Settings", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
+		ImGui::SetWindowPos(ImVec2(startX, curY), ImGuiCond_FirstUseEver);
 
-	ImGui::Begin("Notification Settings", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
+		ImGui::SliderInt("Display Time", &Settings::OverlayNotifyDisplayTime, 0, 60);
 
-	ImGui::SliderInt("Display Time", &Settings::OverlayNotifyDisplayTime, 0, 60);
+		ImGui::Checkbox("Enable Online Lobby Notifications", &Settings::OverlayNotifyOnlineEnable);
+		ImGui::SliderInt("Online Update Time", &Settings::OverlayNotifyOnlineUpdateTime, 10, 60);
 
-	ImGui::Checkbox("Enable Online Lobby Notifications", &Settings::OverlayNotifyOnlineEnable);
-	ImGui::SliderInt("Online Update Time", &Settings::OverlayNotifyOnlineUpdateTime, 10, 60);
+		static const char* items[]{ "Never Hide", "Online Race", "Any Race" };
+		ImGui::Combo("Hide During", &Settings::OverlayNotifyHideMode, items, IM_ARRAYSIZE(items));
 
-	static const char* items[]{ "Never Hide", "Online Race", "Any Race" };
-	ImGui::Combo("Hide During", &Settings::OverlayNotifyHideMode, items, IM_ARRAYSIZE(items));
-
-	ImGui::End();
+		ImGui::End();
+	}
 }
 
 void Overlay_Init()

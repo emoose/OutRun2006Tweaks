@@ -91,37 +91,6 @@ const std::vector<GameStage> stages_or2sp_reverse = {
 	STAGE_EASTER_ISLAND_R,
 };
 
-// TODO: fill out 2SP names
-const char* stageNames[] = {
-	"Palm Beach",
-	"Deep Lake", "Industrial Complex",
-	"Alpine", "Snowy Mountain", "Cloudy Highland",
-	"Castle Wall", "Ghost Forest", "Coniferous Forest", "Desert",
-	"Tulip Garden", "Metropolis", "Ancient Ruins", "Cape Way", "Imperial Avenue",
-
-	"Sunny Beach",
-	"SEQUOIA", "NIAGARA",
-	"LAS_VEGAS", "ALASKA", "Canyon",
-	"SAN_FRANCISCO", "AMAZON", "MACHU_PICCHU", "YOSEMITE",
-	"MAYA", "NEW_YORK", "PRINCE_EDWARD", "FLORIDA", "EASTER_ISLAND",
-
-	"(R) Palm Beach",
-	"(R) Deep Lake", "(R) Industrial Complex",
-	"(R) Alpine", "(R) Snowy Mountain", "(R) Cloudy Highland",
-	"(R) Castle Wall", "(R) Ghost Forest", "(R) Coniferous Forest", "(R) Desert",
-	"(R) Tulip Garden", "(R) Metropolis", "(R) Ancient Ruins", "(R) Cape Way", "(R) Imperial Avenue",
-
-	"(R) Sunny Beach",
-	"(R) SEQUOIA", "(R) NIAGARA",
-	"(R) LAS_VEGAS", "(R) ALASKA", "(R) Canyon",
-	"(R) SAN_FRANCISCO", "(R) AMAZON", "(R) MACHU_PICCHU", "(R) YOSEMITE",
-	"(R) MAYA", "(R) NEW_YORK", "(R) PRINCE_EDWARD", "(R) FLORIDA", "(R) EASTER_ISLAND",
-
-	"(T) Palm Beach", "(T) Sunny Beach",
-	"(Night) Palm Beach", "(Night) Sunny Beach",
-	"(R-Night) Palm Beach", "(R-Night) Sunny Beach"
-};
-
 class CourseReplacement : public Hook
 {
 	inline static SafetyHookMid midhook{};
@@ -339,7 +308,7 @@ void Overlay_CourseEditor()
 			int selected = curStage->StageUniqueName_0;
 
 			std::string name = std::format("{}.{}", (col + 1), (row + 1));
-			if (ImGui::Combo(name.c_str(), &selected, stageNames, 0x42))
+			if (ImGui::Combo(name.c_str(), &selected, Game::StageNames, int(STAGE_COUNT)))
 				has_updated |= update_stage(num, GameStage(selected));
 
 			curStage++;

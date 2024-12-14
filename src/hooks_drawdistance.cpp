@@ -57,10 +57,10 @@ void DrawDist_DrawOverlay()
 	}
 
 	GameStage cur_stage_num = *Game::stg_stage_num;
-	const char* cur_stage_name = Game::GetStageUniqueName(cur_stage_num);
+	const char* cur_stage_name = Game::GetStageFriendlyName(cur_stage_num);
 	auto& objectExclusions = ObjectExclusionsPerStage[cur_stage_num];
 
-	ImGui::Text("Stage: %d (%s)", cur_stage_num, cur_stage_name);
+	ImGui::Text("Stage: %d (%s / %s)", cur_stage_num, cur_stage_name, Game::GetStageUniqueName(cur_stage_num));
 	ImGui::SliderInt("Draw Distance", &Settings::DrawDistanceIncrease, 0, 1024);
 
 	if (ImGui::Button("<<<"))
