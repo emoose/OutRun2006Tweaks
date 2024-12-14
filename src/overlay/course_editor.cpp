@@ -91,6 +91,37 @@ const std::vector<GameStage> stages_or2sp_reverse = {
 	STAGE_EASTER_ISLAND_R,
 };
 
+// TODO: fill out 2SP names
+const char* stageNames[] = {
+	"Palm Beach",
+	"Deep Lake", "Industrial Complex",
+	"Alpine", "Snowy Mountain", "Cloudy Highland",
+	"Castle Wall", "Ghost Forest", "Coniferous Forest", "Desert",
+	"Tulip Garden", "Metropolis", "Ancient Ruins", "Cape Way", "Imperial Avenue",
+
+	"Sunny Beach",
+	"SEQUOIA", "NIAGARA",
+	"LAS_VEGAS", "ALASKA", "Canyon",
+	"SAN_FRANCISCO", "AMAZON", "MACHU_PICCHU", "YOSEMITE",
+	"MAYA", "NEW_YORK", "PRINCE_EDWARD", "FLORIDA", "EASTER_ISLAND",
+
+	"(R) Palm Beach",
+	"(R) Deep Lake", "(R) Industrial Complex",
+	"(R) Alpine", "(R) Snowy Mountain", "(R) Cloudy Highland",
+	"(R) Castle Wall", "(R) Ghost Forest", "(R) Coniferous Forest", "(R) Desert",
+	"(R) Tulip Garden", "(R) Metropolis", "(R) Ancient Ruins", "(R) Cape Way", "(R) Imperial Avenue",
+
+	"(R) Sunny Beach",
+	"(R) SEQUOIA", "(R) NIAGARA",
+	"(R) LAS_VEGAS", "(R) ALASKA", "(R) Canyon",
+	"(R) SAN_FRANCISCO", "(R) AMAZON", "(R) MACHU_PICCHU", "(R) YOSEMITE",
+	"(R) MAYA", "(R) NEW_YORK", "(R) PRINCE_EDWARD", "(R) FLORIDA", "(R) EASTER_ISLAND",
+
+	"(T) Palm Beach", "(T) Sunny Beach",
+	"(Night) Palm Beach", "(Night) Sunny Beach",
+	"(R-Night) Palm Beach", "(R-Night) Sunny Beach"
+};
+
 class CourseReplacement : public Hook
 {
 	inline static SafetyHookMid midhook{};
@@ -145,15 +176,13 @@ CourseReplacement CourseReplacement::instance;
 
 void sharecode_generate();
 
-bool update_stage(StageTable_mb* tableEntry, GameStage newStage, int stageTableId)
+bool update_stage(int stageTableId, GameStage newStage)
 {
+	auto* tableEntry = &CustomStageTable[stageTableId];
 	tableEntry->StageUniqueName_0 = newStage;
 	tableEntry->CsInfoId_1C = newStage;
 
 	tableEntry->BrInfoId_20 = 0; // 0 allows highway to always spawn
-
-	TAG_model_info** cs_info_tbl = Module::exe_ptr<TAG_model_info*>(0x2A54E0);
-	TAG_model_info** br_info_tbl = Module::exe_ptr<TAG_model_info*>(0x2A55E8);
 
 	if (stageTableId > 9) // goal stage
 	{
@@ -170,6 +199,9 @@ bool update_stage(StageTable_mb* tableEntry, GameStage newStage, int stageTableI
 		else if (stageTableId == 14)
 			tableEntry->BrInfoId_20 = STAGE_IMPERIAL_AVENUE; // goal E
 	}
+
+	TAG_model_info** cs_info_tbl = Module::exe_ptr<TAG_model_info*>(0x2A54E0);
+	TAG_model_info** br_info_tbl = Module::exe_ptr<TAG_model_info*>(0x2A55E8);
 
 	tableEntry->CsInfoPtr_14 = cs_info_tbl[tableEntry->CsInfoId_1C];
 	tableEntry->BrInfoPtr_18 = br_info_tbl[tableEntry->BrInfoId_20];
@@ -222,7 +254,7 @@ void sharecode_apply()
 		if (stageNum < 0 || stageNum >= 0x42)
 			stageNum = 0;
 
-		update_stage(&CustomStageTable[num], GameStage(stageNum), num);
+		update_stage(num, GameStage(stageNum));
 
 		num++;
 
@@ -232,22 +264,7 @@ void sharecode_apply()
 
 void Overlay_CourseEditor()
 {
-	/*
-	const char* items[] = {
-		"0", "1", "2", "3", "4", "5", "6", "7", "8", "9",
-		"10", "11", "12", "13", "14", "15", "16", "17", "18", "19",
-		"20", "21", "22", "23", "24", "25", "26", "27", "28", "29",
-		"30", "31", "32", "33", "34", "35", "36", "37", "38", "39",
-		"40", "41", "42", "43", "44", "45", "46", "47", "48", "49",
-		"50", "51", "52", "53", "54", "55", "56", "57", "58", "59",
-		"60", "61", "62", "63", "64", "65"
-	};
-	*/
-
 	ImGui::Begin("Course Editor", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
-
-	// TODO: this points to list of internal-names, fill out the array above with actual stage names instead
-	const char** stageNames = Module::exe_ptr<const char*>(0x235F40);
 
 	if (!CustomStageTableCount)
 	{
@@ -323,7 +340,7 @@ void Overlay_CourseEditor()
 
 			std::string name = std::format("{}.{}", (col + 1), (row + 1));
 			if (ImGui::Combo(name.c_str(), &selected, stageNames, 0x42))
-				has_updated |= update_stage(curStage, GameStage(selected), num);
+				has_updated |= update_stage(num, GameStage(selected));
 
 			curStage++;
 
@@ -474,7 +491,7 @@ void Overlay_CourseEditor()
 						}
 					}
 
-					update_stage(&CustomStageTable[i], random_stage, i);
+					update_stage(i, random_stage);
 					seen.push_back(random_stage);
 				}
 			}
@@ -506,7 +523,7 @@ void Overlay_CourseEditor()
 
 		lobbyNameEncoded[15] = char(33) + checkByte;
 		if (lobbyNameEncoded[15] < 33) // rollover?
-			lobbyNameEncoded[15] += 33;
+			lobbyNameEncoded[15] += 33; // keep it ascii
 
 		memcpy(Game::SumoNet_LobbyInfo->LobbyName_48, lobbyNameEncoded, 16);
 

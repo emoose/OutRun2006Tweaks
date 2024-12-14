@@ -85,6 +85,7 @@ namespace Settings
 		spdlog::info(" - CDSwitcherTrackPrevious: {}", CDSwitcherTrackPrevious);
 
 		spdlog::info(" - UIScalingMode: {}", UIScalingMode);
+		spdlog::info(" - UILetterboxing: {}", UILetterboxing);
 		spdlog::info(" - AnisotropicFiltering: {}", AnisotropicFiltering);
 		spdlog::info(" - ReflectionResolution: {}", ReflectionResolution);
 		spdlog::info(" - UseHiDefCharacters: {}", UseHiDefCharacters);
