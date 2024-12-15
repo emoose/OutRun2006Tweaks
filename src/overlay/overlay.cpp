@@ -141,6 +141,9 @@ void Overlay_Init()
 
 	Notifications::instance.add("OutRun2006Tweaks v" MODULE_VERSION_STR " by emoose!\nPress F11 to open overlay.");
 
+	if (Overlay::CourseReplacementEnabled)
+		Notifications::instance.add("Note: Course Editor Override is enabled from previous session.");
+
 	void ServerNotifications_Init();
 	ServerNotifications_Init();
 }
@@ -199,29 +202,16 @@ namespace Overlay
 	{
 		spdlog::info("Overlay::settings_read - reading INI from {}", Module::OverlayIniPath.string());
 
-		const std::wstring iniPathStr = Module::OverlayIniPath.wstring();
-
-		// Read INI via FILE* since INIReader doesn't support wstring
-		FILE* iniFile;
-		errno_t result = _wfopen_s(&iniFile, iniPathStr.c_str(), L"r");
-		if (result != 0 || !iniFile)
-		{
-			spdlog::error("Overlay::settings_read - INI read failed! Error code {}", result);
-			return false;
-		}
-
 		inih::INIReader ini;
 		try
 		{
-			ini = inih::INIReader(iniFile);
+			ini = inih::INIReader(Module::OverlayIniPath);
 		}
 		catch (...)
 		{
-			spdlog::error("Overlay::settings_read - INI read failed! The file may be invalid or have duplicate settings inside");
-			fclose(iniFile);
+			spdlog::error("Overlay::settings_read - INI read failed! The file might not exist, or may have duplicate settings inside");
 			return false;
 		}
-		fclose(iniFile);
 
 		GlobalFontScale = ini.Get("Overlay", "FontScale", GlobalFontScale);
 

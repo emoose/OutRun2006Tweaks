@@ -146,29 +146,16 @@ namespace Settings
 	{
 		spdlog::info("Settings::read - reading INI from {}", iniPath.string());
 
-		const std::wstring iniPathStr = iniPath.wstring();
-
-		// Read INI via FILE* since INIReader doesn't support wstring
-		FILE* iniFile;
-		errno_t result = _wfopen_s(&iniFile, iniPathStr.c_str(), L"r");
-		if (result != 0 || !iniFile)
-		{
-			spdlog::error("Settings::read - INI read failed! Error code {}", result);
-			return false;
-		}
-
 		inih::INIReader ini;
 		try
 		{
-			ini = inih::INIReader(iniFile);
+			ini = inih::INIReader(iniPath);
 		}
 		catch (...)
 		{
-			spdlog::error("Settings::read - INI read failed! The file may be invalid or have duplicate settings inside");
-			fclose(iniFile);
+			spdlog::error("Settings::read - INI read failed! The file might not exist, or may have duplicate settings inside");
 			return false;
 		}
-		fclose(iniFile);
 
 		FramerateLimit = ini.Get("Performance", "FramerateLimit", FramerateLimit);
 		FramerateLimitMode = ini.Get("Performance", "FramerateLimitMode", FramerateLimitMode);
