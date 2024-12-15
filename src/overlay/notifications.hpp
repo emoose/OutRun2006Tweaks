@@ -91,25 +91,52 @@ public:
 				ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing);
 
 			ImGui::SetWindowFontScale(notificationTextScale);
-			ImVec2 textSize = ImGui::CalcTextSize(notification.message.c_str(), nullptr, true, windowSize.x - 20.0f); // Account for padding
 
-			// Adjust window height if text is larger than current window height
-			if (textSize.y + 40.0f > windowSize.y)
-				windowSize.y = textSize.y + 40.0f;
+			// Split the message into lines
+			std::istringstream messageStream(notification.message);
+			std::vector<std::string> lines;
+			std::string line;
+			while (std::getline(messageStream, line)) {
+				lines.push_back(line);
+			}
+
+			// Calculate total height for all lines
+			float totalTextHeight = 0.0f;
+			for (const auto& singleLine : lines) {
+				ImVec2 lineSize = ImGui::CalcTextSize(singleLine.c_str(), nullptr, true, windowSize.x - 20.0f);
+				totalTextHeight += lineSize.y;
+			}
+			totalTextHeight += (lines.size() - 1) * ImGui::GetStyle().ItemSpacing.y;
+
+			// Adjust window height if necessary
+			if (totalTextHeight + 40.0f > windowSize.y)
+				windowSize.y = totalTextHeight + 40.0f;
 
 			ImGui::SetWindowSize(windowSize);
 
 			curY += windowSize.y + notificationSpacing;
 
-			// Center text with padding
-			float paddingX = 10.0f, paddingY = 5.0f;
-			float offsetX = (windowSize.x - textSize.x) / 2.0f;
-			float offsetY = (windowSize.y - textSize.y) / 2.0f;
-			offsetX = max(offsetX, paddingX);
-			offsetY = max(offsetY, paddingY);
+			// Center text block vertically
+			float paddingY = 5.0f;
+			float currentYOffset = (windowSize.y - totalTextHeight) / 2.0f;
+			currentYOffset = max(currentYOffset, paddingY);
 
-			ImGui::SetCursorPos(ImVec2(offsetX, offsetY));
-			ImGui::TextWrapped("%s", notification.message.c_str());
+			for (const auto& singleLine : lines) {
+				// Calculate individual line size
+				ImVec2 lineSize = ImGui::CalcTextSize(singleLine.c_str(), nullptr, true, windowSize.x - 20.0f);
+
+				// Center line horizontally
+				float paddingX = 10.0f;
+				float offsetX = (windowSize.x - lineSize.x) / 2.0f;
+				offsetX = max(offsetX, paddingX);
+
+				ImGui::SetCursorPos(ImVec2(offsetX, currentYOffset));
+
+				ImGui::TextWrapped("%s", singleLine.c_str());
+
+				// Move down for the next line, including spacing
+				currentYOffset += lineSize.y + ImGui::GetStyle().ItemSpacing.y;
+			}
 
 			ImGui::End();
 		}
