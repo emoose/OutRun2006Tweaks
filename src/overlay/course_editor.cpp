@@ -116,6 +116,8 @@ class CourseReplacement : public Hook
 	inline static SafetyHookInline SumoLiveUpdate_Init_hook{};
 	static void SumoLiveUpdate_Init_dest()
 	{
+		SumoLiveUpdate_Init_hook.call();
+
 		int* SumoLiveUpdate_State = Module::exe_ptr<int>(0x436D14);
 		if (Game::CourseReplacementEnabled)
 			*SumoLiveUpdate_State = 3;
