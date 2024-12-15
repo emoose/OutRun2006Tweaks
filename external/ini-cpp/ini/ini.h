@@ -206,6 +206,9 @@ class INIReader {
     // about the parsing.
     INIReader(std::string filename);
 
+	// Construct INIReader and parse given filepath, unicode paths supported
+	INIReader(const std::filesystem::path& filepath);
+
     // Construct INIReader and parse given file. See ini.h for more info
     // about the parsing.
     INIReader(FILE* file);
@@ -240,20 +243,12 @@ class INIReader {
                              const std::vector<T>& default_v) const;
 
     template <typename T = std::string>
-    void InsertEntry(const std::string& section, const std::string& name,
-                     const T& v);
+    void Set(const std::string& section, const std::string& name,
+             const T& v);
 
     template <typename T = std::string>
-    void InsertEntry(const std::string& section, const std::string& name,
-                     const std::vector<T>& vs);
-
-    template <typename T = std::string>
-    void UpdateEntry(const std::string& section, const std::string& name,
-                     const T& v);
-
-    template <typename T = std::string>
-    void UpdateEntry(const std::string& section, const std::string& name,
-                     const std::vector<T>& vs);
+    void Set(const std::string& section, const std::string& name,
+             const std::vector<T>& vs);
 
    protected:
     int _error;
@@ -288,6 +283,20 @@ class INIReader {
 inline INIReader::INIReader(std::string filename) {
     _error = ini_parse(filename.c_str(), ValueHandler, this);
     ParseError();
+}
+
+/**
+ * @brief Construct an INIReader object from a file path
+ * @param filepath The path of the INI file to parse
+ * @throws std::runtime_error if there is an error parsing the INI file
+ */
+inline INIReader::INIReader(const std::filesystem::path& filepath) {
+	const std::wstring path_str = filepath.wstring();
+	FILE* iniFile;
+	errno_t result = _wfopen_s(&iniFile, path_str.c_str(), L"r");
+	_error = ini_parse_file(iniFile, ValueHandler, this);
+	ParseError();
+	fclose(iniFile);
 }
 
 /**
@@ -462,41 +471,6 @@ inline std::vector<T> INIReader::GetVector(
 }
 
 /**
- * @brief Insert a key-value pair into the INI file
- * @param section The section name
- * @param name The key name
- * @param v The value to insert
- * @throws std::runtime_error if the key already exists in the section
- */
-template <typename T>
-inline void INIReader::InsertEntry(const std::string& section,
-                                   const std::string& name, const T& v) {
-    if (_values[section][name].size() > 0) {
-        throw std::runtime_error("duplicate key '" + std::string(name) +
-                                 "' in section '" + section + "'.");
-    }
-    _values[section][name] = V2String(v);
-}
-
-/**
- * @brief Insert a vector of values into the INI file
- * @param section The section name
- * @param name The key name
- * @param vs The vector of values to insert
- * @throws std::runtime_error if the key already exists in the section
- */
-template <typename T>
-inline void INIReader::InsertEntry(const std::string& section,
-                                   const std::string& name,
-                                   const std::vector<T>& vs) {
-    if (_values[section][name].size() > 0) {
-        throw std::runtime_error("duplicate key '" + std::string(name) +
-                                 "' in section '" + section + "'.");
-    }
-    _values[section][name] = Vec2String(vs);
-}
-
-/**
  * @brief Update a key-value pair in the INI file
  * @param section The section name
  * @param name The key name
@@ -504,12 +478,8 @@ inline void INIReader::InsertEntry(const std::string& section,
  * @throws std::runtime_error if the key does not exist in the section
  */
 template <typename T>
-inline void INIReader::UpdateEntry(const std::string& section,
-                                   const std::string& name, const T& v) {
-    if (!_values[section][name].size()) {
-        throw std::runtime_error("key '" + std::string(name) +
-                                 "' not exist in section '" + section + "'.");
-    }
+inline void INIReader::Set(const std::string& section,
+                           const std::string& name, const T& v) {
     _values[section][name] = V2String(v);
 }
 
@@ -521,9 +491,9 @@ inline void INIReader::UpdateEntry(const std::string& section,
  * @throws std::runtime_error if the key does not exist in the section
  */
 template <typename T>
-inline void INIReader::UpdateEntry(const std::string& section,
-                                   const std::string& name,
-                                   const std::vector<T>& vs) {
+inline void INIReader::Set(const std::string& section,
+                           const std::string& name,
+                           const std::vector<T>& vs) {
     if (!_values[section][name].size()) {
         throw std::runtime_error("key '" + std::string(name) +
                                  "' not exist in section '" + section + "'.");
@@ -604,15 +574,12 @@ class INIWriter {
      * @throws std::runtime_error if the output file already exists or cannot be
      * opened
      */
-    inline static void write(const std::string& filepath,
+    inline static void write(const std::filesystem::path& filepath,
                              const INIReader& reader) {
-        if (struct stat buf; stat(filepath.c_str(), &buf) == 0) {
-            throw std::runtime_error("file: " + filepath + " already exist.");
-        }
         std::ofstream out;
         out.open(filepath);
         if (!out.is_open()) {
-            throw std::runtime_error("cannot open output file: " + filepath);
+            throw std::runtime_error("cannot open output file: " + filepath.string());
         }
         for (const auto& section : reader.Sections()) {
             out << "[" << section << "]\n";

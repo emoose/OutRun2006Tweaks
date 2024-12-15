@@ -8,11 +8,10 @@
 #include "notifications.hpp"
 #include <array>
 #include <random>
+#include "overlay.hpp"
 
 std::array<StageTable_mb, 0x40> CustomStageTable;
 int CustomStageTableCount = 0;
-
-char ShareCode[256];
 
 const std::vector<GameStage> stages_or2_day = {
 	STAGE_PALM_BEACH,
@@ -100,7 +99,7 @@ class CourseReplacement : public Hook
 
 		// Loaded stage table ptr is inside ctx.ebx
 		// If replacement is disabled we'll copy the loaded one into our replacement table, so user has something to modify
-		if (!Game::CourseReplacementEnabled || !CustomStageTableCount)
+		if (!Overlay::CourseReplacementEnabled || !CustomStageTableCount)
 		{
 			CustomStageTableCount = min(*SumoScript_StageTableCount, CustomStageTable.size());
 			memcpy(CustomStageTable.data(), (void*)ctx.ebx, sizeof(StageTable_mb) * CustomStageTableCount);
@@ -119,7 +118,7 @@ class CourseReplacement : public Hook
 		SumoLiveUpdate_Init_hook.call();
 
 		int* SumoLiveUpdate_State = Module::exe_ptr<int>(0x436D14);
-		if (Game::CourseReplacementEnabled)
+		if (Overlay::CourseReplacementEnabled)
 			*SumoLiveUpdate_State = 3;
 	}
 
@@ -194,12 +193,13 @@ void sharecode_generate()
 		return;
 
 	code = code.substr(0, code.length() - 1);
-	strcpy(ShareCode, code.c_str());
+	strcpy(Overlay::CourseReplacementCode, code.c_str());
+
 }
 
 void sharecode_apply()
 {
-	std::string code = ShareCode;
+	std::string code = Overlay::CourseReplacementCode;
 
 	size_t start = 0;
 	size_t end;
@@ -244,13 +244,24 @@ void Overlay_CourseEditor()
 		return;
 	}
 
+	static bool loadedSavedCode = false;
+	if (!loadedSavedCode && !Game::is_in_game())
+	{
+		if (strlen(Overlay::CourseReplacementCode))
+			sharecode_apply();
+		loadedSavedCode = true;
+	}
+
 	{
 		bool disable_checkbox = Game::is_in_game();
 		if (disable_checkbox)
 			ImGui::BeginDisabled();
 
-		if (ImGui::Checkbox("Enable Course Override (use in C2C OutRun mode)", &Game::CourseReplacementEnabled))
+		if (ImGui::Checkbox("Enable Course Override (use in C2C OutRun mode)", &Overlay::CourseReplacementEnabled))
+		{
 			sharecode_generate();
+			Overlay::settings_write();
+		}
 
 		if (disable_checkbox)
 			ImGui::EndDisabled();
@@ -265,7 +276,7 @@ void Overlay_CourseEditor()
 	if (stg_tbl)
 		curPlayingColumn = stg_tbl->StageTableIdx_4;
 
-	bool editor_disabled = (Game::is_in_game() && Game::pl_car()->is_in_bunki()) || !Game::CourseReplacementEnabled;
+	bool editor_disabled = (Game::is_in_game() && Game::pl_car()->is_in_bunki()) || !Overlay::CourseReplacementEnabled;
 	if (editor_disabled)
 		ImGui::BeginDisabled();
 
@@ -336,13 +347,18 @@ void Overlay_CourseEditor()
 			ImGui::SameLine(0, 20.0f);
 	}
 
+	char* ShareCode = Overlay::CourseReplacementCode;
+
 	ImGui::Text("Share Code: ");
 	ImGui::SameLine();
 	ImGui::SetNextItemWidth(500.f);
 	ImGui::InputText("##ShareCode", ShareCode, 256);
 	ImGui::SameLine();
 	if (ImGui::Button("Apply Code"))
+	{
+		has_updated = true;
 		sharecode_apply();
+	}
 	ImGui::SameLine();
 	if (ImGui::Button("Copy Code"))
 	{
@@ -465,6 +481,7 @@ void Overlay_CourseEditor()
 					update_stage(i, random_stage);
 					seen.push_back(random_stage);
 				}
+				has_updated = true;
 			}
 		}
 		ImGui::TreePop();
@@ -474,11 +491,14 @@ void Overlay_CourseEditor()
 	{
 		ImGui::EndDisabled();
 
-		if (Game::CourseReplacementEnabled && Game::is_in_game() && Game::pl_car()->is_in_bunki())
+		if (Overlay::CourseReplacementEnabled && Game::is_in_game() && Game::pl_car()->is_in_bunki())
 			ImGui::Text("(disabled during bunki)");
 	}
 
 	ImGui::End();
+
+	if (has_updated)
+		Overlay::settings_write();
 
 	/* TODO: auto-share stuff */
 #if 0

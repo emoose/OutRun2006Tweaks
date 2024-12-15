@@ -1,6 +1,9 @@
+#pragma once
+
 #include <imgui.h>
 #include <deque>
 #include <mutex>
+#include "overlay.hpp"
 
 inline size_t maxNotifications = 3;
 inline std::chrono::seconds displayDuration = std::chrono::seconds(7);
@@ -56,7 +59,7 @@ public:
 
 		if (Game::is_in_game())
 		{
-			if (Settings::OverlayNotifyHideMode == Settings::NotifyHideMode_AllRaces)
+			if (Overlay::NotifyHideMode == Overlay::NotifyHideMode_AllRaces)
 				return;
 			// todo: check if connected to lobby & Settings::NotifyHideMode_OnlineRaces
 		}

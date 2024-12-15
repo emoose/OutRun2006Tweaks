@@ -23,6 +23,7 @@ namespace Module
 	inline std::filesystem::path IniPath{};
 	inline std::filesystem::path UserIniPath{};
 	inline std::filesystem::path LodIniPath{};
+	inline std::filesystem::path OverlayIniPath{};
 
 	template <typename T>
 	inline T* exe_ptr(uintptr_t offset) { if (ExeHandle) return (T*)(((uintptr_t)ExeHandle) + offset); else return nullptr; }
@@ -40,7 +41,6 @@ namespace Game
 	inline float DeltaTime = (1.f / 60.f);
 
 	inline bool DrawDistanceDebugEnabled = false;
-	inline bool CourseReplacementEnabled = false;
 };
 
 namespace Settings
@@ -120,18 +120,6 @@ namespace Settings
 	inline std::string DemonwareServerOverride = "clarissa.port0.org";
 
 	inline bool OverlayEnabled = true;
-	inline float OverlayFontScale = 1.5f;
-	inline int OverlayNotifyDisplayTime = 7;
-	inline bool OverlayNotifyOnlineEnable = true;
-	inline int OverlayNotifyOnlineUpdateTime = 20;
-	inline int OverlayNotifyHideMode = 1;
-
-	enum NotifyHideMode
-	{
-		NotifyHideMode_Never = 0,
-		NotifyHideMode_OnlineRaces = 1,
-		NotifyHideMode_AllRaces = 2
-	};
 
 	inline bool FixPegasusClopping = true;
 	inline bool FixRightSideBunkiAnimations = true;

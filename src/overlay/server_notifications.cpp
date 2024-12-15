@@ -43,7 +43,7 @@ private:
 	{
 		while (running)
 		{
-			if (!Settings::OverlayNotifyOnlineEnable || !Settings::OverlayNotifyOnlineUpdateTime)
+			if (!Overlay::NotifyOnlineEnable || !Overlay::NotifyOnlineUpdateTime)
 				return;
 
 			try
@@ -67,10 +67,10 @@ private:
 			{
 			}
 
-			if (Settings::OverlayNotifyOnlineUpdateTime < 10)
-				Settings::OverlayNotifyOnlineUpdateTime = 10; // pls don't hammer us
+			if (Overlay::NotifyOnlineUpdateTime < 10)
+				Overlay::NotifyOnlineUpdateTime = 10; // pls don't hammer us
 
-			std::this_thread::sleep_for(std::chrono::seconds(Settings::OverlayNotifyOnlineUpdateTime));
+			std::this_thread::sleep_for(std::chrono::seconds(Overlay::NotifyOnlineUpdateTime));
 		}
 	}
 

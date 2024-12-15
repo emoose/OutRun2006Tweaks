@@ -7,6 +7,8 @@
 #include <imgui.h>
 #include "notifications.hpp"
 #include "resource.h"
+#include "overlay.hpp"
+#include <ini.h>
 
 Notifications Notifications::instance;
 
@@ -20,25 +22,33 @@ void Overlay_GlobalsWindow()
 {
 	extern bool EnablePauseMenu;
 
+	bool settingsChanged = false;
+
 	ImGui::Begin("Globals", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
 
 	ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.51f, 0.00f, 0.14f, 0.00f));
 	if (ImGui::Button("-"))
 	{
-		if (ImGui::GetIO().FontGlobalScale > 1.0f)
+		if (Overlay::GlobalFontScale > 1.0f)
 		{
-			ImGui::GetIO().FontGlobalScale -= 0.05f;
+			Overlay::GlobalFontScale -= 0.05f;
+			settingsChanged = true;
 		}
+
+		ImGui::GetIO().FontGlobalScale = Overlay::GlobalFontScale;
 	}
 
 	ImGui::SameLine();
 
 	if (ImGui::Button("+"))
 	{
-		if (ImGui::GetIO().FontGlobalScale < 4.0f)
+		if (Overlay::GlobalFontScale < 4.0f)
 		{
-			ImGui::GetIO().FontGlobalScale += 0.05f;
+			Overlay::GlobalFontScale += 0.05f;
+			settingsChanged = true;
 		}
+
+		ImGui::GetIO().FontGlobalScale = Overlay::GlobalFontScale;
 	}
 
 	ImGui::PopStyleColor();
@@ -86,6 +96,9 @@ void Overlay_GlobalsWindow()
 	ImGui::SliderInt("DrawDistanceBehind", &Settings::DrawDistanceBehind, 0, 4096);
 
 	ImGui::End();
+
+	if (settingsChanged)
+		Overlay::settings_write();
 }
 
 void Overlay_NotificationSettings()
@@ -103,23 +116,29 @@ void Overlay_NotificationSettings()
 	float curY = (screenSize.y / 4.0f);
 
 	{
+		bool settingsChanged = false;
+
 		ImGui::Begin("Notification Settings", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
 		ImGui::SetWindowPos(ImVec2(startX, curY), ImGuiCond_FirstUseEver);
 
-		ImGui::SliderInt("Display Time", &Settings::OverlayNotifyDisplayTime, 0, 60);
-
-		ImGui::Checkbox("Enable Online Lobby Notifications", &Settings::OverlayNotifyOnlineEnable);
-		ImGui::SliderInt("Online Update Time", &Settings::OverlayNotifyOnlineUpdateTime, 10, 60);
+		settingsChanged |= ImGui::SliderInt("Display Time", &Overlay::NotifyDisplayTime, 0, 60);
+		settingsChanged |= ImGui::Checkbox("Enable Online Lobby Notifications", &Overlay::NotifyOnlineEnable);
+		settingsChanged |= ImGui::SliderInt("Online Update Time", &Overlay::NotifyOnlineUpdateTime, 10, 60);
 
 		static const char* items[]{ "Never Hide", "Online Race", "Any Race" };
-		ImGui::Combo("Hide During", &Settings::OverlayNotifyHideMode, items, IM_ARRAYSIZE(items));
+		settingsChanged |= ImGui::Combo("Hide During", &Overlay::NotifyHideMode, items, IM_ARRAYSIZE(items));
 
 		ImGui::End();
+
+		if (settingsChanged)
+			Overlay::settings_write();
 	}
 }
 
 void Overlay_Init()
 {
+	Overlay::settings_read();
+
 	Notifications::instance.add("OutRun2006Tweaks v" MODULE_VERSION_STR " by emoose!\nPress F11 to open overlay.");
 
 	void ServerNotifications_Init();
@@ -173,3 +192,75 @@ bool Overlay_Update()
 
 	return true;
 }
+
+namespace Overlay
+{
+	bool settings_read()
+	{
+		spdlog::info("Overlay::settings_read - reading INI from {}", Module::OverlayIniPath.string());
+
+		const std::wstring iniPathStr = Module::OverlayIniPath.wstring();
+
+		// Read INI via FILE* since INIReader doesn't support wstring
+		FILE* iniFile;
+		errno_t result = _wfopen_s(&iniFile, iniPathStr.c_str(), L"r");
+		if (result != 0 || !iniFile)
+		{
+			spdlog::error("Overlay::settings_read - INI read failed! Error code {}", result);
+			return false;
+		}
+
+		inih::INIReader ini;
+		try
+		{
+			ini = inih::INIReader(iniFile);
+		}
+		catch (...)
+		{
+			spdlog::error("Overlay::settings_read - INI read failed! The file may be invalid or have duplicate settings inside");
+			fclose(iniFile);
+			return false;
+		}
+		fclose(iniFile);
+
+		GlobalFontScale = ini.Get("Overlay", "FontScale", GlobalFontScale);
+
+		NotifyDisplayTime = ini.Get("Notifications", "DisplayTime", NotifyDisplayTime);
+		NotifyOnlineEnable = ini.Get("Notifications", "OnlineEnable", NotifyOnlineEnable);
+		NotifyOnlineUpdateTime = ini.Get("Notifications", "OnlineUpdateTime", NotifyOnlineUpdateTime);
+		NotifyHideMode = ini.Get("Notifications", "HideMode", NotifyHideMode);
+
+		CourseReplacementEnabled = ini.Get("CourseReplacement", "Enabled", CourseReplacementEnabled);
+		std::string CourseCode;
+		CourseCode = ini.Get("CourseReplacement", "Code", CourseCode);
+		strcpy_s(CourseReplacementCode, CourseCode.c_str());
+
+		return true;
+	}
+
+	bool settings_write()
+	{
+		inih::INIReader ini;
+		ini.Set("Overlay", "FontScale", GlobalFontScale);
+
+		ini.Set("Notifications", "DisplayTime", NotifyDisplayTime);
+		ini.Set("Notifications", "OnlineEnable", NotifyOnlineEnable);
+		ini.Set("Notifications", "OnlineUpdateTime", NotifyOnlineUpdateTime);
+		ini.Set("Notifications", "HideMode", NotifyHideMode);
+
+		ini.Set("CourseReplacement", "Enabled", CourseReplacementEnabled);
+		ini.Set("CourseReplacement", "Code", std::string(CourseReplacementCode));
+
+		inih::INIWriter writer;
+		try
+		{
+			writer.write(Module::OverlayIniPath, ini);
+		}
+		catch (...)
+		{
+			spdlog::error("Overlay::settings_write - INI write failed!");
+			return false;
+		}
+		return true;
+	}
+};

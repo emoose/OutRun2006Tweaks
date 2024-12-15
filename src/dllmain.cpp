@@ -17,6 +17,7 @@ namespace Module
 	constexpr std::string_view IniFileName = "OutRun2006Tweaks.ini";
 	constexpr std::string_view UserIniFileName = "OutRun2006Tweaks.user.ini";
 	constexpr std::string_view LodIniFileName = "OutRun2006Tweaks.lods.ini";
+	constexpr std::string_view OverlayIniFileName = "OutRun2006Tweaks.overlay.ini";
 	constexpr std::string_view LogFileName = "OutRun2006Tweaks.log";
 
 	void init()
@@ -36,6 +37,7 @@ namespace Module
 		IniPath = dllParent / IniFileName;
 		UserIniPath = dllParent / UserIniFileName;
 		LodIniPath = dllParent / LodIniFileName;
+		OverlayIniPath = dllParent / OverlayIniFileName;
 
 		Game::init();
 	}
@@ -128,11 +130,6 @@ namespace Settings
 		spdlog::info(" - DemonwareServerOverride: {}", DemonwareServerOverride);
 
 		spdlog::info(" - OverlayEnabled: {}", OverlayEnabled);
-		spdlog::info(" - OverlayFontScale: {}", OverlayFontScale);
-		spdlog::info(" - OverlayNotifyDisplayTime: {}", OverlayNotifyDisplayTime);
-		spdlog::info(" - OverlayNotifyOnlineEnable: {}", OverlayNotifyOnlineEnable);
-		spdlog::info(" - OverlayNotifyOnlineUpdateTime: {}", OverlayNotifyOnlineUpdateTime);
-		spdlog::info(" - OverlayNotifyHideMode: {}", OverlayNotifyHideMode);
 
 		spdlog::info(" - FixPegasusClopping: {}", FixPegasusClopping);
 		spdlog::info(" - FixRightSideBunkiAnimations: {}", FixRightSideBunkiAnimations);
@@ -260,11 +257,6 @@ namespace Settings
 		DemonwareServerOverride = ini.Get("Misc", "DemonwareServerOverride", DemonwareServerOverride);
 
 		OverlayEnabled = ini.Get("Overlay", "Enabled", OverlayEnabled);
-		OverlayFontScale = ini.Get("Overlay", "FontScale", OverlayFontScale);
-		OverlayNotifyDisplayTime = ini.Get("Overlay", "NotifyDisplayTime", OverlayNotifyDisplayTime);
-		OverlayNotifyOnlineEnable = ini.Get("Overlay", "NotifyOnlineEnable", OverlayNotifyOnlineEnable);
-		OverlayNotifyOnlineUpdateTime = ini.Get("Overlay", "NotifyOnlineUpdateTime", OverlayNotifyOnlineUpdateTime);
-		OverlayNotifyHideMode = ini.Get("Overlay", "NotifyHideMode", OverlayNotifyHideMode);
 
 		FixPegasusClopping = ini.Get("Bugfixes", "FixPegasusClopping", FixPegasusClopping);
 		FixRightSideBunkiAnimations = ini.Get("Bugfixes", "FixRightSideBunkiAnimations", FixRightSideBunkiAnimations);
