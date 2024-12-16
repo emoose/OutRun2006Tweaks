@@ -112,18 +112,20 @@ class D3DHooks : public Hook
 			d3ddev->GetRenderState(D3DRS_CULLMODE, &prevCullMode);
 			d3ddev->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
 
-			// TODO: not sure if we might need these in future, if game overrides some state during gameplay it may affect letterbox
-#if 0
-			// Set render states
-			d3ddev->SetRenderState(D3DRS_ALPHABLENDENABLE, FALSE);
-			d3ddev->SetRenderState(D3DRS_ZENABLE, D3DZB_FALSE);
-			d3ddev->SetRenderState(D3DRS_LIGHTING, FALSE);
+			// Seems these SetRenderState/SetTexture calls are needed for DGVoodoo to render letterbox while imgui is active
+			// DXVK/D3D9 seem to work fine without them
+			// TODO: the game keeps its own copies of the render states so it can update them if needed, should we update the games copy here?
+			{
+				// Set render states
+				d3ddev->SetRenderState(D3DRS_ALPHABLENDENABLE, FALSE);
+				d3ddev->SetRenderState(D3DRS_ZENABLE, D3DZB_FALSE);
+				d3ddev->SetRenderState(D3DRS_LIGHTING, FALSE);
 
-			// Set texture stage states to avoid any texture influence
-			d3ddev->SetTexture(0, NULL);
-			d3ddev->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_DISABLE);
-			d3ddev->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_DISABLE);
-#endif
+				// Set texture stage states to avoid any texture influence
+				d3ddev->SetTexture(0, NULL);
+				d3ddev->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_DISABLE);
+				d3ddev->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_DISABLE);
+			}
 
 			// Set FVF and stream source
 			d3ddev->SetFVF(CUSTOMFVF);
