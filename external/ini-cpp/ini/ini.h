@@ -294,9 +294,13 @@ inline INIReader::INIReader(const std::filesystem::path& filepath) {
 	const std::wstring path_str = filepath.wstring();
 	FILE* iniFile;
 	errno_t result = _wfopen_s(&iniFile, path_str.c_str(), L"r");
-	_error = ini_parse_file(iniFile, ValueHandler, this);
+	if (result != 0)
+		_error = -1;
+	else
+		_error = ini_parse_file(iniFile, ValueHandler, this);
 	ParseError();
-	fclose(iniFile);
+	if (iniFile)
+		fclose(iniFile);
 }
 
 /**
