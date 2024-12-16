@@ -17,6 +17,7 @@ namespace Game
 {
 	inline D3DXVECTOR2 original_resolution{ 640, 480 };
 
+	inline int* game_mode = nullptr;
 	inline GameState* current_mode = nullptr;
 	inline int* game_start_progress_code = nullptr;
 	inline int* file_load_progress_code = nullptr;
@@ -198,6 +199,7 @@ namespace Game
 
 	inline void init()
 	{
+		game_mode = Module::exe_ptr<int>(0x380258);
 		current_mode = Module::exe_ptr<GameState>(0x38026C);
 		game_start_progress_code = Module::exe_ptr<int>(0x4367A8);
 		file_load_progress_code = Module::exe_ptr<int>(0x436718);

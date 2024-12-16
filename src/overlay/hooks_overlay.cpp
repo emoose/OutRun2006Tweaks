@@ -104,41 +104,42 @@ class D3DHooks : public Hook
 		{
 			IDirect3DDevice9* d3ddev = Game::D3DDevice();
 
-			if (Settings::UILetterboxing == 1 && Game::is_in_game())
-				return; // disable letterboxing while in-game
-
-			// Backup existing cullmode and set to none, otherwise we won't get drawn
-			DWORD prevCullMode = D3DCULL_NONE;
-			d3ddev->GetRenderState(D3DRS_CULLMODE, &prevCullMode);
-			d3ddev->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
-
-			// Seems these SetRenderState/SetTexture calls are needed for DGVoodoo to render letterbox while imgui is active
-			// DXVK/D3D9 seem to work fine without them
-			// TODO: the game keeps its own copies of the render states so it can update them if needed, should we update the games copy here?
+			// Only show letterboxing if not in game, or UILetterboxing is 2
+			if (!Game::is_in_game() || Settings::UILetterboxing == 2)
 			{
-				// Set render states
-				d3ddev->SetRenderState(D3DRS_ALPHABLENDENABLE, FALSE);
-				d3ddev->SetRenderState(D3DRS_ZENABLE, D3DZB_FALSE);
-				d3ddev->SetRenderState(D3DRS_LIGHTING, FALSE);
+				// Backup existing cullmode and set to none, otherwise we won't get drawn
+				DWORD prevCullMode = D3DCULL_NONE;
+				d3ddev->GetRenderState(D3DRS_CULLMODE, &prevCullMode);
+				d3ddev->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
 
-				// Set texture stage states to avoid any texture influence
-				d3ddev->SetTexture(0, NULL);
-				d3ddev->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_DISABLE);
-				d3ddev->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_DISABLE);
+				// Seems these SetRenderState/SetTexture calls are needed for DGVoodoo to render letterbox while imgui is active
+				// DXVK/D3D9 seem to work fine without them
+				// TODO: the game keeps its own copies of the render states so it can update them if needed, should we update the games copy here?
+				{
+					// Set render states
+					d3ddev->SetRenderState(D3DRS_ALPHABLENDENABLE, FALSE);
+					d3ddev->SetRenderState(D3DRS_ZENABLE, D3DZB_FALSE);
+					d3ddev->SetRenderState(D3DRS_LIGHTING, FALSE);
+
+					// Set texture stage states to avoid any texture influence
+					d3ddev->SetTexture(0, NULL);
+					d3ddev->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_DISABLE);
+					d3ddev->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_DISABLE);
+				}
+
+				// Set FVF and stream source
+				d3ddev->SetFVF(CUSTOMFVF);
+				d3ddev->SetStreamSource(0, LetterboxVertex, 0, sizeof(CUSTOMVERTEX));
+
+				// Draw left border
+				d3ddev->DrawPrimitive(D3DPT_TRIANGLESTRIP, 0, 2);
+
+				// Draw right border
+				d3ddev->DrawPrimitive(D3DPT_TRIANGLESTRIP, 4, 2);
+
+				// Restore original cullmode
+				d3ddev->SetRenderState(D3DRS_CULLMODE, prevCullMode);
 			}
-
-			// Set FVF and stream source
-			d3ddev->SetFVF(CUSTOMFVF);
-			d3ddev->SetStreamSource(0, LetterboxVertex, 0, sizeof(CUSTOMVERTEX));
-
-			// Draw left border
-			d3ddev->DrawPrimitive(D3DPT_TRIANGLESTRIP, 0, 2);
-
-			// Draw right border
-			d3ddev->DrawPrimitive(D3DPT_TRIANGLESTRIP, 4, 2);
-
-			// Restore original cullmode
-			d3ddev->SetRenderState(D3DRS_CULLMODE, prevCullMode);
 		}
 
 		if (overlayInited)
