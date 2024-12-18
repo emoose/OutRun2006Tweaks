@@ -267,161 +267,165 @@ void Overlay_CourseEditor()
 			ImGui::EndDisabled();
 	}
 
-	// TODO: editor should be disabled if playing online, since our lobbyname hack to update clients probably won't update quick enough
-	// should only really be enabled when in the lobby & user is host, or user is playing offline
-
-	StageTable_mb* stg_tbl = *Module::exe_ptr<StageTable_mb*>(0x3D3188); // stg_tbl only points to current stage
-
-	int curPlayingColumn = -1;
-	if (stg_tbl)
-		curPlayingColumn = stg_tbl->StageTableIdx_4;
-
-	bool editor_disabled = (Game::is_in_game() && Game::pl_car()->is_in_bunki()) || !Overlay::CourseReplacementEnabled;
-	if (editor_disabled)
-		ImGui::BeginDisabled();
-
-	float comboHeight = ImGui::GetFrameHeight(); // Height of a single combobox
-	float verticalSpacing = 10.0f; // Additional spacing between comboboxes
-	float comboWidth = 225.0f; // Width of comboboxes
-
-	float windowHeight = ImGui::GetCursorPosY() + floor(comboHeight * 5 + (verticalSpacing * 6));
-
 	bool has_updated = false;
+	bool editor_disabled = (Game::is_in_game() && Game::pl_car()->is_in_bunki()) || !Overlay::CourseReplacementEnabled;
 
-	int num = 0;
-	StageTable_mb* curStage = CustomStageTable.data();
-	for (int col = 0; col < 5; ++col)
+	if (ImGui::TreeNodeEx("Stages", ImGuiTreeNodeFlags_DefaultOpen))
 	{
-		float columnHeight = floor((comboHeight + verticalSpacing) * (col + 1) - verticalSpacing);
+		// TODO: editor should be disabled if playing online, since our lobbyname hack to update clients probably won't update quick enough
+		// should only really be enabled when in the lobby & user is host, or user is playing offline
 
-		// Start a new column for each level of the pyramid
-		ImGui::BeginGroup();
+		StageTable_mb* stg_tbl = *Module::exe_ptr<StageTable_mb*>(0x3D3188); // stg_tbl only points to current stage
 
-		// Center the column vertically
-		float startY = (windowHeight - columnHeight) * 0.5f;
-		ImGui::SetCursorPosY(startY);
+		int curPlayingColumn = -1;
+		if (stg_tbl)
+			curPlayingColumn = stg_tbl->StageTableIdx_4;
 
-		// if player is already past this column (or playing it), disable dropdowns
-		bool col_disabled = (curPlayingColumn >= num) && !editor_disabled && Game::is_in_game();
+		if (editor_disabled)
+			ImGui::BeginDisabled();
 
-		for (int row = 0; row <= col; ++row)
+		float comboHeight = ImGui::GetFrameHeight(); // Height of a single combobox
+		float verticalSpacing = 10.0f; // Additional spacing between comboboxes
+		float comboWidth = 200.f; // Width of comboboxes
+
+		float windowHeight = ImGui::GetCursorPosY() + (comboHeight * 3) + floor(comboHeight * 5 + (verticalSpacing * 6));
+
+		int num = 0;
+		StageTable_mb* curStage = CustomStageTable.data();
+		for (int col = 0; col < 5; ++col)
 		{
-			if (col_disabled)
-				ImGui::BeginDisabled();
+			float columnHeight = floor((comboHeight + verticalSpacing) * (col + 1) - verticalSpacing);
 
-			bool playingThisStage = (curPlayingColumn == num) && Game::is_in_game();
+			// Start a new column for each level of the pyramid
+			ImGui::BeginGroup();
 
-			// Highlight the current track
-			if (playingThisStage)
-				ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.0f, 0.75f, 0.0f, 0.75f));
+			// Center the column vertically
+			float startY = (windowHeight - columnHeight) * 0.5f;
+			ImGui::SetCursorPosY(startY);
 
-			ImGui::PushID(col * 10 + row);
-			ImGui::SetNextItemWidth(comboWidth);
+			// if player is already past this column (or playing it), disable dropdowns
+			bool col_disabled = (curPlayingColumn >= num) && !editor_disabled && Game::is_in_game();
 
-			int selected = curStage->StageUniqueName_0;
-
-			std::string name = std::format("{}.{}", (col + 1), (row + 1));
-			if (ImGui::Combo(name.c_str(), &selected, Game::StageNames, int(STAGE_COUNT)))
-				has_updated |= update_stage(num, GameStage(selected));
-
-			curStage++;
-
-			// Add vertical spacing between comboboxes
-			if (row <= col)
-				ImGui::SetCursorPosY(ImGui::GetCursorPosY() + verticalSpacing);
-
-			ImGui::PopID();
-
-			if (playingThisStage)
-				ImGui::PopStyleColor();
-
-			if (col_disabled)
-				ImGui::EndDisabled();
-
-			num++;
-		}
-
-		ImGui::EndGroup();
-
-		if (col + 1 < 5)
-			ImGui::SameLine(0, 20.0f);
-	}
-
-	char* ShareCode = Overlay::CourseReplacementCode;
-
-	ImGui::Text("Share Code: ");
-	ImGui::SameLine();
-	ImGui::SetNextItemWidth(500.f);
-	ImGui::InputText("##ShareCode", ShareCode, 256);
-	ImGui::SameLine();
-	if (ImGui::Button("Apply Code"))
-	{
-		has_updated = true;
-		sharecode_apply();
-	}
-	ImGui::SameLine();
-	if (ImGui::Button("Copy Code"))
-	{
-		HGLOBAL hMem = GlobalAlloc(GMEM_MOVEABLE, strlen(ShareCode) + 1);
-		if (hMem)
-		{
-			memcpy(GlobalLock(hMem), ShareCode, strlen(ShareCode) + 1);
-			GlobalUnlock(hMem);
-			OpenClipboard(0);
-			EmptyClipboard();
-			SetClipboardData(CF_TEXT, hMem);
-			CloseClipboard();
-		}
-	}
-	ImGui::SameLine();
-	if (ImGui::Button("Paste Code"))
-	{
-		if (OpenClipboard(0))
-		{
-			HANDLE hClipboardData = GetClipboardData(CF_UNICODETEXT);
-			if (hClipboardData == nullptr)
-				hClipboardData = GetClipboardData(CF_TEXT);
-
-			if (hClipboardData != nullptr)
+			for (int row = 0; row <= col; ++row)
 			{
-				void* clipboardData = GlobalLock(hClipboardData);
-				if (clipboardData)
-				{
-					if (hClipboardData == GetClipboardData(CF_UNICODETEXT))
-					{
-						wchar_t* wideText = static_cast<wchar_t*>(clipboardData);
+				if (col_disabled)
+					ImGui::BeginDisabled();
 
-						// Convert unicode to char
-						int bufferSize = WideCharToMultiByte(CP_UTF8, 0, wideText, -1, nullptr, 0, nullptr, nullptr);
-						if (bufferSize > 0 && bufferSize < sizeof(ShareCode))
-							WideCharToMultiByte(CP_UTF8, 0, wideText, -1, ShareCode, bufferSize, nullptr, nullptr);
-						else
-						{
-							// Handle the case where the buffer is too small, truncate if necessary
-							WideCharToMultiByte(CP_UTF8, 0, wideText, -1, ShareCode, sizeof(ShareCode) - 1, nullptr, nullptr);
-							ShareCode[sizeof(ShareCode) - 1] = '\0'; // Null-terminate
-						}
-					}
-					else if (hClipboardData == GetClipboardData(CF_TEXT))
-					{
-						char* asciiText = static_cast<char*>(clipboardData);
+				bool playingThisStage = (curPlayingColumn == num) && Game::is_in_game();
 
-						if (strlen(asciiText) < sizeof(ShareCode))
-							strcpy(ShareCode, asciiText);
-						else
-						{
-							// If the clipboard text is too large, truncate
-							strncpy(ShareCode, asciiText, sizeof(ShareCode) - 1);
-							ShareCode[sizeof(ShareCode) - 1] = '\0'; // Null-terminate
-						}
-					}
-					sharecode_apply();
+				// Highlight the current track
+				if (playingThisStage)
+					ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.0f, 0.75f, 0.0f, 0.75f));
 
-					GlobalUnlock(hClipboardData);
-				}
+				ImGui::PushID(col * 10 + row);
+				ImGui::SetNextItemWidth(comboWidth);
+
+				int selected = curStage->StageUniqueName_0;
+
+				std::string name = std::format("##{}.{}", (col + 1), (row + 1));
+				if (ImGui::Combo(name.c_str(), &selected, Game::StageNames, int(STAGE_COUNT)))
+					has_updated |= update_stage(num, GameStage(selected));
+
+				curStage++;
+
+				// Add vertical spacing between comboboxes
+				if (row <= col)
+					ImGui::SetCursorPosY(ImGui::GetCursorPosY() + verticalSpacing);
+
+				ImGui::PopID();
+
+				if (playingThisStage)
+					ImGui::PopStyleColor();
+
+				if (col_disabled)
+					ImGui::EndDisabled();
+
+				num++;
 			}
-			CloseClipboard();
+
+			ImGui::EndGroup();
+
+			if (col + 1 < 5)
+				ImGui::SameLine(0, 20.0f);
 		}
+
+		char* ShareCode = Overlay::CourseReplacementCode;
+
+		ImGui::Text("Share Code: ");
+		ImGui::SameLine();
+		ImGui::SetNextItemWidth(500.f);
+		ImGui::InputText("##ShareCode", ShareCode, 256);
+		ImGui::SameLine();
+		if (ImGui::Button("Apply Code"))
+		{
+			has_updated = true;
+			sharecode_apply();
+		}
+		ImGui::SameLine();
+		if (ImGui::Button("Copy Code"))
+		{
+			HGLOBAL hMem = GlobalAlloc(GMEM_MOVEABLE, strlen(ShareCode) + 1);
+			if (hMem)
+			{
+				memcpy(GlobalLock(hMem), ShareCode, strlen(ShareCode) + 1);
+				GlobalUnlock(hMem);
+				OpenClipboard(0);
+				EmptyClipboard();
+				SetClipboardData(CF_TEXT, hMem);
+				CloseClipboard();
+			}
+		}
+		ImGui::SameLine();
+		if (ImGui::Button("Paste Code"))
+		{
+			if (OpenClipboard(0))
+			{
+				HANDLE hClipboardData = GetClipboardData(CF_UNICODETEXT);
+				if (hClipboardData == nullptr)
+					hClipboardData = GetClipboardData(CF_TEXT);
+
+				if (hClipboardData != nullptr)
+				{
+					void* clipboardData = GlobalLock(hClipboardData);
+					if (clipboardData)
+					{
+						if (hClipboardData == GetClipboardData(CF_UNICODETEXT))
+						{
+							wchar_t* wideText = static_cast<wchar_t*>(clipboardData);
+
+							// Convert unicode to char
+							int bufferSize = WideCharToMultiByte(CP_UTF8, 0, wideText, -1, nullptr, 0, nullptr, nullptr);
+							if (bufferSize > 0 && bufferSize < sizeof(ShareCode))
+								WideCharToMultiByte(CP_UTF8, 0, wideText, -1, ShareCode, bufferSize, nullptr, nullptr);
+							else
+							{
+								// Handle the case where the buffer is too small, truncate if necessary
+								WideCharToMultiByte(CP_UTF8, 0, wideText, -1, ShareCode, sizeof(ShareCode) - 1, nullptr, nullptr);
+								ShareCode[sizeof(ShareCode) - 1] = '\0'; // Null-terminate
+							}
+						}
+						else if (hClipboardData == GetClipboardData(CF_TEXT))
+						{
+							char* asciiText = static_cast<char*>(clipboardData);
+
+							if (strlen(asciiText) < sizeof(ShareCode))
+								strcpy(ShareCode, asciiText);
+							else
+							{
+								// If the clipboard text is too large, truncate
+								strncpy(ShareCode, asciiText, sizeof(ShareCode) - 1);
+								ShareCode[sizeof(ShareCode) - 1] = '\0'; // Null-terminate
+							}
+						}
+						sharecode_apply();
+
+						GlobalUnlock(hClipboardData);
+					}
+				}
+				CloseClipboard();
+			}
+		}
+		ImGui::TreePop();
 	}
 
 	if (ImGui::TreeNode("Randomizer"))
