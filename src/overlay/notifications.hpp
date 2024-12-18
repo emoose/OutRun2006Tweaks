@@ -63,7 +63,11 @@ public:
 		{
 			if (Overlay::NotifyHideMode == Overlay::NotifyHideMode_AllRaces)
 				return;
-			// todo: check if connected to lobby & Settings::NotifyHideMode_OnlineRaces
+
+			if (Overlay::NotifyHideMode == Overlay::NotifyHideMode_OnlineRaces &&
+				*Game::SumoNet_CurNetDriver && (*Game::SumoNet_CurNetDriver)->is_online_driver() &&
+				(*Game::game_mode == 3 || *Game::game_mode == 4))
+				return;
 		}
 
 		ImVec2 screenSize = ImGui::GetIO().DisplaySize;
