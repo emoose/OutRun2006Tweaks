@@ -3,10 +3,11 @@
 #include <imgui.h>
 #include <deque>
 #include <mutex>
+#include "game_addrs.hpp"
 #include "overlay.hpp"
 
-inline size_t maxNotifications = 3;
-inline std::chrono::seconds displayDuration = std::chrono::seconds(7);
+inline size_t maxNotifications = 5;
+inline std::chrono::seconds displayDuration = std::chrono::seconds(10);
 
 inline ImVec2 notificationSize = { 600, 100 };
 inline float notificationSpacing = 10.0f;
@@ -20,16 +21,17 @@ private:
 		std::string message;
 		std::chrono::time_point<std::chrono::steady_clock> timestamp;
 		int minDisplaySeconds;
+        std::function<void()> onMouseClick;
 	};
 
 	std::deque<Notification> notifications;
 	std::mutex notificationsMutex;
 
 public:
-	void add(const std::string& message, int minDisplaySeconds = 0)
+	void add(const std::string& message, int minDisplaySeconds = 0, std::function<void()> onMouseClick = nullptr)
 	{
 		std::lock_guard<std::mutex> lock(notificationsMutex);
-		notifications.push_back({ message, std::chrono::steady_clock::now(), minDisplaySeconds });
+        notifications.push_back({ message, std::chrono::steady_clock::now(), minDisplaySeconds, onMouseClick });
 
 		if (notifications.size() > maxNotifications)
 			notifications.pop_front();
@@ -87,8 +89,13 @@ public:
 
 			std::string windowName = "Notification " + std::to_string(i);
 			ImGui::Begin(windowName.c_str(), nullptr, ImGuiWindowFlags_NoDecoration |
-				ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoInputs |
+				ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMove |
 				ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing);
+
+            // Check for click on the notification
+            if (ImGui::IsWindowHovered(ImGuiHoveredFlags_ChildWindows) && ImGui::IsMouseClicked(ImGuiMouseButton_Left))
+                if (notification.onMouseClick)
+                    notification.onMouseClick();
 
 			ImGui::SetWindowFontScale(notificationTextScale);
 
@@ -126,13 +133,20 @@ public:
 				ImVec2 lineSize = ImGui::CalcTextSize(singleLine.c_str(), nullptr, true, windowSize.x - 20.0f);
 
 				// Center line horizontally
-				float paddingX = 10.0f;
-				float offsetX = (windowSize.x - lineSize.x) / 2.0f;
-				offsetX = max(offsetX, paddingX);
+				if (singleLine != "---")
+				{
+					float paddingX = 10.0f;
+					float offsetX = (windowSize.x - lineSize.x) / 2.0f;
+					offsetX = max(offsetX, paddingX);
 
-				ImGui::SetCursorPos(ImVec2(offsetX, currentYOffset));
-
-				ImGui::TextWrapped("%s", singleLine.c_str());
+					ImGui::SetCursorPos(ImVec2(offsetX, currentYOffset));
+					ImGui::TextWrapped("%s", singleLine.c_str());
+				}
+				else
+				{
+					ImGui::SetCursorPos(ImVec2(0, currentYOffset + (paddingY * 3)));
+					ImGui::Separator();
+				}
 
 				// Move down for the next line, including spacing
 				currentYOffset += lineSize.y + ImGui::GetStyle().ItemSpacing.y;

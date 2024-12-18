@@ -8,6 +8,7 @@ namespace Overlay
 	inline bool NotifyOnlineEnable = true;
 	inline int NotifyOnlineUpdateTime = 20;
 	inline int NotifyHideMode = 1;
+	inline bool NotifyUpdateCheck = true;
 
 	enum NotifyHideModes
 	{

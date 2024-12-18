@@ -6,12 +6,9 @@
 #include "game_addrs.hpp"
 #include <imgui.h>
 #include <mutex>
-#include <winhttp.h>
 #include <json/json.h>
 #include <set>
 #include "notifications.hpp"
-
-#pragma comment(lib, "winhttp.lib")
 
 class ServerUpdater
 {
@@ -48,19 +45,22 @@ private:
 
 			try
 			{
-				std::string jsonContent = downloadJson();
-				Json::Value currentServerList = parseJson(jsonContent);
-
-				if (currentServerList.isMember("Servers"))
+				std::string jsonContent = Util::HttpGetRequest(L"clarissa.port0.org", L"/servers.json", false);
+				if (!jsonContent.empty())
 				{
-					auto& currentServers = currentServerList["Servers"];
-					handleNewServers(currentServers);
+					Json::Value currentServerList = parseJson(jsonContent);
 
-					// Save the current state as the previous state for the next check
-					std::lock_guard<std::mutex> lock(dataMutex);
-					previousServers = currentServers;
+					if (currentServerList.isMember("Servers"))
+					{
+						auto& currentServers = currentServerList["Servers"];
+						handleNewServers(currentServers);
 
-					numServerUpdates++;
+						// Save the current state as the previous state for the next check
+						std::lock_guard<std::mutex> lock(dataMutex);
+						previousServers = currentServers;
+
+						numServerUpdates++;
+					}
 				}
 			}
 			catch (const std::exception& e)
@@ -72,58 +72,6 @@ private:
 
 			std::this_thread::sleep_for(std::chrono::seconds(Overlay::NotifyOnlineUpdateTime));
 		}
-	}
-
-	std::string downloadJson()
-	{
-		HINTERNET hSession = WinHttpOpen(L"ServerUpdater/1.0",
-			WINHTTP_ACCESS_TYPE_DEFAULT_PROXY,
-			WINHTTP_NO_PROXY_NAME,
-			WINHTTP_NO_PROXY_BYPASS,
-			0);
-		if (!hSession) throw std::runtime_error("Failed to open WinHTTP session.");
-
-		HINTERNET hConnect = WinHttpConnect(hSession, L"clarissa.port0.org", INTERNET_DEFAULT_HTTP_PORT, 0);
-		if (!hConnect) {
-			WinHttpCloseHandle(hSession);
-			throw std::runtime_error("Failed to connect to server.");
-		}
-
-		HINTERNET hRequest = WinHttpOpenRequest(hConnect, L"GET", L"/servers.json",
-			NULL, WINHTTP_NO_REFERER,
-			WINHTTP_DEFAULT_ACCEPT_TYPES, 0);
-		if (!hRequest) {
-			WinHttpCloseHandle(hConnect);
-			WinHttpCloseHandle(hSession);
-			throw std::runtime_error("Failed to open request.");
-		}
-
-		bool result = WinHttpSendRequest(hRequest, WINHTTP_NO_ADDITIONAL_HEADERS, 0,
-			WINHTTP_NO_REQUEST_DATA, 0, 0, 0);
-		if (!result || !WinHttpReceiveResponse(hRequest, NULL)) {
-			WinHttpCloseHandle(hRequest);
-			WinHttpCloseHandle(hConnect);
-			WinHttpCloseHandle(hSession);
-			throw std::runtime_error("Failed to send or receive HTTP request.");
-		}
-
-		std::string response;
-		DWORD bytesRead;
-		char buffer[4096];
-		do {
-			WinHttpQueryDataAvailable(hRequest, &bytesRead);
-			if (bytesRead == 0) break;
-
-			DWORD bytesFetched;
-			WinHttpReadData(hRequest, buffer, sizeof(buffer), &bytesFetched);
-			response.append(buffer, bytesFetched);
-		} while (bytesRead > 0);
-
-		WinHttpCloseHandle(hRequest);
-		WinHttpCloseHandle(hConnect);
-		WinHttpCloseHandle(hSession);
-
-		return response;
 	}
 
 	Json::Value parseJson(const std::string& jsonContent)
@@ -194,10 +142,13 @@ private:
 			}
 		}
 
+		// First update since game launch and we have some servers, write a notify about it
 		if (numServerUpdates == 0 && numValid > 0)
 		{
-			// First update since game launch and we have some servers, write a notify about it
-			Notifications::instance.add("There are " + std::to_string(numValid) + " online lobbies active!");
+			if (numValid == 1)
+				Notifications::instance.add("There is 1 online lobby active!");
+			else
+				Notifications::instance.add("There are " + std::to_string(numValid) + " online lobbies active!");
 		}
 	}
 

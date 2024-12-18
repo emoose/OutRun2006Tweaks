@@ -143,13 +143,20 @@ void Overlay_Init()
 {
 	Overlay::settings_read();
 
-	Notifications::instance.add("OutRun2006Tweaks v" MODULE_VERSION_STR " by emoose!\nPress F11 to open overlay.");
+	Notifications::instance.add("OutRun2006Tweaks v" MODULE_VERSION_STR " by emoose!\nPress F11 to open overlay.", 0,
+		[]() {
+			std::string url = "https://github.com/emoose/OutRun2006Tweaks";
+			ShellExecuteA(nullptr, "open", url.c_str(), 0, 0, SW_SHOWNORMAL);
+		});
 
 	if (Overlay::CourseReplacementEnabled)
 		Notifications::instance.add("Note: Course Editor Override is enabled from previous session.");
 
 	void ServerNotifications_Init();
 	ServerNotifications_Init();
+
+	void UpdateCheck_Init();
+	UpdateCheck_Init();
 }
 
 bool Overlay_Update()
@@ -169,9 +176,10 @@ bool Overlay_Update()
 	// Start the Dear ImGui frame
 	ImGui::NewFrame();
 
-	if (!overlay_visible)
-		Notifications::instance.render();
-	else
+	// Notifications are rendered without overlay needing to be active
+	Notifications::instance.render();
+
+	if (overlay_visible)
 	{
 #ifdef _DEBUG
 		static bool show_demo_window = true;
@@ -223,6 +231,7 @@ namespace Overlay
 		NotifyOnlineEnable = ini.Get("Notifications", "OnlineEnable", NotifyOnlineEnable);
 		NotifyOnlineUpdateTime = ini.Get("Notifications", "OnlineUpdateTime", NotifyOnlineUpdateTime);
 		NotifyHideMode = ini.Get("Notifications", "HideMode", NotifyHideMode);
+		NotifyUpdateCheck = ini.Get("Notifications", "CheckForUpdates", NotifyUpdateCheck);
 
 		CourseReplacementEnabled = ini.Get("CourseReplacement", "Enabled", CourseReplacementEnabled);
 		std::string CourseCode;
@@ -241,6 +250,7 @@ namespace Overlay
 		ini.Set("Notifications", "OnlineEnable", NotifyOnlineEnable);
 		ini.Set("Notifications", "OnlineUpdateTime", NotifyOnlineUpdateTime);
 		ini.Set("Notifications", "HideMode", NotifyHideMode);
+		ini.Set("Notifications", "CheckForUpdates", NotifyUpdateCheck);
 
 		ini.Set("CourseReplacement", "Enabled", CourseReplacementEnabled);
 		ini.Set("CourseReplacement", "Code", std::string(CourseReplacementCode));

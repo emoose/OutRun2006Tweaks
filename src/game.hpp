@@ -1,6 +1,7 @@
 #pragma once
 #include <d3d9types.h>
 #include <Xinput.h>
+#include <unordered_map>
 
 #define D3DX_DEFAULT ULONG_MAX
 
