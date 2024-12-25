@@ -425,6 +425,10 @@ void Overlay_CourseEditor()
 				CloseClipboard();
 			}
 		}
+
+		if (editor_disabled)
+			ImGui::EndDisabled();
+
 		ImGui::TreePop();
 	}
 
@@ -445,6 +449,9 @@ void Overlay_CourseEditor()
 		ImGui::Checkbox("OutRun2SP Night (2 tracks)", &or2sp_night);
 		ImGui::Checkbox("OutRun2SP Reverse (15 tracks)", &or2sp_reverse);
 		ImGui::Checkbox("Allow Duplicates", &allow_duplicates);
+
+		if (editor_disabled)
+			ImGui::BeginDisabled();
 
 		if (ImGui::Button("Randomize"))
 		{
@@ -488,13 +495,15 @@ void Overlay_CourseEditor()
 				has_updated = true;
 			}
 		}
+
+		if (editor_disabled)
+			ImGui::EndDisabled();
+
 		ImGui::TreePop();
 	}
 
 	if (editor_disabled)
 	{
-		ImGui::EndDisabled();
-
 		if (Overlay::CourseReplacementEnabled && Game::is_in_game() && Game::pl_car()->is_in_bunki())
 			ImGui::Text("(disabled during bunki)");
 	}
