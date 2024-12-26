@@ -65,7 +65,7 @@ public:
 				return;
 
 			if (Overlay::NotifyHideMode == Overlay::NotifyHideMode_OnlineRaces &&
-				*Game::SumoNet_CurNetDriver && (*Game::SumoNet_CurNetDriver)->is_online_driver() &&
+				*Game::SumoNet_CurNetDriver && (*Game::SumoNet_CurNetDriver)->is_in_lobby() &&
 				(*Game::game_mode == 3 || *Game::game_mode == 4))
 				return;
 		}
@@ -104,11 +104,16 @@ public:
 			ImGui::SetWindowFontScale(notificationTextScale);
 
 			// Split the message into lines
-			std::istringstream messageStream(notification.message);
 			std::vector<std::string> lines;
-			std::string line;
-			while (std::getline(messageStream, line)) {
-				lines.push_back(line);
+			if (notification.message.find("---") == std::string::npos)
+				lines.push_back(notification.message); // notificiation doesn't have splitter, treat it as all single line for centering
+			else
+			{
+				std::istringstream messageStream(notification.message);
+				std::string line;
+				while (std::getline(messageStream, line)) {
+					lines.push_back(line);
+				}
 			}
 
 			// Calculate total height for all lines

@@ -103,7 +103,7 @@ namespace Game
 	inline fn_stdcall_1arg_int Sumo_CheckRacerUnlocked = nullptr;
 
 	inline const char* SumoNet_OnlineUserName = nullptr;
-	inline SumoNet_MatchMakingInfo* SumoNet_LobbyInfo = nullptr;
+	inline sSumoNet_LobbyInfo* SumoNet_LobbyInfo = nullptr;
 	inline SumoNet_NetDriver** SumoNet_CurNetDriver = nullptr;
 
 	// 2d sprite drawing
@@ -269,7 +269,7 @@ namespace Game
 		Sumo_CheckRacerUnlocked = Module::fn_ptr<fn_stdcall_1arg_int>(0xE8410);
 
 		SumoNet_OnlineUserName = Module::exe_ptr<const char>(0x430C20);
-		SumoNet_LobbyInfo = Module::exe_ptr<SumoNet_MatchMakingInfo>(0x37FF90);
+		SumoNet_LobbyInfo = Module::exe_ptr<sSumoNet_LobbyInfo>(0x25A7A4);
 		SumoNet_CurNetDriver = Module::exe_ptr<SumoNet_NetDriver*>(0x3D68AC);
 
 		sprSetFontPriority = Module::fn_ptr<fn_1arg>(0x2CCB0);

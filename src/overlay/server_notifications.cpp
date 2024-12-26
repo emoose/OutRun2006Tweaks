@@ -132,10 +132,10 @@ private:
 						}
 						else
 						{
-							if (*Game::SumoNet_CurNetDriver && (*Game::SumoNet_CurNetDriver)->is_hosting_online())
+							if (*Game::SumoNet_CurNetDriver && (*Game::SumoNet_CurNetDriver)->is_hosting_online() && !Game::is_in_game())
 								Notifications::instance.add(reachable ?
 									"Your lobby is active & accessible!" :
-									"Your lobby cannot be reached by the master server!\nYou may need to setup port-forwarding for UDP ports 41455/41456/41457.", reachable ? 0 : 20);
+									"Your lobby cannot be reached by the master server!\n\nYou may need to setup port-forwarding for UDP ports 41455/41456/41457.", reachable ? 0 : 20);
 						}
 					}
 				}

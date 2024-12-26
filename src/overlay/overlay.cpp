@@ -60,8 +60,8 @@ void Overlay_GlobalsWindow()
 	EVWORK_CAR* car = Game::pl_car();
 	ImGui::Text("game_mode: %d", *Game::game_mode);
 	ImGui::Text("current_mode: %d", *Game::current_mode);
-	ImGui::Text("Lobby is online: %d", (*Game::SumoNet_CurNetDriver && (*Game::SumoNet_CurNetDriver)->is_online_driver()));
-	ImGui::Text("Lobby is online host: %d", (*Game::SumoNet_CurNetDriver && (*Game::SumoNet_CurNetDriver)->is_hosting_online()));
+	ImGui::Text("Lobby is active: %d", (*Game::SumoNet_CurNetDriver && (*Game::SumoNet_CurNetDriver)->is_in_lobby()));
+	ImGui::Text("Lobby is host: %d", (*Game::SumoNet_CurNetDriver && (*Game::SumoNet_CurNetDriver)->is_hosting()));
 	ImGui::Text("Is MP gamemode: %d", (*Game::game_mode == 3 || *Game::game_mode == 4));
 	ImGui::Text("Car kind: %d", int(car->car_kind_11));
 	ImGui::Text("Car position: %.3f %.3f %.3f", car->position_14.x, car->position_14.y, car->position_14.z);
