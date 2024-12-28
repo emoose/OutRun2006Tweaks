@@ -18,128 +18,148 @@ bool f11_prev_state = false; // previously seen F11 state
 
 bool overlay_visible = false; // user wants overlay to show?
 
-void Overlay_GlobalsWindow()
+class GlobalsWindow : public OverlayWindow
 {
-	extern bool EnablePauseMenu;
-
-	bool settingsChanged = false;
-
-	ImGui::Begin("Globals", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
-
-	ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.51f, 0.00f, 0.14f, 0.00f));
-	if (ImGui::Button("-"))
+public:
+	void init() override {}
+	void render(bool overlayEnabled) override
 	{
-		if (Overlay::GlobalFontScale > 1.0f)
-		{
-			Overlay::GlobalFontScale -= 0.05f;
-			settingsChanged = true;
-		}
+		if (!overlayEnabled)
+			return;
 
-		ImGui::GetIO().FontGlobalScale = Overlay::GlobalFontScale;
-	}
+		extern bool EnablePauseMenu;
 
-	ImGui::SameLine();
-
-	if (ImGui::Button("+"))
-	{
-		if (Overlay::GlobalFontScale < 4.0f)
-		{
-			Overlay::GlobalFontScale += 0.05f;
-			settingsChanged = true;
-		}
-
-		ImGui::GetIO().FontGlobalScale = Overlay::GlobalFontScale;
-	}
-
-	ImGui::PopStyleColor();
-	ImGui::SameLine();
-	ImGui::Text("Overlay Font Size");
-
-	ImGui::Separator();
-	ImGui::Text("Info");
-	EVWORK_CAR* car = Game::pl_car();
-	ImGui::Text("game_mode: %d", *Game::game_mode);
-	ImGui::Text("current_mode: %d", *Game::current_mode);
-	ImGui::Text("Lobby is active: %d", (*Game::SumoNet_CurNetDriver && (*Game::SumoNet_CurNetDriver)->is_in_lobby()));
-	ImGui::Text("Lobby is host: %d", (*Game::SumoNet_CurNetDriver && (*Game::SumoNet_CurNetDriver)->is_hosting()));
-	ImGui::Text("Is MP gamemode: %d", (*Game::game_mode == 3 || *Game::game_mode == 4));
-	ImGui::Text("Car kind: %d", int(car->car_kind_11));
-	ImGui::Text("Car position: %.3f %.3f %.3f", car->position_14.x, car->position_14.y, car->position_14.z);
-	ImGui::Text("OnRoadPlace coli %d, stg %d, section %d",
-		car->OnRoadPlace_5C.loadColiType_0,
-		car->OnRoadPlace_5C.curStageIdx_C,
-		car->OnRoadPlace_5C.roadSectionNum_8);
-
-	GameStage cur_stage_num = *Game::stg_stage_num;
-	ImGui::Text("Loaded Stage: %d (%s / %s)", cur_stage_num, Game::GetStageFriendlyName(cur_stage_num), Game::GetStageUniqueName(cur_stage_num));
-
-	if (Settings::DrawDistanceIncrease > 0)
-		if (ImGui::Button("Open Draw Distance Debugger"))
-			Game::DrawDistanceDebugEnabled = true;
-
-	ImGui::Separator();
-	ImGui::Text("Gameplay");
-
-	ImGui::Checkbox("Countdown timer enabled", Game::Sumo_CountdownTimerEnable);
-	ImGui::Checkbox("Pause menu enabled", &EnablePauseMenu);
-	ImGui::Checkbox("HUD enabled", (bool*)Game::navipub_disp_flg);
-
-	ImGui::Separator();
-	ImGui::Text("Controls");
-
-	ImGui::SliderFloat("SteeringDeadZone", &Settings::SteeringDeadZone, 0.01, 1.0f);
-	ImGui::SliderInt("VibrationStrength", &Settings::VibrationStrength, 0, 10);
-	ImGui::SliderFloat("ImpulseVibrationLeftMultiplier", &Settings::ImpulseVibrationLeftMultiplier, 0.1, 1);
-	ImGui::SliderFloat("ImpulseVibrationRightMultiplier", &Settings::ImpulseVibrationRightMultiplier, 0.1, 1);
-
-	ImGui::Separator();
-	ImGui::Text("Graphics");
-
-	ImGui::SliderInt("FramerateLimit", &Settings::FramerateLimit, 30, 300);
-	ImGui::SliderInt("DrawDistanceIncrease", &Settings::DrawDistanceIncrease, 0, 4096);
-	ImGui::SliderInt("DrawDistanceBehind", &Settings::DrawDistanceBehind, 0, 4096);
-
-	ImGui::End();
-
-	if (settingsChanged)
-		Overlay::settings_write();
-}
-
-void Overlay_NotificationSettings()
-{
-	ImVec2 screenSize = ImGui::GetIO().DisplaySize;
-
-	// Calculate starting position for the latest notification
-	// (move it outside of letterbox if letterboxing enabled)
-	float contentWidth = screenSize.y / (3.f / 4.f);
-	float borderWidth = ((screenSize.x - contentWidth) / 2) + 0.5f;
-	if (Settings::UILetterboxing != 1 || Game::is_in_game())
-		borderWidth = 0;
-
-	float startX = screenSize.x - notificationSize.x - borderWidth - 10.f;  // 10px padding from the right
-	float curY = (screenSize.y / 4.0f);
-
-	{
 		bool settingsChanged = false;
 
-		ImGui::Begin("Notification Settings", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
-		ImGui::SetWindowPos(ImVec2(startX, curY), ImGuiCond_FirstUseEver);
+		ImGui::Begin("Globals", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
 
-		settingsChanged |= ImGui::SliderInt("Display Time", &Overlay::NotifyDisplayTime, 0, 60);
-		settingsChanged |= ImGui::Checkbox("Enable Online Lobby Notifications", &Overlay::NotifyOnlineEnable);
-		settingsChanged |= ImGui::SliderInt("Online Update Time", &Overlay::NotifyOnlineUpdateTime, 10, 60);
+		ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.51f, 0.00f, 0.14f, 0.00f));
+		if (ImGui::Button("-"))
+		{
+			if (Overlay::GlobalFontScale > 1.0f)
+			{
+				Overlay::GlobalFontScale -= 0.05f;
+				settingsChanged = true;
+			}
 
-		static const char* items[]{ "Never Hide", "Online Race", "Any Race" };
-		settingsChanged |= ImGui::Combo("Hide During", &Overlay::NotifyHideMode, items, IM_ARRAYSIZE(items));
+			ImGui::GetIO().FontGlobalScale = Overlay::GlobalFontScale;
+		}
+
+		ImGui::SameLine();
+
+		if (ImGui::Button("+"))
+		{
+			if (Overlay::GlobalFontScale < 4.0f)
+			{
+				Overlay::GlobalFontScale += 0.05f;
+				settingsChanged = true;
+			}
+
+			ImGui::GetIO().FontGlobalScale = Overlay::GlobalFontScale;
+		}
+
+		ImGui::PopStyleColor();
+		ImGui::SameLine();
+		ImGui::Text("Overlay Font Size");
+
+		ImGui::Separator();
+		ImGui::Text("Info");
+		EVWORK_CAR* car = Game::pl_car();
+		ImGui::Text("game_mode: %d", *Game::game_mode);
+		ImGui::Text("current_mode: %d", *Game::current_mode);
+		ImGui::Text("Lobby is active: %d", (*Game::SumoNet_CurNetDriver && (*Game::SumoNet_CurNetDriver)->is_in_lobby()));
+		ImGui::Text("Lobby is host: %d", (*Game::SumoNet_CurNetDriver && (*Game::SumoNet_CurNetDriver)->is_hosting()));
+		ImGui::Text("Is MP gamemode: %d", (*Game::game_mode == 3 || *Game::game_mode == 4));
+		ImGui::Text("Car kind: %d", int(car->car_kind_11));
+		ImGui::Text("Car position: %.3f %.3f %.3f", car->position_14.x, car->position_14.y, car->position_14.z);
+		ImGui::Text("OnRoadPlace coli %d, stg %d, section %d",
+			car->OnRoadPlace_5C.loadColiType_0,
+			car->OnRoadPlace_5C.curStageIdx_C,
+			car->OnRoadPlace_5C.roadSectionNum_8);
+
+		GameStage cur_stage_num = *Game::stg_stage_num;
+		ImGui::Text("Loaded Stage: %d (%s / %s)", cur_stage_num, Game::GetStageFriendlyName(cur_stage_num), Game::GetStageUniqueName(cur_stage_num));
+
+		if (Settings::DrawDistanceIncrease > 0)
+			if (ImGui::Button("Open Draw Distance Debugger"))
+				Game::DrawDistanceDebugEnabled = true;
+
+		ImGui::Separator();
+		ImGui::Text("Gameplay");
+
+		ImGui::Checkbox("Countdown timer enabled", Game::Sumo_CountdownTimerEnable);
+		ImGui::Checkbox("Pause menu enabled", &EnablePauseMenu);
+		ImGui::Checkbox("HUD enabled", (bool*)Game::navipub_disp_flg);
+
+		ImGui::Separator();
+		ImGui::Text("Controls");
+
+		ImGui::SliderFloat("SteeringDeadZone", &Settings::SteeringDeadZone, 0.01, 1.0f);
+		ImGui::SliderInt("VibrationStrength", &Settings::VibrationStrength, 0, 10);
+		ImGui::SliderFloat("ImpulseVibrationLeftMultiplier", &Settings::ImpulseVibrationLeftMultiplier, 0.1, 1);
+		ImGui::SliderFloat("ImpulseVibrationRightMultiplier", &Settings::ImpulseVibrationRightMultiplier, 0.1, 1);
+
+		ImGui::Separator();
+		ImGui::Text("Graphics");
+
+		ImGui::SliderInt("FramerateLimit", &Settings::FramerateLimit, 30, 300);
+		ImGui::SliderInt("DrawDistanceIncrease", &Settings::DrawDistanceIncrease, 0, 4096);
+		ImGui::SliderInt("DrawDistanceBehind", &Settings::DrawDistanceBehind, 0, 4096);
 
 		ImGui::End();
 
 		if (settingsChanged)
 			Overlay::settings_write();
 	}
-}
+	static GlobalsWindow instance;
+};
+GlobalsWindow GlobalsWindow::instance;
 
-void Overlay_Init()
+class UISettingsWindow : public OverlayWindow
+{
+public:
+	void init() override {}
+	void render(bool overlayEnabled) override
+	{
+		if (!overlayEnabled)
+			return;
+
+		ImVec2 screenSize = ImGui::GetIO().DisplaySize;
+
+		// Calculate starting position for the latest notification
+		// (move it outside of letterbox if letterboxing enabled)
+		float contentWidth = screenSize.y / (3.f / 4.f);
+		float borderWidth = ((screenSize.x - contentWidth) / 2) + 0.5f;
+		if (Settings::UILetterboxing != 1 || Game::is_in_game())
+			borderWidth = 0;
+
+		float startX = screenSize.x - notificationSize.x - borderWidth - 10.f;  // 10px padding from the right
+		float curY = (screenSize.y / 4.0f);
+
+		{
+			bool settingsChanged = false;
+
+			ImGui::Begin("Notification Settings", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
+			ImGui::SetWindowPos(ImVec2(startX, curY), ImGuiCond_FirstUseEver);
+
+			settingsChanged |= ImGui::SliderInt("Display Time", &Overlay::NotifyDisplayTime, 0, 60);
+			settingsChanged |= ImGui::Checkbox("Enable Online Lobby Notifications", &Overlay::NotifyOnlineEnable);
+			settingsChanged |= ImGui::SliderInt("Online Update Time", &Overlay::NotifyOnlineUpdateTime, 10, 60);
+
+			static const char* items[]{ "Never Hide", "Online Race", "Any Race" };
+			settingsChanged |= ImGui::Combo("Hide During", &Overlay::NotifyHideMode, items, IM_ARRAYSIZE(items));
+
+			ImGui::End();
+
+			if (settingsChanged)
+				Overlay::settings_write();
+		}
+	}
+	static UISettingsWindow instance;
+};
+UISettingsWindow UISettingsWindow::instance;
+
+void Overlay::init()
 {
 	Overlay::settings_read();
 
@@ -159,9 +179,9 @@ void Overlay_Init()
 	UpdateCheck_Init();
 }
 
-bool Overlay_Update()
+bool Overlay::render()
 {
-	bool f11_pressed = (GetAsyncKeyState(VK_F11) & 1);
+	bool f11_pressed = (GetAsyncKeyState(VK_F11) & 0x8000);
 	if (f11_prev_state && !f11_pressed) // f11 was pressed and now released?
 	{
 		overlay_visible = !overlay_visible;
@@ -176,95 +196,76 @@ bool Overlay_Update()
 	// Start the Dear ImGui frame
 	ImGui::NewFrame();
 
-	// Notifications are rendered without overlay needing to be active
+	// Notifications are rendered before any other window
 	Notifications::instance.render();
 
-	if (overlay_visible)
-	{
-#ifdef _DEBUG
-		static bool show_demo_window = true;
-		// 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
-		if (show_demo_window)
-		{
-			ImGui::ShowDemoWindow(&show_demo_window);
-		}
-#endif
-
-		Overlay_GlobalsWindow();
-		Overlay_NotificationSettings();
-
-		void Overlay_CourseEditor();
-		Overlay_CourseEditor();
-
-		if (Game::DrawDistanceDebugEnabled)
-		{
-			void DrawDist_DrawOverlay();
-			DrawDist_DrawOverlay();
-		}
-	}
+	for (const auto& wnd : s_windows)
+		wnd->render(overlay_visible);
 
 	ImGui::EndFrame();
+
+	return overlay_visible;
+}
+
+bool Overlay::settings_read()
+{
+	spdlog::info("Overlay::settings_read - reading INI from {}", Module::OverlayIniPath.string());
+
+	inih::INIReader ini;
+	try
+	{
+		ini = inih::INIReader(Module::OverlayIniPath);
+	}
+	catch (...)
+	{
+		spdlog::error("Overlay::settings_read - INI read failed! The file might not exist, or may have duplicate settings inside");
+		return false;
+	}
+
+	GlobalFontScale = ini.Get("Overlay", "FontScale", GlobalFontScale);
+
+	NotifyDisplayTime = ini.Get("Notifications", "DisplayTime", NotifyDisplayTime);
+	NotifyOnlineEnable = ini.Get("Notifications", "OnlineEnable", NotifyOnlineEnable);
+	NotifyOnlineUpdateTime = ini.Get("Notifications", "OnlineUpdateTime", NotifyOnlineUpdateTime);
+	NotifyHideMode = ini.Get("Notifications", "HideMode", NotifyHideMode);
+	NotifyUpdateCheck = ini.Get("Notifications", "CheckForUpdates", NotifyUpdateCheck);
+
+	CourseReplacementEnabled = ini.Get("CourseReplacement", "Enabled", CourseReplacementEnabled);
+	std::string CourseCode;
+	CourseCode = ini.Get("CourseReplacement", "Code", CourseCode);
+	strcpy_s(CourseReplacementCode, CourseCode.c_str());
 
 	return true;
 }
 
-namespace Overlay
+bool Overlay::settings_write()
 {
-	bool settings_read()
+	inih::INIReader ini;
+	ini.Set("Overlay", "FontScale", GlobalFontScale);
+
+	ini.Set("Notifications", "DisplayTime", NotifyDisplayTime);
+	ini.Set("Notifications", "OnlineEnable", NotifyOnlineEnable);
+	ini.Set("Notifications", "OnlineUpdateTime", NotifyOnlineUpdateTime);
+	ini.Set("Notifications", "HideMode", NotifyHideMode);
+	ini.Set("Notifications", "CheckForUpdates", NotifyUpdateCheck);
+
+	ini.Set("CourseReplacement", "Enabled", CourseReplacementEnabled);
+	ini.Set("CourseReplacement", "Code", std::string(CourseReplacementCode));
+
+	inih::INIWriter writer;
+	try
 	{
-		spdlog::info("Overlay::settings_read - reading INI from {}", Module::OverlayIniPath.string());
-
-		inih::INIReader ini;
-		try
-		{
-			ini = inih::INIReader(Module::OverlayIniPath);
-		}
-		catch (...)
-		{
-			spdlog::error("Overlay::settings_read - INI read failed! The file might not exist, or may have duplicate settings inside");
-			return false;
-		}
-
-		GlobalFontScale = ini.Get("Overlay", "FontScale", GlobalFontScale);
-
-		NotifyDisplayTime = ini.Get("Notifications", "DisplayTime", NotifyDisplayTime);
-		NotifyOnlineEnable = ini.Get("Notifications", "OnlineEnable", NotifyOnlineEnable);
-		NotifyOnlineUpdateTime = ini.Get("Notifications", "OnlineUpdateTime", NotifyOnlineUpdateTime);
-		NotifyHideMode = ini.Get("Notifications", "HideMode", NotifyHideMode);
-		NotifyUpdateCheck = ini.Get("Notifications", "CheckForUpdates", NotifyUpdateCheck);
-
-		CourseReplacementEnabled = ini.Get("CourseReplacement", "Enabled", CourseReplacementEnabled);
-		std::string CourseCode;
-		CourseCode = ini.Get("CourseReplacement", "Code", CourseCode);
-		strcpy_s(CourseReplacementCode, CourseCode.c_str());
-
-		return true;
+		writer.write(Module::OverlayIniPath, ini);
 	}
-
-	bool settings_write()
+	catch (...)
 	{
-		inih::INIReader ini;
-		ini.Set("Overlay", "FontScale", GlobalFontScale);
-
-		ini.Set("Notifications", "DisplayTime", NotifyDisplayTime);
-		ini.Set("Notifications", "OnlineEnable", NotifyOnlineEnable);
-		ini.Set("Notifications", "OnlineUpdateTime", NotifyOnlineUpdateTime);
-		ini.Set("Notifications", "HideMode", NotifyHideMode);
-		ini.Set("Notifications", "CheckForUpdates", NotifyUpdateCheck);
-
-		ini.Set("CourseReplacement", "Enabled", CourseReplacementEnabled);
-		ini.Set("CourseReplacement", "Code", std::string(CourseReplacementCode));
-
-		inih::INIWriter writer;
-		try
-		{
-			writer.write(Module::OverlayIniPath, ini);
-		}
-		catch (...)
-		{
-			spdlog::error("Overlay::settings_write - INI write failed!");
-			return false;
-		}
-		return true;
+		spdlog::error("Overlay::settings_write - INI write failed!");
+		return false;
 	}
-};
+	return true;
+}
+
+OverlayWindow::OverlayWindow()
+{
+	Overlay::add_window(this);
+}

@@ -1,14 +1,24 @@
 #pragma once
 
-namespace Overlay
+class OverlayWindow
 {
-	inline float GlobalFontScale = 1.5f;
+public:
+	OverlayWindow();
+	virtual ~OverlayWindow() = default;
+	virtual void init() = 0;
+	virtual void render(bool overlayEnabled) = 0;
+};
 
-	inline int NotifyDisplayTime = 7;
-	inline bool NotifyOnlineEnable = true;
-	inline int NotifyOnlineUpdateTime = 20;
-	inline int NotifyHideMode = 1;
-	inline bool NotifyUpdateCheck = true;
+class Overlay
+{
+public:
+	inline static float GlobalFontScale = 1.5f;
+
+	inline static int NotifyDisplayTime = 7;
+	inline static bool NotifyOnlineEnable = true;
+	inline static int NotifyOnlineUpdateTime = 20;
+	inline static int NotifyHideMode = 1;
+	inline static bool NotifyUpdateCheck = true;
 
 	enum NotifyHideModes
 	{
@@ -17,9 +27,22 @@ namespace Overlay
 		NotifyHideMode_AllRaces = 2
 	};
 
-	inline bool CourseReplacementEnabled = false;
-	inline char CourseReplacementCode[256] = { 0 };
+	inline static bool CourseReplacementEnabled = false;
+	inline static char CourseReplacementCode[256] = { 0 };
 
-	bool settings_read();
-	bool settings_write();
+private:
+	inline static std::vector<OverlayWindow*> s_windows;
+
+public:
+	static void init();
+
+	static bool settings_read();
+	static bool settings_write();
+
+	static void add_window(OverlayWindow* window)
+	{
+		s_windows.emplace_back(window);
+	}
+
+	static bool render();
 };

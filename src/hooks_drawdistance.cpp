@@ -5,6 +5,7 @@
 #include <bitset>
 #include <imgui.h>
 #include <ini.h>
+#include "overlay/overlay.hpp"
 
 std::array<std::vector<uint16_t>, 256> ObjectNodes;
 std::array<std::array<std::bitset<16384>, 256>, 128> ObjectExclusionsPerStage;
@@ -16,195 +17,204 @@ bool EnablePauseMenu = true;
 
 bool DrawDist_ReadExclusions();
 
-void DrawDist_DrawOverlay()
+class DrawDistanceDebug : public OverlayWindow
 {
-	ImGui::Begin("Draw Distance Debugger", &Game::DrawDistanceDebugEnabled);
-
-	ImGui::Checkbox("Countdown timer enabled", Game::Sumo_CountdownTimerEnable);
-	ImGui::Checkbox("Pause menu enabled", &EnablePauseMenu);
-
-	// get max column count
-	int num_columns = 0;
-	for (int i = 0; i < NumObjects; i++)
+public:
+	void init() override {}
+	void render(bool overlayEnabled) override
 	{
-		size_t size = ObjectNodes[i].size();
-		if (size > num_columns)
-			num_columns = size;
-	}
+		if (!overlayEnabled || !Game::DrawDistanceDebugEnabled)
+			return;
 
-	static ImGuiTableFlags table_flags = ImGuiTableFlags_NoSavedSettings | ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_HighlightHoveredColumn;
+		ImGui::Begin("Draw Distance Debugger", &Game::DrawDistanceDebugEnabled);
 
-	ImGui::Text("Usage:");
-	ImGui::Text("- If an ugly LOD object appears, pause game with ESC and press F11 to bring up this window");
-	ImGui::Text("- Reduce Draw Distance below to lowest value that still has the LOD object appearing");
-	ImGui::Text("- Once you find the draw-distance that shows the object, click each node checkbox to disable nodes");
-	ImGui::Text("- After finding the node responsible, you can use \"Copy to clipboard\" below to copy the IDs of them, or hover over the node");
-	ImGui::Text("- Post the IDs for LODs you find in the \"DrawDistanceIncrease issue reports\" github thread and we can add exclusions for them!");
-	ImGui::NewLine();
+		ImGui::Checkbox("Countdown timer enabled", Game::Sumo_CountdownTimerEnable);
+		ImGui::Checkbox("Pause menu enabled", &EnablePauseMenu);
 
-	if (!DrawDistanceIncreaseEnabled)
-	{
-		ImGui::Text("Error: DrawDistanceIncrease must be enabled in INI before launching.");
-		ImGui::End();
-		return;
-	}
-
-	if (*Game::current_mode != GameState::STATE_GAME && *Game::current_mode != GameState::STATE_SMPAUSEMENU)
-	{
-		ImGui::Text("Nodes will be displayed once in-game.");
-		ImGui::End();
-		return;
-	}
-
-	GameStage cur_stage_num = *Game::stg_stage_num;
-	const char* cur_stage_name = Game::GetStageFriendlyName(cur_stage_num);
-	auto& objectExclusions = ObjectExclusionsPerStage[cur_stage_num];
-
-	ImGui::Text("Stage: %d (%s / %s)", cur_stage_num, cur_stage_name, Game::GetStageUniqueName(cur_stage_num));
-	ImGui::SliderInt("Draw Distance", &Settings::DrawDistanceIncrease, 0, 1024);
-
-	if (ImGui::Button("<<<"))
-		Settings::DrawDistanceIncrease -= 10;
-	ImGui::SameLine();
-	if (ImGui::Button("<<"))
-		Settings::DrawDistanceIncrease -= 5;
-	ImGui::SameLine();
-	if (ImGui::Button("<"))
-		Settings::DrawDistanceIncrease -= 1;
-	ImGui::SameLine();
-	if (ImGui::Button(">"))
-		Settings::DrawDistanceIncrease += 1;
-	ImGui::SameLine();
-	if (ImGui::Button(">>"))
-		Settings::DrawDistanceIncrease += 5;
-	ImGui::SameLine();
-	if (ImGui::Button(">>>"))
-		Settings::DrawDistanceIncrease += 10;
-
-	ImGui::Text("Nodes at distance +%d (track section #%d):", Settings::DrawDistanceIncrease, (CsLengthNum + Settings::DrawDistanceIncrease));
-
-	if (num_columns > 0)
-	{
-		num_columns += 1;
-		if (ImGui::BeginTable("NodeTable", num_columns, table_flags))
+		// get max column count
+		int num_columns = 0;
+		for (int i = 0; i < NumObjects; i++)
 		{
-			ImGui::TableSetupColumn("Object ID", ImGuiTableColumnFlags_NoHide | ImGuiTableColumnFlags_NoReorder);
-			for (int n = 1; n < num_columns; n++)
-				ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed);
+			size_t size = ObjectNodes[i].size();
+			if (size > num_columns)
+				num_columns = size;
+		}
 
-			for (int objectIdx = 0; objectIdx < NumObjects; objectIdx++)
+		static ImGuiTableFlags table_flags = ImGuiTableFlags_NoSavedSettings | ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_HighlightHoveredColumn;
+
+		ImGui::Text("Usage:");
+		ImGui::Text("- If an ugly LOD object appears, pause game with ESC and press F11 to bring up this window");
+		ImGui::Text("- Reduce Draw Distance below to lowest value that still has the LOD object appearing");
+		ImGui::Text("- Once you find the draw-distance that shows the object, click each node checkbox to disable nodes");
+		ImGui::Text("- After finding the node responsible, you can use \"Copy to clipboard\" below to copy the IDs of them, or hover over the node");
+		ImGui::Text("- Post the IDs for LODs you find in the \"DrawDistanceIncrease issue reports\" github thread and we can add exclusions for them!");
+		ImGui::NewLine();
+
+		if (!DrawDistanceIncreaseEnabled)
+		{
+			ImGui::Text("Error: DrawDistanceIncrease must be enabled in INI before launching.");
+			ImGui::End();
+			return;
+		}
+
+		if (*Game::current_mode != GameState::STATE_GAME && *Game::current_mode != GameState::STATE_SMPAUSEMENU)
+		{
+			ImGui::Text("Nodes will be displayed once in-game.");
+			ImGui::End();
+			return;
+		}
+
+		GameStage cur_stage_num = *Game::stg_stage_num;
+		const char* cur_stage_name = Game::GetStageFriendlyName(cur_stage_num);
+		auto& objectExclusions = ObjectExclusionsPerStage[cur_stage_num];
+
+		ImGui::Text("Stage: %d (%s / %s)", cur_stage_num, cur_stage_name, Game::GetStageUniqueName(cur_stage_num));
+		ImGui::SliderInt("Draw Distance", &Settings::DrawDistanceIncrease, 0, 1024);
+
+		if (ImGui::Button("<<<"))
+			Settings::DrawDistanceIncrease -= 10;
+		ImGui::SameLine();
+		if (ImGui::Button("<<"))
+			Settings::DrawDistanceIncrease -= 5;
+		ImGui::SameLine();
+		if (ImGui::Button("<"))
+			Settings::DrawDistanceIncrease -= 1;
+		ImGui::SameLine();
+		if (ImGui::Button(">"))
+			Settings::DrawDistanceIncrease += 1;
+		ImGui::SameLine();
+		if (ImGui::Button(">>"))
+			Settings::DrawDistanceIncrease += 5;
+		ImGui::SameLine();
+		if (ImGui::Button(">>>"))
+			Settings::DrawDistanceIncrease += 10;
+
+		ImGui::Text("Nodes at distance +%d (track section #%d):", Settings::DrawDistanceIncrease, (CsLengthNum + Settings::DrawDistanceIncrease));
+
+		if (num_columns > 0)
+		{
+			num_columns += 1;
+			if (ImGui::BeginTable("NodeTable", num_columns, table_flags))
 			{
-				ImGui::PushID(objectIdx);
-				ImGui::TableNextRow();
-				ImGui::TableSetColumnIndex(0);
-				if (ImGui::Button(std::format("Object {}", objectIdx).c_str()))
+				ImGui::TableSetupColumn("Object ID", ImGuiTableColumnFlags_NoHide | ImGuiTableColumnFlags_NoReorder);
+				for (int n = 1; n < num_columns; n++)
+					ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed);
+
+				for (int objectIdx = 0; objectIdx < NumObjects; objectIdx++)
 				{
-					bool areAllExcluded = true;
-					for (int i = 0; i < ObjectNodes[objectIdx].size(); i++)
+					ImGui::PushID(objectIdx);
+					ImGui::TableNextRow();
+					ImGui::TableSetColumnIndex(0);
+					if (ImGui::Button(std::format("Object {}", objectIdx).c_str()))
 					{
-						auto nodeId = ObjectNodes[objectIdx][i];
-						if (!objectExclusions[objectIdx][nodeId])
+						bool areAllExcluded = true;
+						for (int i = 0; i < ObjectNodes[objectIdx].size(); i++)
 						{
-							areAllExcluded = false;
-							break;
+							auto nodeId = ObjectNodes[objectIdx][i];
+							if (!objectExclusions[objectIdx][nodeId])
+							{
+								areAllExcluded = false;
+								break;
+							}
+						}
+
+						for (int i = 0; i < ObjectNodes[objectIdx].size(); i++)
+						{
+							auto nodeId = ObjectNodes[objectIdx][i];
+							objectExclusions[objectIdx][nodeId] = areAllExcluded ? false : true;
 						}
 					}
 
 					for (int i = 0; i < ObjectNodes[objectIdx].size(); i++)
-					{
-						auto nodeId = ObjectNodes[objectIdx][i];
-						objectExclusions[objectIdx][nodeId] = areAllExcluded ? false : true;
-					}
+						if (ImGui::TableSetColumnIndex(i + 1))
+						{
+							ImGui::PushID(i + 1);
+
+							auto nodeId = ObjectNodes[objectIdx][i];
+							bool excluded = objectExclusions[objectIdx][nodeId];
+
+							if (ImGui::Checkbox("", &excluded))
+								objectExclusions[objectIdx][nodeId] = excluded;
+
+							ImGui::SetItemTooltip("Stage %d, object 0x%X, node 0x%X", cur_stage_num, objectIdx, nodeId);
+
+							ImGui::PopID();
+						}
+
+					ImGui::PopID();
 				}
-
-				for (int i = 0; i < ObjectNodes[objectIdx].size(); i++)
-					if (ImGui::TableSetColumnIndex(i + 1))
-					{
-						ImGui::PushID(i + 1);
-
-						auto nodeId = ObjectNodes[objectIdx][i];
-						bool excluded = objectExclusions[objectIdx][nodeId];
-
-						if (ImGui::Checkbox("", &excluded))
-							objectExclusions[objectIdx][nodeId] = excluded;
-
-						ImGui::SetItemTooltip("Stage %d, object 0x%X, node 0x%X", cur_stage_num, objectIdx, nodeId);
-
-						ImGui::PopID();
-					}
-
-				ImGui::PopID();
+				ImGui::EndTable();
 			}
-			ImGui::EndTable();
 		}
-	}
 
-	if (ImGui::Button("Copy exclusions to clipboard"))
-	{
-		std::string clipboard = "";// 
-		for (int objId = 0; objId < objectExclusions.size(); objId++)
+		if (ImGui::Button("Copy exclusions to clipboard"))
 		{
-			std::string objLine = "";
-			for (int i = 0; i < objectExclusions[objId].size(); i++)
+			std::string clipboard = "";// 
+			for (int objId = 0; objId < objectExclusions.size(); objId++)
 			{
-				if (objectExclusions[objId][i])
+				std::string objLine = "";
+				for (int i = 0; i < objectExclusions[objId].size(); i++)
 				{
-					objLine += std::format(", 0x{:X}", i);
+					if (objectExclusions[objId][i])
+					{
+						objLine += std::format(", 0x{:X}", i);
+					}
+				}
+
+				if (objLine.length() > 2)
+				{
+					clipboard += std::format("\n0x{:X} = {}", objId, objLine.substr(2));
 				}
 			}
+			if (!clipboard.empty())
+				clipboard = std::format("# {}\n[Stage {}]{}", cur_stage_name, int(cur_stage_num), clipboard);
 
-			if (objLine.length() > 2)
+			HGLOBAL hMem = GlobalAlloc(GMEM_MOVEABLE, clipboard.length() + 1);
+			if (hMem)
 			{
-				clipboard += std::format("\n0x{:X} = {}", objId, objLine.substr(2));
+				memcpy(GlobalLock(hMem), clipboard.c_str(), clipboard.length() + 1);
+				GlobalUnlock(hMem);
+				OpenClipboard(0);
+				EmptyClipboard();
+				SetClipboardData(CF_TEXT, hMem);
+				CloseClipboard();
 			}
 		}
-		if (!clipboard.empty())
-			clipboard = std::format("# {}\n[Stage {}]{}", cur_stage_name, int(cur_stage_num), clipboard);
 
-		HGLOBAL hMem = GlobalAlloc(GMEM_MOVEABLE, clipboard.length() + 1);
-		if (hMem)
+		static bool showReallyPrompt = false;
+		if (ImGui::Button(showReallyPrompt ? "Are you sure?##clear" : "Clear all exclusions"))
 		{
-			memcpy(GlobalLock(hMem), clipboard.c_str(), clipboard.length() + 1);
-			GlobalUnlock(hMem);
-			OpenClipboard(0);
-			EmptyClipboard();
-			SetClipboardData(CF_TEXT, hMem);
-			CloseClipboard();
+			if (!showReallyPrompt)
+			{
+				showReallyPrompt = true;
+			}
+			else
+			{
+				for (int i = 0; i < objectExclusions.size(); i++)
+					objectExclusions[i].reset();
+				showReallyPrompt = false;
+			}
 		}
+
+		static bool showReallyPrompt2 = false;
+		if (ImGui::Button(showReallyPrompt2 ? "Are you sure?##reload" : "Reload exclusions from INI"))
+		{
+			if (!showReallyPrompt2)
+			{
+				showReallyPrompt2 = true;
+			}
+			else
+			{
+				DrawDist_ReadExclusions();
+				showReallyPrompt2 = false;
+			}
+		}
+
+		ImGui::End();
 	}
-
-	static bool showReallyPrompt = false;
-	if (ImGui::Button(showReallyPrompt ? "Are you sure?##clear" : "Clear all exclusions"))
-	{
-		if (!showReallyPrompt)
-		{
-			showReallyPrompt = true;
-		}
-		else
-		{
-			for (int i = 0; i < objectExclusions.size(); i++)
-				objectExclusions[i].reset();
-			showReallyPrompt = false;
-		}
-	}
-
-	static bool showReallyPrompt2 = false;
-	if (ImGui::Button(showReallyPrompt2 ? "Are you sure?##reload" : "Reload exclusions from INI"))
-	{
-		if (!showReallyPrompt2)
-		{
-			showReallyPrompt2 = true;
-		}
-		else
-		{
-			DrawDist_ReadExclusions();
-			showReallyPrompt2 = false;
-		}
-	}
-
-	ImGui::End();
-}
-
+	static DrawDistanceDebug instance;
+};
+DrawDistanceDebug DrawDistanceDebug::instance;
 
 static int get_number(std::string_view sectionName)
 {

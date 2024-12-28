@@ -9,9 +9,6 @@
 #include <backends/imgui_impl_dx9.h>
 #include "overlay.hpp"
 
-void Overlay_Init();
-bool Overlay_Update();
-
 bool overlayInited = false;
 bool overlayActive = false;
 
@@ -146,12 +143,9 @@ class D3DHooks : public Hook
 		{
 			ImGui_ImplDX9_NewFrame();
 			ImGui_ImplWin32_NewFrame();
-			overlayActive = Overlay_Update();
-			if (overlayActive)
-			{
-				ImGui::Render();
-				ImGui_ImplDX9_RenderDrawData(ImGui::GetDrawData());
-			}
+			overlayActive = Overlay::render();
+			ImGui::Render();
+			ImGui_ImplDX9_RenderDrawData(ImGui::GetDrawData());
 		}
 	}
 
@@ -201,7 +195,7 @@ public:
 		midhook_d3dTemporariesRelease = safetyhook::create_mid(Module::exe_ptr(D3D_ReleaseTemporaries_Addr), D3DTemporariesRelease);
 		midhook_d3dTemporariesCreate = safetyhook::create_mid(Module::exe_ptr(D3D_CreateTemporaries_Addr), D3DTemporariesCreate);
 
-		Overlay_Init();
+		Overlay::init();
 
 		return !!midhook_d3dinit && !!midhook_d3dendscene;
 	}
