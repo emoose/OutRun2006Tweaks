@@ -9,6 +9,8 @@
 
 std::array<std::vector<uint16_t>, 256> ObjectNodes;
 std::array<std::array<std::bitset<16384>, 256>, 128> ObjectExclusionsPerStage;
+std::bitset<128> SkipQuickSortHackStages;
+
 int NumObjects = 0;
 int CsLengthNum = 0;
 
@@ -267,9 +269,18 @@ bool DrawDist_ReadExclusions()
 			spdlog::error("DrawDist_ReadExclusions - INI contains invalid stage section \"{}\", skipping...", section);
 			continue;
 		}
+		SkipQuickSortHackStages[stageNum] = false;
 
 		for (auto& key : ini.Keys(section))
 		{
+			if (key == "SkipQuickSort")
+			{
+				bool skip = false;
+				if (ini.Get<bool>(section, key, skip))
+					SkipQuickSortHackStages[stageNum] = true;
+				continue;
+			}
+
 			int objectId = -1;
 			try
 			{
@@ -328,6 +339,45 @@ bool DrawDist_ReadExclusions()
 
 	return true;
 }
+
+class SkipQuickSortHack : public Hook
+{
+	inline static SafetyHookInline DrawStoredModel_Execute_hook = {};
+	static void DrawStoredModel_Execute_dest()
+	{
+		if (!SkipQuickSortHackStages[*Game::stg_stage_num])
+			Game::QuickSort(Game::s_AftDrawBuffer->BufferPtrs_10, 0, Game::s_AftDrawBuffer->NumBuffers_0 - 1);
+
+		Game::DrawStoredModel_Internal(Game::s_AftDrawBuffer);
+		Game::s_AftDrawBuffer->NumBuffers_0 = 0;
+		Game::s_AftDrawBuffer->field_8 = 0;
+	}
+
+public:
+	std::string_view description() override
+	{
+		return "SkipQuickSort";
+	}
+
+	bool validate() override
+	{
+		return true;
+	}
+
+	bool apply() override
+	{
+		constexpr int DrawStoredModel_Execute_Addr = 0x5830;
+
+		// This func has some weird securom protection bytes inside, we'll nop the beginning so safetyhook doesn't get confused
+		Memory::VP::Nop(Module::exe_ptr(DrawStoredModel_Execute_Addr), 5);
+		DrawStoredModel_Execute_hook = safetyhook::create_inline(Module::exe_ptr(DrawStoredModel_Execute_Addr), DrawStoredModel_Execute_dest);
+
+		return true;
+	}
+
+	static SkipQuickSortHack instance;
+};
+SkipQuickSortHack SkipQuickSortHack::instance;
 
 class DrawDistanceIncrease : public Hook
 {
@@ -429,7 +479,7 @@ class DrawDistanceIncrease : public Hook
 
 						// DEBUG: check exclusions here before adding to *cur
 						// (if we're at csOffset = 0 exclusions are ignored, since this is what vanilla game would display)
-						if (csOffset == 0 || !objectExclusions[ObjectNum][*sectionCollList])
+						if ((csOffset == 0 && Settings::DrawDistanceIncrease > 0) || !objectExclusions[ObjectNum][*sectionCollList])
 						{
 							*cur = *sectionCollList;
 							cur++;

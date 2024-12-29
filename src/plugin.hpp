@@ -32,6 +32,16 @@ namespace Module
 	template <typename T>
 	inline T fn_ptr(uintptr_t offset) { if (ExeHandle) return (T)(((uintptr_t)ExeHandle) + offset); else return nullptr; }
 
+	// Deduce the type by providing it as an argument, no need for ugly decltype stuff
+	template <typename T>
+	inline T fn_ptr(uintptr_t offset, T& var)
+	{
+		if (ExeHandle)
+			return reinterpret_cast<T>(((uintptr_t)ExeHandle) + offset);
+		else
+			return nullptr;
+	}
+
 	void init();
 }
 

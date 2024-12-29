@@ -1209,7 +1209,7 @@ typedef struct TDrawBuffer
 {
 	int NumBuffers_0;
 	int MaxBuffers_4;
-	int unk_8[1];
+	int field_8;
 	int MaxBuffers_C;
 	DrawEntry** BufferPtrs_10;
 	DrawEntry* Buffer_14;

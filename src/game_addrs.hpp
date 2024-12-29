@@ -100,6 +100,9 @@ namespace Game
 	inline fn_1arg_int GetMaxCsLen = nullptr;
 	inline fn_1arg_char GetStageUniqueName = nullptr;
 
+	inline void(*QuickSort)(void*, int, int) = nullptr;
+	inline void(*DrawStoredModel_Internal)(DrawBuffer*) = nullptr;
+
 	inline fn_stdcall_1arg_int Sumo_CheckRacerUnlocked = nullptr;
 
 	inline const char* SumoNet_OnlineUserName = nullptr;
@@ -265,6 +268,9 @@ namespace Game
 		GetStageUniqueNum = Module::fn_ptr<fn_1arg_int>(0x4DC50);
 		GetMaxCsLen = Module::fn_ptr<fn_1arg_int>(0x3D470);
 		GetStageUniqueName = Module::fn_ptr<fn_1arg_char>(0x4BE80);
+
+		QuickSort = Module::fn_ptr(0x499E0, QuickSort);
+		DrawStoredModel_Internal = Module::fn_ptr(0x5890, DrawStoredModel_Internal);
 
 		Sumo_CheckRacerUnlocked = Module::fn_ptr<fn_stdcall_1arg_int>(0xE8410);
 
