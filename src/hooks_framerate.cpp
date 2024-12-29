@@ -1,6 +1,7 @@
 #include "hook_mgr.hpp"
 #include "plugin.hpp"
 #include "game_addrs.hpp"
+#include "overlay/overlay.hpp"
 
 // from timeapi.h, which we can't include since our proxy timeBeginPeriod etc funcs will conflict...
 typedef struct timecaps_tag {
@@ -295,7 +296,8 @@ class ReplaceGameUpdateLoop : public Hook
 			// (do this inside our update-loop so that any hooked game funcs have accurate state...)
 			Input::Update();
 
-			Game::ReadIO();
+			if (!Overlay::IsActive)
+				Game::ReadIO();
 			Game::SoundControl_mb();
 			Game::LinkControlReceive();
 			Game::ModeControl();

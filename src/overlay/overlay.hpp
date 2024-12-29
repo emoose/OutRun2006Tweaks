@@ -30,8 +30,13 @@ public:
 	inline static bool CourseReplacementEnabled = false;
 	inline static char CourseReplacementCode[256] = { 0 };
 
+	inline static bool ChatHideBackground = false;
+
+	inline static bool IsActive = false;
+
 private:
 	inline static std::vector<OverlayWindow*> s_windows;
+	inline static bool s_hasInited = false;
 
 public:
 	static void init();

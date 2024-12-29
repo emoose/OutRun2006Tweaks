@@ -10,3 +10,6 @@
 [submodule "external/imgui"]
 	path = external/imgui
 	url = https://github.com/ocornut/imgui.git
+[submodule "external/IXWebSocket"]
+	path = external/IXWebSocket
+	url = https://github.com/machinezone/IXWebSocket.git

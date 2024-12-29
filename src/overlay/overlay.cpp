@@ -149,6 +149,8 @@ public:
 			static const char* items[]{ "Never Hide", "Online Race", "Any Race" };
 			settingsChanged |= ImGui::Combo("Hide During", &Overlay::NotifyHideMode, items, IM_ARRAYSIZE(items));
 
+			settingsChanged |= ImGui::Checkbox("Hide Chat Background", &Overlay::ChatHideBackground);
+
 			ImGui::End();
 
 			if (settingsChanged)
@@ -181,8 +183,16 @@ void Overlay::init()
 
 bool Overlay::render()
 {
-	bool f11_pressed = (GetAsyncKeyState(VK_F11) & 0x8000);
-	if (f11_prev_state && !f11_pressed) // f11 was pressed and now released?
+	IsActive = false;
+
+	if (!s_hasInited)
+	{
+		for (const auto& wnd : s_windows)
+			wnd->init();
+		s_hasInited = true;
+	}
+
+	if (ImGui::IsKeyReleased(ImGuiKey_F11))
 	{
 		overlay_visible = !overlay_visible;
 		if (overlay_visible)
@@ -190,8 +200,6 @@ bool Overlay::render()
 		else
 			ShowCursor(false);
 	}
-
-	f11_prev_state = f11_pressed;
 
 	// Start the Dear ImGui frame
 	ImGui::NewFrame();
@@ -204,7 +212,10 @@ bool Overlay::render()
 
 	ImGui::EndFrame();
 
-	return overlay_visible;
+	if (overlay_visible)
+		IsActive = true;
+
+	return IsActive;
 }
 
 bool Overlay::settings_read()
@@ -230,6 +241,8 @@ bool Overlay::settings_read()
 	NotifyHideMode = ini.Get("Notifications", "HideMode", NotifyHideMode);
 	NotifyUpdateCheck = ini.Get("Notifications", "CheckForUpdates", NotifyUpdateCheck);
 
+	ChatHideBackground = ini.Get("Chat", "HideBackground", ChatHideBackground);
+
 	CourseReplacementEnabled = ini.Get("CourseReplacement", "Enabled", CourseReplacementEnabled);
 	std::string CourseCode;
 	CourseCode = ini.Get("CourseReplacement", "Code", CourseCode);
@@ -248,6 +261,8 @@ bool Overlay::settings_write()
 	ini.Set("Notifications", "OnlineUpdateTime", NotifyOnlineUpdateTime);
 	ini.Set("Notifications", "HideMode", NotifyHideMode);
 	ini.Set("Notifications", "CheckForUpdates", NotifyUpdateCheck);
+
+	ini.Set("Chat", "HideBackground", ChatHideBackground);
 
 	ini.Set("CourseReplacement", "Enabled", CourseReplacementEnabled);
 	ini.Set("CourseReplacement", "Code", std::string(CourseReplacementCode));

@@ -60,6 +60,7 @@ ogg = { git = "https://github.com/xiph/ogg", tag = "v1.3.5" }
 flac = { git = "https://github.com/xiph/flac", tag = "1.4.3" }
 miniupnpc = { git = "https://github.com/miniupnp/miniupnp", tag = "miniupnpd_2_3_7", subdir = "miniupnpc" }
 jsoncpp = { git = "https://github.com/open-source-parsers/jsoncpp.git", tag = "1.9.6" }
+zlib = { git = "https://github.com/madler/zlib", tag = "v1.3.1" }
 
 [target.outrun2006tweaks]
 type = "shared"
@@ -74,6 +75,7 @@ sources = ["*.ini", "src/**.cpp", "src/**.c", "src/**.def", "src/Resource.rc",
     "external/imgui/imgui_draw.cpp",
     "external/imgui/imgui_tables.cpp",
     "external/imgui/imgui_widgets.cpp",
+	"external/IXWebSocket/ixwebsocket/**"
 ]
 headers = ["src/**.hpp", "src/**.h", "external/ModUtils/Patterns.h", "external/ModUtils/MemoryMgr.h", "external/xxHash/xxhash.h", "external/miniz/miniz.h", "external/ini-cpp/ini/ini.h"]
 include-directories = ["shared/", "src/", "include/", 
@@ -81,7 +83,8 @@ include-directories = ["shared/", "src/", "include/",
     "external/ini-cpp/ini/",
     "external/xxHash/",
     "external/miniz/",
-    "external/imgui/"
+    "external/imgui/",
+	"external/IXWebSocket/"
 ]
 compile-options = ["/GR-", "/GS-", "/bigobj", "/EHa", "/MP"]
 link-options = ["/DEBUG", "/OPT:REF", "/OPT:ICF"]

@@ -213,31 +213,27 @@ class WndprocHook : public Hook
 	inline static SafetyHookInline dest_orig = {};
 	static LRESULT __stdcall destination(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 	{
-		if (overlayActive)
-		{
-			if (ImGui_ImplWin32_WndProcHandler(hwnd, msg, wParam, lParam))
-				return 1;
-		}
-		else
-		{
-			if (Settings::WindowedHideMouseCursor)
-			{
-				if (msg == WM_SETFOCUS || (msg == WM_ACTIVATE && lParam != WA_INACTIVE))
-				{
-					ShowCursor(false);
-				}
-			}
+		if (ImGui_ImplWin32_WndProcHandler(hwnd, msg, wParam, lParam))
+			return 1;
 
-			if (msg == WM_ERASEBKGND) // erase window to white during device reset
+		if (Settings::WindowedHideMouseCursor && !overlayActive)
+		{
+			if (msg == WM_SETFOCUS || (msg == WM_ACTIVATE && lParam != WA_INACTIVE))
 			{
-				RECT rect;
-				GetClientRect(hwnd, &rect);
-				HBRUSH brush = CreateSolidBrush(RGB(0xFF, 0xFF, 0xFF));
-				FillRect((HDC)wParam, &rect, brush);
-				DeleteObject(brush);
-				return 1;
+				ShowCursor(false);
 			}
 		}
+
+		if (msg == WM_ERASEBKGND) // erase window to white during device reset
+		{
+			RECT rect;
+			GetClientRect(hwnd, &rect);
+			HBRUSH brush = CreateSolidBrush(RGB(0xFF, 0xFF, 0xFF));
+			FillRect((HDC)wParam, &rect, brush);
+			DeleteObject(brush);
+			return 1;
+		}
+
 		// Other message handling
 		return dest_orig.stdcall<LRESULT>(hwnd, msg, wParam, lParam);
 	}
