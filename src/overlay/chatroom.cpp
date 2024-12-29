@@ -29,8 +29,10 @@ private:
 	char inputBuffer[256] = "";
 	std::deque<ChatMessage> messages;
 	static constexpr size_t MAX_MESSAGES = 100;
-	static constexpr float MESSAGE_DISPLAY_DURATION = 6.0f; // seconds
-	static constexpr float MESSAGE_VERYRECENT_DURATION = 3.0f;
+	static constexpr float MESSAGE_DISPLAY_DURATION = 5.0f; // seconds
+	static constexpr float MESSAGE_VERYRECENT_DURATION = 2.f;
+
+	std::mutex mtx;
 
 	void connectWebSocket()
 	{
@@ -50,6 +52,8 @@ private:
 
 	void addMessage(const std::string& content)
 	{
+		std::lock_guard<std::mutex> lock(mtx);
+
 		messages.push_front({ content, std::chrono::system_clock::now() });
 
 		if (messages.size() > MAX_MESSAGES)
@@ -62,33 +66,27 @@ public:
 		connectWebSocket();
 	}
 
-	static void RenderTextWithOutline(ImVec2 pos, const char* text, ImU32 textColor, ImU32 outlineColor, float outlineThickness = 1.0f)
+	static void DrawTextWithOutline(const char* text, ImVec4 textColor, ImVec4 outlineColor, float outlineThickness = 1.0f)
 	{
-		ImDrawList* drawList = ImGui::GetWindowDrawList();
+		ImVec2 pos = ImGui::GetCursorPos();
 
-		// Render outline by drawing text slightly offset in all directions
-		drawList->AddText(ImVec2(pos.x - outlineThickness, pos.y), outlineColor, text);
-		drawList->AddText(ImVec2(pos.x + outlineThickness, pos.y), outlineColor, text);
-		drawList->AddText(ImVec2(pos.x, pos.y - outlineThickness), outlineColor, text);
-		drawList->AddText(ImVec2(pos.x, pos.y + outlineThickness), outlineColor, text);
+		// Draw the outline by drawing the text multiple times with offsets
+		ImGui::PushStyleColor(ImGuiCol_Text, outlineColor);
+		for (float dx = -outlineThickness; dx <= outlineThickness; dx += outlineThickness)
+		{
+			for (float dy = -outlineThickness; dy <= outlineThickness; dy += outlineThickness)
+			{
+				ImGui::SetCursorPos(ImVec2(pos.x + dx, pos.y + dy));
+				ImGui::TextWrapped("%s", text);
+			}
+		}
+		ImGui::PopStyleColor();
 
-		// Render the main text
-		drawList->AddText(pos, textColor, text);
-	}
-
-	static void RenderTextWithOutlineWrapped(const char* text, ImU32 textColor, ImU32 outlineColor, float wrapWidth = -1.0f, float outlineThickness = 1.0f)
-	{
-		// Get starting position
-		ImVec2 cursorPos = ImGui::GetCursorScreenPos();
-
-		// Calculate wrapped text
-		ImVec2 textSize = ImGui::CalcTextSize(text, nullptr, false, wrapWidth);
-
-		// Render the text with outline
-		RenderTextWithOutline(cursorPos, text, textColor, outlineColor, outlineThickness);
-
-		// Manually advance the cursor position
-		ImGui::SetCursorScreenPos(ImVec2(cursorPos.x, cursorPos.y + textSize.y));
+		// Draw the main text
+		ImGui::SetCursorPos(pos);
+		ImGui::PushStyleColor(ImGuiCol_Text, textColor);
+		ImGui::TextWrapped("%s", text);
+		ImGui::PopStyleColor();
 	}
 
 	void render(bool overlayEnabled) override
@@ -114,18 +112,21 @@ public:
 		bool hasRecentMessages = false;
 		bool hasVeryRecentMessages = false;
 
-		for (const auto& msg : messages)
 		{
-			auto duration = std::chrono::duration_cast<std::chrono::seconds>(
-				currentTime - msg.timestamp).count();
-
-			if (duration < MESSAGE_VERYRECENT_DURATION)
+			std::lock_guard<std::mutex> lock(mtx);
+			for (const auto& msg : messages)
 			{
-				hasVeryRecentMessages = true;
-				hasRecentMessages = true;
+				auto duration = std::chrono::duration_cast<std::chrono::seconds>(
+					currentTime - msg.timestamp).count();
+
+				if (duration < MESSAGE_VERYRECENT_DURATION)
+				{
+					hasVeryRecentMessages = true;
+					hasRecentMessages = true;
+				}
+				else if (duration < MESSAGE_DISPLAY_DURATION)
+					hasRecentMessages = true;
 			}
-			else if (duration < MESSAGE_DISPLAY_DURATION)
-				hasRecentMessages = true;
 		}
 
 		// If not active then only show window if there are recent messages
@@ -161,28 +162,32 @@ public:
 			// Get total available height of scroll region
 			float availableHeight = ImGui::GetContentRegionAvail().y;
 
-			// Calculate total height of messages
-			float totalMessageHeight = 0;
-			for (auto it = messages.rbegin(); it != messages.rend(); ++it)
 			{
-				const auto& msg = *it;
-				float textHeight = ImGui::CalcTextSize(msg.content.c_str(), nullptr, true, ImGui::GetContentRegionAvail().x).y;
-				totalMessageHeight += textHeight + ImGui::GetStyle().ItemSpacing.y;
-			}
+				std::lock_guard<std::mutex> lock(mtx);
 
-			// Add dummy spacing if content doesn't fill the height
-			if (totalMessageHeight < availableHeight)
-				ImGui::Dummy(ImVec2(0, availableHeight - totalMessageHeight));
+				// Calculate total height of messages
+				float totalMessageHeight = 0;
+				for (auto it = messages.rbegin(); it != messages.rend(); ++it)
+				{
+					const auto& msg = *it;
+					float textHeight = ImGui::CalcTextSize(msg.content.c_str(), nullptr, true, ImGui::GetContentRegionAvail().x).y;
+					totalMessageHeight += textHeight + ImGui::GetStyle().ItemSpacing.y;
+				}
 
-			// Draw messages
-			for (auto it = messages.rbegin(); it != messages.rend(); ++it)
-			{
-				const auto& msg = *it;
+				// Add dummy spacing if content doesn't fill the height
+				if (totalMessageHeight < availableHeight)
+					ImGui::Dummy(ImVec2(0, availableHeight - totalMessageHeight));
 
-				if (Overlay::ChatHideBackground)
-					RenderTextWithOutlineWrapped(msg.content.c_str(), 0xFF000000, 0xFFFFFFFF);
-				else
-					ImGui::TextWrapped("%s", msg.content.c_str());
+				// Draw messages
+				for (auto it = messages.rbegin(); it != messages.rend(); ++it)
+				{
+					const auto& msg = *it;
+
+					if (Overlay::ChatHideBackground)
+						DrawTextWithOutline(msg.content.c_str(), ImVec4(0.0f, 0.0f, 0.0f, 1.0f), ImVec4(1.0f, 1.0f, 1.0f, 1.0f));// 0xFF000000, 0xFFFFFFFF);
+					else
+						ImGui::TextWrapped("%s", msg.content.c_str());
+				}
 			}
 
 			if (ImGui::GetScrollY() >= ImGui::GetScrollMaxY())
