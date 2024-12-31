@@ -149,7 +149,7 @@ public:
 
 					ImGui::PopStyleColor();
 
-					settingsChanged |= ImGui::SliderFloat("Overlay Opacity", &Overlay::GlobalOpacity, 0.1f, 5.0f);
+					settingsChanged |= ImGui::SliderFloat("Overlay Opacity", &Overlay::GlobalOpacity, 0.1f, 1.0f);
 
 					ImGui::TreePop();
 				}

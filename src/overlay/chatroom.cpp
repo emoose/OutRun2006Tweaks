@@ -189,7 +189,19 @@ public:
 					const auto& msg = *it;
 
 					if (Overlay::ChatHideBackground)
-						DrawTextWithOutline(msg.content.c_str(), ImVec4(0.0f, 0.0f, 0.0f, 1.0f), ImVec4(1.0f, 1.0f, 1.0f, 1.0f));// 0xFF000000, 0xFFFFFFFF);
+					{
+						ImVec2 textSize = ImGui::CalcTextSize(msg.content.c_str());
+						ImVec2 pos = ImGui::GetCursorScreenPos();
+
+						// Draw the background rectangle
+						ImGui::GetWindowDrawList()->AddRectFilled(
+							pos,
+							ImVec2(pos.x + textSize.x, pos.y + textSize.y + ImGui::GetStyle().ItemSpacing.y),
+							ImGui::ColorConvertFloat4ToU32(ImGui::GetStyle().Colors[ImGuiCol_FrameBg])
+						);
+
+						ImGui::TextWrapped("%s", msg.content.c_str());
+					}
 					else
 						ImGui::TextWrapped("%s", msg.content.c_str());
 				}
