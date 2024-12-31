@@ -133,16 +133,18 @@ public:
 			}
 		}
 
-		// If not active then only show window if there are recent messages
-		if (!isActive && !hasRecentMessages)
-			return;
-
-		if (Overlay::ChatHideBackground)
-			ImGui::SetNextWindowBgAlpha(0.f);
-		else
+		if (!overlayEnabled)
 		{
-			if (!isActive && !hasVeryRecentMessages)
-				ImGui::SetNextWindowBgAlpha(0.3f);
+			// If not active then only show window if there are recent messages
+			if (!isActive && !hasRecentMessages)
+				return;
+			if (Overlay::ChatHideBackground)
+				ImGui::SetNextWindowBgAlpha(0.f);
+			else
+			{
+				if (!isActive && !hasVeryRecentMessages)
+					ImGui::SetNextWindowBgAlpha(0.3f);
+			}
 		}
 
 		float screenWidth = float(Game::screen_resolution->x);
@@ -152,14 +154,10 @@ public:
 
 		float screenQuarterHeight = screenHeight / 4;
 
-		ImGui::SetNextWindowPos(ImVec2(borderWidth + 20, (screenQuarterHeight * 3) - 20));
+		ImGui::SetNextWindowPos(ImVec2(borderWidth + 20, (screenQuarterHeight * 3) - 20), ImGuiCond_FirstUseEver);
 		ImGui::SetNextWindowSize(ImVec2(contentWidth - 40, screenQuarterHeight), ImGuiCond_FirstUseEver);
 
-		if (ImGui::Begin("Chat Messages", nullptr,
-			ImGuiWindowFlags_NoDecoration |
-			ImGuiWindowFlags_NoSavedSettings |
-			ImGuiWindowFlags_NoFocusOnAppearing |
-			ImGuiWindowFlags_NoNav))
+		if (ImGui::Begin("Chat Messages", nullptr, !overlayEnabled ? ImGuiWindowFlags_NoDecoration : 0))
 		{
 			ImGui::SetWindowFontScale(Overlay::ChatFontSize);
 			ImGui::BeginChild("ScrollingRegion", ImVec2(0, -ImGui::GetFrameHeightWithSpacing()), false, ImGuiWindowFlags_HorizontalScrollbar);
