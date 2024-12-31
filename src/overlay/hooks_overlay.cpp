@@ -72,26 +72,16 @@ class D3DHooks : public Hook
 
 		CreateLetterboxVertex();
 
-		if (!Settings::OverlayEnabled)
-			return;
+		if (Settings::OverlayEnabled)
+		{
+			Overlay::init_imgui();
 
-		// Setup Dear ImGui context
-		IMGUI_CHECKVERSION();
-		ImGui::CreateContext();
-		ImGuiIO& io = ImGui::GetIO(); (void)io;
-		io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
-		io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
-		io.FontGlobalScale = Overlay::GlobalFontScale;
+			// Setup Platform/Renderer backends
+			ImGui_ImplWin32_Init(Game::GameHwnd());
+			ImGui_ImplDX9_Init(Game::D3DDevice());
 
-		// Setup Dear ImGui style
-		ImGui::StyleColorsDark();
-		//ImGui::StyleColorsLight();
-
-		// Setup Platform/Renderer backends
-		ImGui_ImplWin32_Init(Game::GameHwnd());
-		ImGui_ImplDX9_Init(Game::D3DDevice());
-
-		overlayInited = true;
+			overlayInited = true;
+		}
 	}
 
 	inline static SafetyHookMid midhook_d3dendscene{};

@@ -70,6 +70,9 @@ public:
 				return;
 		}
 
+		if (!Overlay::NotifyEnable)
+			return;
+
 		ImVec2 screenSize = ImGui::GetIO().DisplaySize;
 
 		// Calculate starting position for the latest notification

@@ -29,8 +29,8 @@ private:
 	char inputBuffer[256] = "";
 	std::deque<ChatMessage> messages;
 	static constexpr size_t MAX_MESSAGES = 100;
-	static constexpr float MESSAGE_DISPLAY_DURATION = 5.0f; // seconds
-	static constexpr float MESSAGE_VERYRECENT_DURATION = 2.f;
+	static constexpr float MESSAGE_DISPLAY_SECONDS = 5.0f;
+	static constexpr float MESSAGE_VERYRECENT_SECONDS = 2.0f;
 
 	std::mutex mtx;
 
@@ -119,13 +119,17 @@ public:
 				auto duration = std::chrono::duration_cast<std::chrono::seconds>(
 					currentTime - msg.timestamp).count();
 
-				if (duration < MESSAGE_VERYRECENT_DURATION)
+				if (duration < MESSAGE_VERYRECENT_SECONDS)
 				{
 					hasVeryRecentMessages = true;
 					hasRecentMessages = true;
+					break;
 				}
-				else if (duration < MESSAGE_DISPLAY_DURATION)
+				if (duration < MESSAGE_DISPLAY_SECONDS)
+				{
 					hasRecentMessages = true;
+					break;
+				}
 			}
 		}
 

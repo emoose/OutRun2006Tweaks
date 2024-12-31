@@ -13,7 +13,9 @@ class Overlay
 {
 public:
 	inline static float GlobalFontScale = 1.5f;
+	inline static float GlobalOpacity = 0.8f;
 
+	inline static bool NotifyEnable = true;
 	inline static int NotifyDisplayTime = 7;
 	inline static bool NotifyOnlineEnable = true;
 	inline static int NotifyOnlineUpdateTime = 20;
@@ -40,6 +42,7 @@ private:
 
 public:
 	static void init();
+	static void init_imgui();
 
 	static bool settings_read();
 	static bool settings_write();
