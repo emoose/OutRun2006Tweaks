@@ -157,8 +157,9 @@ public:
 				if (ImGui::TreeNodeEx("Notifications", ImGuiTreeNodeFlags_DefaultOpen))
 				{
 					settingsChanged |= ImGui::Checkbox("Enable Notifications", &Overlay::NotifyEnable);
-					settingsChanged |= ImGui::SliderInt("Display Time", &Overlay::NotifyDisplayTime, 0, 60);
 					settingsChanged |= ImGui::Checkbox("Enable Online Lobby Notifications", &Overlay::NotifyOnlineEnable);
+
+					settingsChanged |= ImGui::SliderInt("Display Time", &Overlay::NotifyDisplayTime, 0, 60);
 					settingsChanged |= ImGui::SliderInt("Online Update Time", &Overlay::NotifyOnlineUpdateTime, 10, 60);
 
 					static const char* items[]{ "Never Hide", "Online Race", "Any Race" };
@@ -169,6 +170,7 @@ public:
 
 				if (ImGui::TreeNodeEx("Chat", ImGuiTreeNodeFlags_DefaultOpen))
 				{
+					settingsChanged |= ImGui::SliderFloat("Chat Font Size", &Overlay::ChatFontSize, 0.5f, 2.5f);
 					settingsChanged |= ImGui::Checkbox("Hide Chat Background", &Overlay::ChatHideBackground);
 
 					ImGui::TreePop();
@@ -263,53 +265,6 @@ bool Overlay::render()
 	// Notifications are rendered before any other window
 	Notifications::instance.render();
 
-	if (overlay_visible)
-	{
-		if (ImGui::BeginMainMenuBar()) {
-			if (ImGui::BeginMenu("File")) {
-				if (ImGui::MenuItem("Open", "Ctrl+O")) {
-					// Handle Open action
-				}
-				if (ImGui::MenuItem("Save", "Ctrl+S")) {
-					// Handle Save action
-				}
-				if (ImGui::MenuItem("Exit")) {
-					// Handle Exit action
-				}
-				ImGui::EndMenu();
-			}
-
-			if (ImGui::BeginMenu("Edit")) {
-				if (ImGui::MenuItem("Undo", "Ctrl+Z")) {
-					// Handle Undo action
-				}
-				if (ImGui::MenuItem("Redo", "Ctrl+Y", false, false)) {
-					// Disabled menu item (not clickable)
-				}
-				ImGui::Separator(); // Adds a separator line
-				if (ImGui::MenuItem("Cut", "Ctrl+X")) {
-					// Handle Cut action
-				}
-				if (ImGui::MenuItem("Copy", "Ctrl+C")) {
-					// Handle Copy action
-				}
-				if (ImGui::MenuItem("Paste", "Ctrl+V")) {
-					// Handle Paste action
-				}
-				ImGui::EndMenu();
-			}
-
-			if (ImGui::BeginMenu("Help")) {
-				if (ImGui::MenuItem("About")) {
-					// Handle About action
-				}
-				ImGui::EndMenu();
-			}
-
-			ImGui::EndMainMenuBar();
-		}
-	}
-
 	for (const auto& wnd : s_windows)
 		wnd->render(overlay_visible);
 
@@ -346,6 +301,7 @@ bool Overlay::settings_read()
 	NotifyHideMode = ini.Get("Notifications", "HideMode", NotifyHideMode);
 	NotifyUpdateCheck = ini.Get("Notifications", "CheckForUpdates", NotifyUpdateCheck);
 
+	ChatFontSize = ini.Get("Chat", "FontSize", ChatFontSize);
 	ChatHideBackground = ini.Get("Chat", "HideBackground", ChatHideBackground);
 
 	CourseReplacementEnabled = ini.Get("CourseReplacement", "Enabled", CourseReplacementEnabled);
@@ -369,6 +325,7 @@ bool Overlay::settings_write()
 	ini.Set("Notifications", "HideMode", NotifyHideMode);
 	ini.Set("Notifications", "CheckForUpdates", NotifyUpdateCheck);
 
+	ini.Set("Chat", "FontSize", ChatFontSize);
 	ini.Set("Chat", "HideBackground", ChatHideBackground);
 
 	ini.Set("CourseReplacement", "Enabled", CourseReplacementEnabled);

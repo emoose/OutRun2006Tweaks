@@ -161,6 +161,7 @@ public:
 			ImGuiWindowFlags_NoFocusOnAppearing |
 			ImGuiWindowFlags_NoNav))
 		{
+			ImGui::SetWindowFontScale(Overlay::ChatFontSize);
 			ImGui::BeginChild("ScrollingRegion", ImVec2(0, -ImGui::GetFrameHeightWithSpacing()), false, ImGuiWindowFlags_HorizontalScrollbar);
 
 			// Get total available height of scroll region

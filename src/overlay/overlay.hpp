@@ -33,6 +33,7 @@ public:
 	inline static char CourseReplacementCode[256] = { 0 };
 
 	inline static bool ChatHideBackground = false;
+	inline static float ChatFontSize = 1.0f;
 
 	inline static bool IsActive = false;
 
