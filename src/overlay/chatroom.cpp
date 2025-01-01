@@ -138,8 +138,12 @@ public:
 			// If not active then only show window if there are recent messages
 			if (!isActive && !hasRecentMessages)
 				return;
+
 			if (Overlay::ChatHideBackground)
+			{
 				ImGui::SetNextWindowBgAlpha(0.f);
+				ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+			}
 			else
 			{
 				if (!isActive && !hasVeryRecentMessages)
@@ -156,6 +160,7 @@ public:
 
 		ImGui::SetNextWindowPos(ImVec2(borderWidth + 20, (screenQuarterHeight * 3) - 20), ImGuiCond_FirstUseEver);
 		ImGui::SetNextWindowSize(ImVec2(contentWidth - 40, screenQuarterHeight), ImGuiCond_FirstUseEver);
+
 
 		if (ImGui::Begin("Chat Messages", nullptr, !overlayEnabled ? ImGuiWindowFlags_NoDecoration : 0))
 		{
@@ -230,9 +235,10 @@ public:
 				if (justOpened)
 					ImGui::SetKeyboardFocusHere(-1);
 			}
+			ImGui::End();
 		}
-		ImGui::End();
-
+		if (!overlayEnabled && Overlay::ChatHideBackground)
+			ImGui::PopStyleVar(); // pop border removal
 	}
 
 	~ChatRoom()
