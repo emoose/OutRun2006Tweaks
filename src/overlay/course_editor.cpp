@@ -358,295 +358,296 @@ public:
 		if (!overlayEnabled)
 			return;
 
-		ImGui::Begin("Course Editor", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
-
-		if (!CustomStageTableCount)
+		if (ImGui::Begin("Course Editor", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
 		{
-			ImGui::Text("Waiting for game to load stage scripts...");
-			ImGui::End();
-			return;
-		}
-
-		bool has_updated = false;
-
-		bool is_in_lobby = (*Game::SumoNet_CurNetDriver && (*Game::SumoNet_CurNetDriver)->is_in_lobby());
-		bool is_lobby_nonhost = is_in_lobby &&
-			!(*Game::SumoNet_CurNetDriver)->is_hosting();
-		bool is_lobby_host = is_in_lobby &&
-			(*Game::SumoNet_CurNetDriver)->is_hosting();
-
-		// Enable Course Override checkbox
-		{
-			bool disable_checkbox = Game::is_in_game() || is_lobby_nonhost;
-
-			if (disable_checkbox)
-				ImGui::BeginDisabled();
-
-			bool replacementEnabled = Overlay::CourseReplacementEnabled;
-			if (is_lobby_nonhost)
-				replacementEnabled = (Game::SumoNet_LobbyInfo->unk_field_74_A & kLobbyFlag_UsingCustomCourse);
-
-			if (ImGui::Checkbox("Enable Course Override (use in C2C OutRun mode)", &replacementEnabled))
+			if (!CustomStageTableCount)
 			{
-				Overlay::CourseReplacementEnabled = replacementEnabled;
-				has_updated = true;
+				ImGui::Text("Waiting for game to load stage scripts...");
+				ImGui::End();
+				return;
 			}
 
-			if (disable_checkbox)
-				ImGui::EndDisabled();
-		}
+			bool has_updated = false;
 
-		bool editor_disabled = !Overlay::CourseReplacementEnabled ||
-			(Game::is_in_game() && Game::pl_car()->is_in_bunki()) ||
-			(is_lobby_nonhost || (is_lobby_host && Game::is_in_game()));
+			bool is_in_lobby = (*Game::SumoNet_CurNetDriver && (*Game::SumoNet_CurNetDriver)->is_in_lobby());
+			bool is_lobby_nonhost = is_in_lobby &&
+				!(*Game::SumoNet_CurNetDriver)->is_hosting();
+			bool is_lobby_host = is_in_lobby &&
+				(*Game::SumoNet_CurNetDriver)->is_hosting();
 
-		if (ImGui::TreeNodeEx("Stages", ImGuiTreeNodeFlags_DefaultOpen))
-		{
-			StageTable_mb* stg_tbl = *Module::exe_ptr<StageTable_mb*>(0x3D3188); // stg_tbl only points to current stage
-
-			int curPlayingIndex = -1;
-			if (stg_tbl)
-				curPlayingIndex = stg_tbl->StageTableIdx_4;
-
-			if (editor_disabled)
-				ImGui::BeginDisabled();
-
-			float comboHeight = ImGui::GetFrameHeight(); // Height of a single combobox
-			float verticalSpacing = 10.0f; // Additional spacing between comboboxes
-			float comboWidth = 200.f; // Width of comboboxes
-
-			float windowHeight = ImGui::GetCursorPosY() + (comboHeight * 3) + floor(comboHeight * 5 + (verticalSpacing * 6));
-
-			int num = 0;
-			StageTable_mb* curStage = CustomStageTable.data();
-			for (int col = 0; col < 5; ++col)
+			// Enable Course Override checkbox
 			{
-				float columnHeight = floor((comboHeight + verticalSpacing) * (col + 1) - verticalSpacing);
+				bool disable_checkbox = Game::is_in_game() || is_lobby_nonhost;
 
-				// Start a new column for each level of the pyramid
-				ImGui::BeginGroup();
+				if (disable_checkbox)
+					ImGui::BeginDisabled();
 
-				// Center the column vertically
-				float startY = (windowHeight - columnHeight) * 0.5f;
-				ImGui::SetCursorPosY(startY);
+				bool replacementEnabled = Overlay::CourseReplacementEnabled;
+				if (is_lobby_nonhost)
+					replacementEnabled = (Game::SumoNet_LobbyInfo->unk_field_74_A & kLobbyFlag_UsingCustomCourse);
 
-				// if player is already past this track (or playing it), disable dropdowns
-				bool col_disabled = (curPlayingIndex >= num) && !editor_disabled && Game::is_in_game();
-
-				for (int row = 0; row <= col; ++row)
+				if (ImGui::Checkbox("Enable Course Override (use in C2C OutRun mode)", &replacementEnabled))
 				{
-					if (col_disabled)
-						ImGui::BeginDisabled();
-
-					bool playingThisStage = (curPlayingIndex == num) && Game::is_in_game();
-
-					// Highlight the current track
-					if (playingThisStage)
-						ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.0f, 0.75f, 0.0f, 0.75f));
-
-					ImGui::PushID(col * 10 + row);
-					ImGui::SetNextItemWidth(comboWidth);
-
-					int selected = curStage->StageUniqueName_0;
-
-					std::string name = std::format("##{}.{}", (col + 1), (row + 1));
-					if (ImGui::Combo(name.c_str(), &selected, Game::StageNames, int(STAGE_COUNT)))
-						has_updated |= update_stage(num, GameStage(selected));
-
-					curStage++;
-
-					// Add vertical spacing between comboboxes
-					if (row <= col)
-						ImGui::SetCursorPosY(ImGui::GetCursorPosY() + verticalSpacing);
-
-					ImGui::PopID();
-
-					if (playingThisStage)
-						ImGui::PopStyleColor();
-
-					if (col_disabled)
-						ImGui::EndDisabled();
-
-					num++;
-				}
-
-				ImGui::EndGroup();
-
-				if (col + 1 < 5)
-					ImGui::SameLine(0, 20.0f);
-			}
-
-			char* ShareCode = Overlay::CourseReplacementCode;
-
-			ImGui::Text("Share Code: ");
-			ImGui::SameLine();
-			ImGui::SetNextItemWidth(500.f);
-			ImGui::InputText("##ShareCode", ShareCode, 256);
-			ImGui::SameLine();
-			if (ImGui::Button("Apply Code"))
-			{
-				has_updated = true;
-				sharecode_apply();
-			}
-			ImGui::SameLine();
-			if (ImGui::Button("Copy Code"))
-			{
-				HGLOBAL hMem = GlobalAlloc(GMEM_MOVEABLE, strlen(ShareCode) + 1);
-				if (hMem)
-				{
-					memcpy(GlobalLock(hMem), ShareCode, strlen(ShareCode) + 1);
-					GlobalUnlock(hMem);
-					OpenClipboard(0);
-					EmptyClipboard();
-					SetClipboardData(CF_TEXT, hMem);
-					CloseClipboard();
-				}
-			}
-			ImGui::SameLine();
-			if (ImGui::Button("Paste Code"))
-			{
-				if (OpenClipboard(0))
-				{
-					HANDLE hClipboardData = GetClipboardData(CF_UNICODETEXT);
-					if (hClipboardData == nullptr)
-						hClipboardData = GetClipboardData(CF_TEXT);
-
-					if (hClipboardData != nullptr)
-					{
-						void* clipboardData = GlobalLock(hClipboardData);
-						if (clipboardData)
-						{
-							if (hClipboardData == GetClipboardData(CF_UNICODETEXT))
-							{
-								wchar_t* wideText = static_cast<wchar_t*>(clipboardData);
-
-								// Convert unicode to char
-								int bufferSize = WideCharToMultiByte(CP_UTF8, 0, wideText, -1, nullptr, 0, nullptr, nullptr);
-								if (bufferSize > 0 && bufferSize < sizeof(ShareCode))
-									WideCharToMultiByte(CP_UTF8, 0, wideText, -1, ShareCode, bufferSize, nullptr, nullptr);
-								else
-								{
-									// Handle the case where the buffer is too small, truncate if necessary
-									WideCharToMultiByte(CP_UTF8, 0, wideText, -1, ShareCode, sizeof(ShareCode) - 1, nullptr, nullptr);
-									ShareCode[sizeof(ShareCode) - 1] = '\0'; // Null-terminate
-								}
-							}
-							else if (hClipboardData == GetClipboardData(CF_TEXT))
-							{
-								char* asciiText = static_cast<char*>(clipboardData);
-
-								if (strlen(asciiText) < sizeof(ShareCode))
-									strcpy(ShareCode, asciiText);
-								else
-								{
-									// If the clipboard text is too large, truncate
-									strncpy(ShareCode, asciiText, sizeof(ShareCode) - 1);
-									ShareCode[sizeof(ShareCode) - 1] = '\0'; // Null-terminate
-								}
-							}
-							sharecode_apply();
-
-							GlobalUnlock(hClipboardData);
-						}
-					}
-					CloseClipboard();
-				}
-			}
-
-			if (editor_disabled)
-				ImGui::EndDisabled();
-
-			ImGui::TreePop();
-		}
-
-		if (ImGui::TreeNode("Randomizer"))
-		{
-			static bool or2_day = true;
-			static bool or2_night = true;
-			static bool or2_reverse = true;
-			static bool or2sp_day = true;
-			static bool or2sp_night = true;
-			static bool or2sp_reverse = true;
-			static bool allow_duplicates = false;
-
-			ImGui::Checkbox("OutRun2 Day (15 tracks)", &or2_day);
-			ImGui::Checkbox("OutRun2 Night (2 tracks)", &or2_night);
-			ImGui::Checkbox("OutRun2 Reverse (15 tracks)", &or2_reverse);
-			ImGui::Checkbox("OutRun2SP Day (15 tracks)", &or2sp_day);
-			ImGui::Checkbox("OutRun2SP Night (2 tracks)", &or2sp_night);
-			ImGui::Checkbox("OutRun2SP Reverse (15 tracks)", &or2sp_reverse);
-			ImGui::Checkbox("Allow Duplicates", &allow_duplicates);
-
-			if (editor_disabled)
-				ImGui::BeginDisabled();
-
-			if (ImGui::Button("Randomize"))
-			{
-				std::vector<GameStage> chosen;
-				if (or2_day)
-					chosen.insert(chosen.end(), stages_or2_day.begin(), stages_or2_day.end());
-				if (or2_night)
-					chosen.insert(chosen.end(), stages_or2_night.begin(), stages_or2_night.end());
-				if (or2_reverse)
-					chosen.insert(chosen.end(), stages_or2_reverse.begin(), stages_or2_reverse.end());
-				if (or2sp_day)
-					chosen.insert(chosen.end(), stages_or2sp_day.begin(), stages_or2sp_day.end());
-				if (or2sp_night)
-					chosen.insert(chosen.end(), stages_or2sp_night.begin(), stages_or2sp_night.end());
-				if (or2sp_reverse)
-					chosen.insert(chosen.end(), stages_or2sp_reverse.begin(), stages_or2sp_reverse.end());
-
-				// Randomize selection
-				if (!chosen.empty())
-				{
-					std::random_device rd;
-					std::mt19937 gen(rd());
-					std::uniform_int_distribution<> dist(0, chosen.size() - 1);
-
-					std::vector<GameStage> seen;
-					for (int i = 0; i < 15; i++)
-					{
-						GameStage random_stage = chosen[dist(gen)];
-						if (!allow_duplicates && chosen.size() >= 15)
-						{
-							while (std::find(seen.begin(), seen.end(), random_stage) != seen.end())
-							{
-								// Regenerate stage if it's been seen before
-								random_stage = chosen[dist(gen)];
-							}
-						}
-
-						update_stage(i, random_stage);
-						seen.push_back(random_stage);
-					}
+					Overlay::CourseReplacementEnabled = replacementEnabled;
 					has_updated = true;
 				}
+
+				if (disable_checkbox)
+					ImGui::EndDisabled();
+			}
+
+			bool editor_disabled = !Overlay::CourseReplacementEnabled ||
+				(Game::is_in_game() && Game::pl_car()->is_in_bunki()) ||
+				(is_lobby_nonhost || (is_lobby_host && Game::is_in_game()));
+
+			if (ImGui::TreeNodeEx("Stages", ImGuiTreeNodeFlags_DefaultOpen))
+			{
+				StageTable_mb* stg_tbl = *Module::exe_ptr<StageTable_mb*>(0x3D3188); // stg_tbl only points to current stage
+
+				int curPlayingIndex = -1;
+				if (stg_tbl)
+					curPlayingIndex = stg_tbl->StageTableIdx_4;
+
+				if (editor_disabled)
+					ImGui::BeginDisabled();
+
+				float comboHeight = ImGui::GetFrameHeight(); // Height of a single combobox
+				float verticalSpacing = 10.0f; // Additional spacing between comboboxes
+				float comboWidth = 200.f; // Width of comboboxes
+
+				float windowHeight = ImGui::GetCursorPosY() + (comboHeight * 3) + floor(comboHeight * 5 + (verticalSpacing * 6));
+
+				int num = 0;
+				StageTable_mb* curStage = CustomStageTable.data();
+				for (int col = 0; col < 5; ++col)
+				{
+					float columnHeight = floor((comboHeight + verticalSpacing) * (col + 1) - verticalSpacing);
+
+					// Start a new column for each level of the pyramid
+					ImGui::BeginGroup();
+
+					// Center the column vertically
+					float startY = (windowHeight - columnHeight) * 0.5f;
+					ImGui::SetCursorPosY(startY);
+
+					// if player is already past this track (or playing it), disable dropdowns
+					bool col_disabled = (curPlayingIndex >= num) && !editor_disabled && Game::is_in_game();
+
+					for (int row = 0; row <= col; ++row)
+					{
+						if (col_disabled)
+							ImGui::BeginDisabled();
+
+						bool playingThisStage = (curPlayingIndex == num) && Game::is_in_game();
+
+						// Highlight the current track
+						if (playingThisStage)
+							ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.0f, 0.75f, 0.0f, 0.75f));
+
+						ImGui::PushID(col * 10 + row);
+						ImGui::SetNextItemWidth(comboWidth);
+
+						int selected = curStage->StageUniqueName_0;
+
+						std::string name = std::format("##{}.{}", (col + 1), (row + 1));
+						if (ImGui::Combo(name.c_str(), &selected, Game::StageNames, int(STAGE_COUNT)))
+							has_updated |= update_stage(num, GameStage(selected));
+
+						curStage++;
+
+						// Add vertical spacing between comboboxes
+						if (row <= col)
+							ImGui::SetCursorPosY(ImGui::GetCursorPosY() + verticalSpacing);
+
+						ImGui::PopID();
+
+						if (playingThisStage)
+							ImGui::PopStyleColor();
+
+						if (col_disabled)
+							ImGui::EndDisabled();
+
+						num++;
+					}
+
+					ImGui::EndGroup();
+
+					if (col + 1 < 5)
+						ImGui::SameLine(0, 20.0f);
+				}
+
+				char* ShareCode = Overlay::CourseReplacementCode;
+
+				ImGui::Text("Share Code: ");
+				ImGui::SameLine();
+				ImGui::SetNextItemWidth(500.f);
+				ImGui::InputText("##ShareCode", ShareCode, 256);
+				ImGui::SameLine();
+				if (ImGui::Button("Apply Code"))
+				{
+					has_updated = true;
+					sharecode_apply();
+				}
+				ImGui::SameLine();
+				if (ImGui::Button("Copy Code"))
+				{
+					HGLOBAL hMem = GlobalAlloc(GMEM_MOVEABLE, strlen(ShareCode) + 1);
+					if (hMem)
+					{
+						memcpy(GlobalLock(hMem), ShareCode, strlen(ShareCode) + 1);
+						GlobalUnlock(hMem);
+						OpenClipboard(0);
+						EmptyClipboard();
+						SetClipboardData(CF_TEXT, hMem);
+						CloseClipboard();
+					}
+				}
+				ImGui::SameLine();
+				if (ImGui::Button("Paste Code"))
+				{
+					if (OpenClipboard(0))
+					{
+						HANDLE hClipboardData = GetClipboardData(CF_UNICODETEXT);
+						if (hClipboardData == nullptr)
+							hClipboardData = GetClipboardData(CF_TEXT);
+
+						if (hClipboardData != nullptr)
+						{
+							void* clipboardData = GlobalLock(hClipboardData);
+							if (clipboardData)
+							{
+								if (hClipboardData == GetClipboardData(CF_UNICODETEXT))
+								{
+									wchar_t* wideText = static_cast<wchar_t*>(clipboardData);
+
+									// Convert unicode to char
+									int bufferSize = WideCharToMultiByte(CP_UTF8, 0, wideText, -1, nullptr, 0, nullptr, nullptr);
+									if (bufferSize > 0 && bufferSize < sizeof(ShareCode))
+										WideCharToMultiByte(CP_UTF8, 0, wideText, -1, ShareCode, bufferSize, nullptr, nullptr);
+									else
+									{
+										// Handle the case where the buffer is too small, truncate if necessary
+										WideCharToMultiByte(CP_UTF8, 0, wideText, -1, ShareCode, sizeof(ShareCode) - 1, nullptr, nullptr);
+										ShareCode[sizeof(ShareCode) - 1] = '\0'; // Null-terminate
+									}
+								}
+								else if (hClipboardData == GetClipboardData(CF_TEXT))
+								{
+									char* asciiText = static_cast<char*>(clipboardData);
+
+									if (strlen(asciiText) < sizeof(ShareCode))
+										strcpy(ShareCode, asciiText);
+									else
+									{
+										// If the clipboard text is too large, truncate
+										strncpy(ShareCode, asciiText, sizeof(ShareCode) - 1);
+										ShareCode[sizeof(ShareCode) - 1] = '\0'; // Null-terminate
+									}
+								}
+								sharecode_apply();
+
+								GlobalUnlock(hClipboardData);
+							}
+						}
+						CloseClipboard();
+					}
+				}
+
+				if (editor_disabled)
+					ImGui::EndDisabled();
+
+				ImGui::TreePop();
+			}
+
+			if (ImGui::TreeNode("Randomizer"))
+			{
+				static bool or2_day = true;
+				static bool or2_night = true;
+				static bool or2_reverse = true;
+				static bool or2sp_day = true;
+				static bool or2sp_night = true;
+				static bool or2sp_reverse = true;
+				static bool allow_duplicates = false;
+
+				ImGui::Checkbox("OutRun2 Day (15 tracks)", &or2_day);
+				ImGui::Checkbox("OutRun2 Night (2 tracks)", &or2_night);
+				ImGui::Checkbox("OutRun2 Reverse (15 tracks)", &or2_reverse);
+				ImGui::Checkbox("OutRun2SP Day (15 tracks)", &or2sp_day);
+				ImGui::Checkbox("OutRun2SP Night (2 tracks)", &or2sp_night);
+				ImGui::Checkbox("OutRun2SP Reverse (15 tracks)", &or2sp_reverse);
+				ImGui::Checkbox("Allow Duplicates", &allow_duplicates);
+
+				if (editor_disabled)
+					ImGui::BeginDisabled();
+
+				if (ImGui::Button("Randomize"))
+				{
+					std::vector<GameStage> chosen;
+					if (or2_day)
+						chosen.insert(chosen.end(), stages_or2_day.begin(), stages_or2_day.end());
+					if (or2_night)
+						chosen.insert(chosen.end(), stages_or2_night.begin(), stages_or2_night.end());
+					if (or2_reverse)
+						chosen.insert(chosen.end(), stages_or2_reverse.begin(), stages_or2_reverse.end());
+					if (or2sp_day)
+						chosen.insert(chosen.end(), stages_or2sp_day.begin(), stages_or2sp_day.end());
+					if (or2sp_night)
+						chosen.insert(chosen.end(), stages_or2sp_night.begin(), stages_or2sp_night.end());
+					if (or2sp_reverse)
+						chosen.insert(chosen.end(), stages_or2sp_reverse.begin(), stages_or2sp_reverse.end());
+
+					// Randomize selection
+					if (!chosen.empty())
+					{
+						std::random_device rd;
+						std::mt19937 gen(rd());
+						std::uniform_int_distribution<> dist(0, chosen.size() - 1);
+
+						std::vector<GameStage> seen;
+						for (int i = 0; i < 15; i++)
+						{
+							GameStage random_stage = chosen[dist(gen)];
+							if (!allow_duplicates && chosen.size() >= 15)
+							{
+								while (std::find(seen.begin(), seen.end(), random_stage) != seen.end())
+								{
+									// Regenerate stage if it's been seen before
+									random_stage = chosen[dist(gen)];
+								}
+							}
+
+							update_stage(i, random_stage);
+							seen.push_back(random_stage);
+						}
+						has_updated = true;
+					}
+				}
+
+				if (editor_disabled)
+					ImGui::EndDisabled();
+
+				ImGui::TreePop();
 			}
 
 			if (editor_disabled)
-				ImGui::EndDisabled();
+			{
+				if (is_lobby_nonhost)
+					ImGui::Text("(editor is only available for host)");
+				else if (is_lobby_host && Game::is_in_game())
+					ImGui::Text("(editor is unavailable during online game)");
+				else if (Overlay::CourseReplacementEnabled && Game::is_in_game() && Game::pl_car()->is_in_bunki())
+					ImGui::Text("(editor is unavailable during bunki)");
+			}
 
-			ImGui::TreePop();
-		}
-
-		if (editor_disabled)
-		{
-			if (is_lobby_nonhost)
-				ImGui::Text("(editor is only available for host)");
-			else if (is_lobby_host && Game::is_in_game())
-				ImGui::Text("(editor is unavailable during online game)");
-			else if (Overlay::CourseReplacementEnabled && Game::is_in_game() && Game::pl_car()->is_in_bunki())
-				ImGui::Text("(editor is unavailable during bunki)");
+			if (has_updated)
+			{
+				Overlay::settings_write();
+				sharecode_generate();
+				lobbycode_generate();
+			}
 		}
 
 		ImGui::End();
-
-		if (has_updated)
-		{
-			Overlay::settings_write();
-			sharecode_generate();
-			lobbycode_generate();
-		}
 	}
 	static CourseEditor instance;
 };

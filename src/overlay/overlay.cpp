@@ -31,50 +31,51 @@ public:
 
 		bool settingsChanged = false;
 
-		ImGui::Begin("Globals", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
+		if (ImGui::Begin("Globals", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+		{
+			ImGui::Text("Info");
+			EVWORK_CAR* car = Game::pl_car();
+			ImGui::Text("game_mode: %d", *Game::game_mode);
+			ImGui::Text("current_mode: %d", *Game::current_mode);
+			ImGui::Text("Lobby is active: %d", (*Game::SumoNet_CurNetDriver && (*Game::SumoNet_CurNetDriver)->is_in_lobby()));
+			ImGui::Text("Lobby is host: %d", (*Game::SumoNet_CurNetDriver && (*Game::SumoNet_CurNetDriver)->is_hosting()));
+			ImGui::Text("Is MP gamemode: %d", (*Game::game_mode == 3 || *Game::game_mode == 4));
+			ImGui::Text("Car kind: %d", int(car->car_kind_11));
+			ImGui::Text("Car position: %.3f %.3f %.3f", car->position_14.x, car->position_14.y, car->position_14.z);
+			ImGui::Text("OnRoadPlace coli %d, stg %d, section %d",
+				car->OnRoadPlace_5C.loadColiType_0,
+				car->OnRoadPlace_5C.curStageIdx_C,
+				car->OnRoadPlace_5C.roadSectionNum_8);
 
-		ImGui::Text("Info");
-		EVWORK_CAR* car = Game::pl_car();
-		ImGui::Text("game_mode: %d", *Game::game_mode);
-		ImGui::Text("current_mode: %d", *Game::current_mode);
-		ImGui::Text("Lobby is active: %d", (*Game::SumoNet_CurNetDriver && (*Game::SumoNet_CurNetDriver)->is_in_lobby()));
-		ImGui::Text("Lobby is host: %d", (*Game::SumoNet_CurNetDriver && (*Game::SumoNet_CurNetDriver)->is_hosting()));
-		ImGui::Text("Is MP gamemode: %d", (*Game::game_mode == 3 || *Game::game_mode == 4));
-		ImGui::Text("Car kind: %d", int(car->car_kind_11));
-		ImGui::Text("Car position: %.3f %.3f %.3f", car->position_14.x, car->position_14.y, car->position_14.z);
-		ImGui::Text("OnRoadPlace coli %d, stg %d, section %d",
-			car->OnRoadPlace_5C.loadColiType_0,
-			car->OnRoadPlace_5C.curStageIdx_C,
-			car->OnRoadPlace_5C.roadSectionNum_8);
+			GameStage cur_stage_num = *Game::stg_stage_num;
+			ImGui::Text("Loaded Stage: %d (%s / %s)", cur_stage_num, Game::GetStageFriendlyName(cur_stage_num), Game::GetStageUniqueName(cur_stage_num));
 
-		GameStage cur_stage_num = *Game::stg_stage_num;
-		ImGui::Text("Loaded Stage: %d (%s / %s)", cur_stage_num, Game::GetStageFriendlyName(cur_stage_num), Game::GetStageUniqueName(cur_stage_num));
+			if (Settings::DrawDistanceIncrease > 0)
+				if (ImGui::Button("Open Draw Distance Debugger"))
+					Game::DrawDistanceDebugEnabled = true;
 
-		if (Settings::DrawDistanceIncrease > 0)
-			if (ImGui::Button("Open Draw Distance Debugger"))
-				Game::DrawDistanceDebugEnabled = true;
+			ImGui::Separator();
+			ImGui::Text("Gameplay");
 
-		ImGui::Separator();
-		ImGui::Text("Gameplay");
+			ImGui::Checkbox("Countdown timer enabled", Game::Sumo_CountdownTimerEnable);
+			ImGui::Checkbox("Pause menu enabled", &EnablePauseMenu);
+			ImGui::Checkbox("HUD enabled", (bool*)Game::navipub_disp_flg);
 
-		ImGui::Checkbox("Countdown timer enabled", Game::Sumo_CountdownTimerEnable);
-		ImGui::Checkbox("Pause menu enabled", &EnablePauseMenu);
-		ImGui::Checkbox("HUD enabled", (bool*)Game::navipub_disp_flg);
+			ImGui::Separator();
+			ImGui::Text("Controls");
 
-		ImGui::Separator();
-		ImGui::Text("Controls");
+			ImGui::SliderFloat("SteeringDeadZone", &Settings::SteeringDeadZone, 0.01, 1.0f);
+			ImGui::SliderInt("VibrationStrength", &Settings::VibrationStrength, 0, 10);
+			ImGui::SliderFloat("ImpulseVibrationLeftMultiplier", &Settings::ImpulseVibrationLeftMultiplier, 0.1, 1);
+			ImGui::SliderFloat("ImpulseVibrationRightMultiplier", &Settings::ImpulseVibrationRightMultiplier, 0.1, 1);
 
-		ImGui::SliderFloat("SteeringDeadZone", &Settings::SteeringDeadZone, 0.01, 1.0f);
-		ImGui::SliderInt("VibrationStrength", &Settings::VibrationStrength, 0, 10);
-		ImGui::SliderFloat("ImpulseVibrationLeftMultiplier", &Settings::ImpulseVibrationLeftMultiplier, 0.1, 1);
-		ImGui::SliderFloat("ImpulseVibrationRightMultiplier", &Settings::ImpulseVibrationRightMultiplier, 0.1, 1);
+			ImGui::Separator();
+			ImGui::Text("Graphics");
 
-		ImGui::Separator();
-		ImGui::Text("Graphics");
-
-		ImGui::SliderInt("FramerateLimit", &Settings::FramerateLimit, 30, 300);
-		ImGui::SliderInt("DrawDistanceIncrease", &Settings::DrawDistanceIncrease, 0, 4096);
-		ImGui::SliderInt("DrawDistanceBehind", &Settings::DrawDistanceBehind, 0, 4096);
+			ImGui::SliderInt("FramerateLimit", &Settings::FramerateLimit, 30, 300);
+			ImGui::SliderInt("DrawDistanceIncrease", &Settings::DrawDistanceIncrease, 0, 4096);
+			ImGui::SliderInt("DrawDistanceBehind", &Settings::DrawDistanceBehind, 0, 4096);
+		}
 
 		ImGui::End();
 
@@ -175,9 +176,9 @@ public:
 
 					ImGui::TreePop();
 				}
-
-				ImGui::End();
 			}
+
+			ImGui::End();
 
 			if (settingsChanged)
 			{

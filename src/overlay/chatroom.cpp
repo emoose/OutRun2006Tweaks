@@ -235,8 +235,8 @@ public:
 				if (justOpened)
 					ImGui::SetKeyboardFocusHere(-1);
 			}
-			ImGui::End();
 		}
+		ImGui::End();
 		if (!overlayEnabled && Overlay::ChatHideBackground)
 			ImGui::PopStyleVar(); // pop border removal
 	}
