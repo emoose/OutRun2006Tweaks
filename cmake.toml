@@ -25,6 +25,8 @@ set(JSONCPP_WITH_TESTS OFF CACHE BOOL "" FORCE)
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
 set(BUILD_STATIC_LIBS ON CACHE BOOL "" FORCE)
 set(BUILD_OBJECT_LIBS ON CACHE BOOL "" FORCE)
+set(SDL_TEST OFF CACHE BOOL "" FORCE)
+set(SDL2_DISABLE_SDL2MAIN ON CACHE BOOL "" FORCE)
 
 option(ZYDIS_BUILD_TOOLS "" OFF)
 option(ZYDIS_BUILD_EXAMPLES "" OFF)
@@ -61,6 +63,7 @@ flac = { git = "https://github.com/xiph/flac", tag = "1.4.3" }
 miniupnpc = { git = "https://github.com/miniupnp/miniupnp", tag = "miniupnpd_2_3_7", subdir = "miniupnpc" }
 jsoncpp = { git = "https://github.com/open-source-parsers/jsoncpp.git", tag = "1.9.6" }
 zlib = { git = "https://github.com/madler/zlib", tag = "v1.3.1" }
+sdl = { git = "https://github.com/libsdl-org/SDL", tag = "release-2.30.11" }
 
 [target.outrun2006tweaks]
 type = "shared"
@@ -99,7 +102,10 @@ link-libraries = [
     "version.lib",
     "xinput9_1_0.lib",
     "Hid.lib",
-	"libminiupnpc-static"
+	"libminiupnpc-static",
+	"SDL2-static",
+	"Winmm.lib",
+	"Setupapi.lib"
 ]
 
 [target.outrun2006tweaks.properties]

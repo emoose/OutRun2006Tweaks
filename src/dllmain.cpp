@@ -108,6 +108,7 @@ namespace Settings
 		spdlog::info(" - EnableTextureCache: {}", EnableTextureCache);
 		spdlog::info(" - UseNewTextureAllocator: {}", UseNewTextureAllocator);
 
+		spdlog::info(" - UseNewInput: {}", UseNewInput);
 		spdlog::info(" - SteeringDeadZone: {}", SteeringDeadZone);
 		spdlog::info(" - ControllerHotPlug: {}", ControllerHotPlug);
 		spdlog::info(" - DefaultManualTransmission: {}", DefaultManualTransmission);
@@ -214,6 +215,7 @@ namespace Settings
 		EnableTextureCache = ini.Get("Graphics", "EnableTextureCache", EnableTextureCache);
 		UseNewTextureAllocator = ini.Get("Graphics", "UseNewTextureAllocator", UseNewTextureAllocator);
 
+		UseNewInput = ini.Get("Controls", "UseNewInput", UseNewInput);
 		SteeringDeadZone = ini.Get("Controls", "SteeringDeadZone", SteeringDeadZone);
 		SteeringDeadZone = std::clamp(SteeringDeadZone, 0.f, 1.f);
 		ControllerHotPlug = ini.Get("Controls", "ControllerHotPlug", ControllerHotPlug);

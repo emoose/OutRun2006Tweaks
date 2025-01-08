@@ -46,6 +46,8 @@ set(JSONCPP_WITH_TESTS OFF CACHE BOOL "" FORCE)
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
 set(BUILD_STATIC_LIBS ON CACHE BOOL "" FORCE)
 set(BUILD_OBJECT_LIBS ON CACHE BOOL "" FORCE)
+set(SDL_TEST OFF CACHE BOOL "" FORCE)
+set(SDL2_DISABLE_SDL2MAIN ON CACHE BOOL "" FORCE)
 
 option(ZYDIS_BUILD_TOOLS "" OFF)
 option(ZYDIS_BUILD_EXAMPLES "" OFF)
@@ -136,6 +138,15 @@ FetchContent_Declare(zlib
 		v1.3.1
 )
 FetchContent_MakeAvailable(zlib)
+
+message(STATUS "Fetching sdl (release-2.30.11)...")
+FetchContent_Declare(sdl
+	GIT_REPOSITORY
+		"https://github.com/libsdl-org/SDL"
+	GIT_TAG
+		release-2.30.11
+)
+FetchContent_MakeAvailable(sdl)
 
 # Target: spdlog
 set(spdlog_SOURCES
@@ -297,6 +308,7 @@ set(outrun2006tweaks_SOURCES
 	"src/hooks_misc.cpp"
 	"src/hooks_textures.cpp"
 	"src/hooks_uiscaling.cpp"
+	"src/input_manager.cpp"
 	"src/network.cpp"
 	"src/overlay/chatroom.cpp"
 	"src/overlay/course_editor.cpp"
@@ -355,6 +367,9 @@ target_link_libraries(outrun2006tweaks PUBLIC
 	xinput9_1_0.lib
 	Hid.lib
 	libminiupnpc-static
+	SDL2-static
+	Winmm.lib
+	Setupapi.lib
 )
 
 target_link_options(outrun2006tweaks PUBLIC

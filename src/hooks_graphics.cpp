@@ -402,10 +402,14 @@ class WindowedBorderless : public Hook
 	inline static SafetyHookMid dest_hook = {};
 	static void destination(safetyhook::Context& ctx)
 	{
-		SetWindowPos(HWND(ctx.ebp), 0, 
+		HWND window = HWND(ctx.ebp);
+		SetWindowPos(window, 0,
 			Settings::WindowPositionX, Settings::WindowPositionY, 
 			Game::screen_resolution->x, Game::screen_resolution->y,
 			0x40);
+
+		void InputManager_Init(HWND);
+		InputManager_Init(window);
 	}
 
 public:

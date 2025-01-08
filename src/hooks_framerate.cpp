@@ -297,7 +297,13 @@ class ReplaceGameUpdateLoop : public Hook
 			Input::Update();
 
 			if (!Overlay::IsActive)
+			{
+				void InputManager_Update();
+				InputManager_Update();
+
 				Game::ReadIO();
+			}
+
 			Game::SoundControl_mb();
 			Game::LinkControlReceive();
 			Game::ModeControl();

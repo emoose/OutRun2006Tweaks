@@ -81,6 +81,43 @@ namespace Input
 	void Update();
 };
 
+enum class ADChannel // GetVolume IDs
+{
+	Steering = 0,
+	Acceleration = 1,
+	Brake = 2,
+	// game seems to have space reserved for these but don't seem used
+	Reserved3,
+	Reserved4,
+	Reserved5,
+	Reserved6,
+	Count
+};
+
+enum class SwitchId // SwitchOn/SwitchNow bit indexes
+{
+	Start,
+	Back,
+	A,
+	B,
+	X,
+	Y,
+	GearDown,
+	GearUp,
+	Unknown0x100,
+	Unknown0x200,
+	SelectionUp,
+	SelectionDown,
+	SelectionLeft,
+	SelectionRight,
+	License,
+	SignIn,
+	Unknown0x10000,
+	Unknown0x20000,
+	ChangeView,
+	Count
+};
+
 enum GameState
 {
 	STATE_SYSTEM = 0x0,

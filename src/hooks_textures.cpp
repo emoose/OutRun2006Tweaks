@@ -6,6 +6,7 @@
 #include <d3d9.h>
 #include <ddraw.h>
 #include <unordered_set>
+#include <array>
 
 #define MAX_TEXTURE_CACHE_SIZE_MB (1024 + 256)
 
@@ -592,16 +593,26 @@ class TextureReplacement : public Hook
 		}
 	};
 
+	inline static const char* padTypes[] = // Must match the Game::GamepadType enum!
+	{
+		"PC",
+		"Xbox",
+		"PlayStation",
+		"Switch"
+	};
+
+	inline static const char* padType = nullptr;
+
 	static void HandleTexture(void** ppSrcData, UINT* pSrcDataSize, std::filesystem::path texturePackName, bool isUITexture)
 	{
-		if (!*ppSrcData || !*pSrcDataSize)
+		if (!*ppSrcData || !*pSrcDataSize) [[unlikely]]
 			return;
 
 		bool allowReplacement = isUITexture ? Settings::UITextureReplacement : Settings::SceneTextureReplacement;
 		bool allowExtract = isUITexture ? Settings::UITextureExtract : Settings::SceneTextureExtract;
 
 		const DDS_FILE* header = (const DDS_FILE*)*ppSrcData;
-		if (header->magic != DDS_MAGIC)
+		if (header->magic != DDS_MAGIC) [[unlikely]]
 			return;
 
 		int width = header->data.dwWidth;
@@ -609,20 +620,46 @@ class TextureReplacement : public Hook
 		auto hash = XXH32(*ppSrcData, *pSrcDataSize, 0);
 
 		// Remap some modified FXT textures to their original hashes
-		if (FxtHashRemappings.count(hash))
+		if (FxtHashRemappings.count(hash)) [[unlikely]]
 		{
 			auto& mapping = FxtHashRemappings[hash];
 			if (std::get<1>(mapping) == width && std::get<2>(mapping) == height) // make sure width/height match expected in case of collision...
 				hash = std::get<0>(mapping);
 		}
 
+		bool usePadDirectory = false;
+		if (isUITexture && (hash == 0x455717B2 || hash == 0x1F77CB88 || hash == 0xFA7BBB13 || hash == 0x39229D64 || hash == 0xACF61D7C)) [[unlikely]]
+		{
+			// TODO: switching textures during gameplay (eg. from Xbox -> PC due to controller disconnect) will cause corruption ;_;
+			// instead we'll have to track the first pad-type we switched to, and always use that for the session
+			if (Game::PadType != Game::GamepadType::PC && padType == nullptr) [[unlikely]]
+			{
+				padType = padTypes[int(Game::PadType)];
+			}
+
+			usePadDirectory = padType != nullptr;
+		}
+
 		std::string ddsName = std::format("{:X}_{}x{}.dds", hash, width, height);
 		std::string ddsNameIndexed = std::format("{}_{}", CurrentTextureIdx++, ddsName);
 
-		bool dumpTexture = true;
 		if (allowReplacement)
 		{
-			auto path_load = XmtLoadPath / texturePackName.filename().stem() / ddsNameIndexed;
+			std::filesystem::path path_load;
+			if (usePadDirectory) [[unlikely]]
+			{
+				if (!FileSystem.exists(path_load))
+					path_load = XmtLoadPath / texturePackName.filename().stem() / padType / ddsNameIndexed;
+				if (!FileSystem.exists(path_load))
+					path_load = XmtLoadPath / texturePackName.filename().stem() / padType / ddsName;
+				if (!FileSystem.exists(path_load))
+					path_load = XmtLoadPath / padType / ddsNameIndexed;
+				if (!FileSystem.exists(path_load))
+					path_load = XmtLoadPath / padType / ddsName;
+			}
+
+			if (!FileSystem.exists(path_load))
+				path_load = XmtLoadPath / texturePackName.filename().stem() / ddsNameIndexed;
 			if (!FileSystem.exists(path_load))
 				path_load = XmtLoadPath / texturePackName.filename().stem() / ddsName;
 			if (!FileSystem.exists(path_load))
@@ -650,20 +687,20 @@ class TextureReplacement : public Hook
 						}
 
 						// Replace header in the old data in case some game code tries reading it...
-						//memcpy(*ppSrcData, file, sizeof(DDS_FILE));
+						memcpy(*ppSrcData, file, sizeof(DDS_FILE));
 
 						// Update pointers to our new texture
 						*ppSrcData = (void*)file;
 						*pSrcDataSize = size;
 
 						// Don't dump texture if we've loaded in new one
-						dumpTexture = false;
+						allowExtract = false;
 					}
 				}
 			}
 		}
 
-		if (allowExtract && dumpTexture)
+		if (allowExtract) [[unlikely]]
 		{
 			auto path_dump = XmtDumpPath / texturePackName.filename().stem();
 			if (!FileSystem.exists(path_dump))

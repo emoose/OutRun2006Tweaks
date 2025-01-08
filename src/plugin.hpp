@@ -47,10 +47,20 @@ namespace Module
 
 namespace Game
 {
+	enum class GamepadType
+	{
+		PC,
+		Xbox,
+		PS,
+		Switch
+	};
+
 	inline std::chrono::system_clock::time_point StartupTime;
 	inline float DeltaTime = (1.f / 60.f);
 
 	inline bool DrawDistanceDebugEnabled = false;
+
+	inline GamepadType PadType = GamepadType::PC;
 };
 
 namespace Settings
@@ -108,6 +118,7 @@ namespace Settings
 	inline bool EnableTextureCache = true;
 	inline bool UseNewTextureAllocator = true;
 
+	inline bool UseNewInput = false;
 	inline float SteeringDeadZone = 0.2f;
 	inline bool ControllerHotPlug = false;
 	inline bool DefaultManualTransmission = false;

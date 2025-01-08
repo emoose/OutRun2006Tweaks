@@ -215,7 +215,7 @@ public:
 
     bool validate() override
     {
-        return Settings::ImpulseVibrationMode != 0 && Settings::VibrationMode != 0;
+        return Settings::ImpulseVibrationMode != 0 && Settings::VibrationMode != 0 && !Settings::UseNewInput;
     }
 
     bool apply() override
