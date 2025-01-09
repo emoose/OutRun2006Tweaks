@@ -94,6 +94,7 @@ namespace Game
 	inline fn_1arg SetSndQueue = nullptr;
 
 	inline fn_1arg_int SwitchNow = nullptr;
+	inline int(*Sumo_CalcSteerSensitivity)(int cur, int prev) = nullptr;
 
 	inline fn_1arg_int GetNowStageNum = nullptr;
 	inline fn_1arg_int GetStageUniqueNum = nullptr;
@@ -263,6 +264,7 @@ namespace Game
 		SetSndQueue = Module::fn_ptr<fn_1arg>(0x24940);
 
 		SwitchNow = Module::fn_ptr<fn_1arg_int>(0x536C0);
+		Sumo_CalcSteerSensitivity = Module::fn_ptr(0x537C0, Sumo_CalcSteerSensitivity);
 
 		GetNowStageNum = Module::fn_ptr<fn_1arg_int>(0x50380);
 		GetStageUniqueNum = Module::fn_ptr<fn_1arg_int>(0x4DC50);

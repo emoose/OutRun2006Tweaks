@@ -46,8 +46,7 @@ set(JSONCPP_WITH_TESTS OFF CACHE BOOL "" FORCE)
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
 set(BUILD_STATIC_LIBS ON CACHE BOOL "" FORCE)
 set(BUILD_OBJECT_LIBS ON CACHE BOOL "" FORCE)
-set(SDL_TEST OFF CACHE BOOL "" FORCE)
-set(SDL2_DISABLE_SDL2MAIN ON CACHE BOOL "" FORCE)
+set(SDL_TEST_LIBRARY OFF CACHE BOOL "" FORCE)
 
 option(ZYDIS_BUILD_TOOLS "" OFF)
 option(ZYDIS_BUILD_EXAMPLES "" OFF)
@@ -139,12 +138,12 @@ FetchContent_Declare(zlib
 )
 FetchContent_MakeAvailable(zlib)
 
-message(STATUS "Fetching sdl (release-2.30.11)...")
+message(STATUS "Fetching sdl (preview-3.1.8)...")
 FetchContent_Declare(sdl
 	GIT_REPOSITORY
 		"https://github.com/libsdl-org/SDL"
 	GIT_TAG
-		release-2.30.11
+		preview-3.1.8
 )
 FetchContent_MakeAvailable(sdl)
 
@@ -367,7 +366,7 @@ target_link_libraries(outrun2006tweaks PUBLIC
 	xinput9_1_0.lib
 	Hid.lib
 	libminiupnpc-static
-	SDL2-static
+	SDL3-static
 	Winmm.lib
 	Setupapi.lib
 )
