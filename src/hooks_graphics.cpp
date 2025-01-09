@@ -407,9 +407,6 @@ class WindowedBorderless : public Hook
 			Settings::WindowPositionX, Settings::WindowPositionY, 
 			Game::screen_resolution->x, Game::screen_resolution->y,
 			0x40);
-
-		void InputManager_Init(HWND);
-		InputManager_Init(window);
 	}
 
 public:
