@@ -28,7 +28,13 @@ jobs:
           (Get-Content build/_deps/safetyhook-build/safetyhook.vcxproj) -replace 'ZYCORE_STATIC_BUILD', '_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR;ZYCORE_STATIC_BUILD' | Set-Content build/_deps/safetyhook-build/safetyhook.vcxproj
           (Get-Content build/_deps/zydis-build/Zydis.vcxproj) -replace 'ZYCORE_STATIC_BUILD', '_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR;ZYCORE_STATIC_BUILD' | Set-Content build/_deps/zydis-build/Zydis.vcxproj
           (Get-Content build/_deps/zydis-build/zycore/Zycore.vcxproj) -replace 'ZYCORE_STATIC_BUILD', '_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR;ZYCORE_STATIC_BUILD' | Set-Content build/_deps/zydis-build/zycore/Zycore.vcxproj
-          
+
+      - name: Zero out SDL_gameinputjoystick.c (https://github.com/libsdl-org/SDL/issues/11487 / https://github.com/actions/runner-images/issues/10980)
+        shell: pwsh
+        run: |
+          Set-Content -Path build/_deps/sdl-src/src/joystick/gdk/SDL_gameinputjoystick.c -Value ""
+          (Get-Content build/_deps/sdl-build/include-config-release/build_config/SDL_build_config.h) -replace '#define SDL_JOYSTICK_GAMEINPUT 1', '/* #undef SDL_JOYSTICK_GAMEINPUT */' | Set-Content build/_deps/sdl-build/include-config-release/build_config/SDL_build_config.h
+      
       - name: Build
         run: |
           cmake --build build --config ${{matrix.build_type}}
