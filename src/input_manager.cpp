@@ -214,6 +214,7 @@ class InputManager
 	std::array<InputState, size_t(ADChannel::Count)> volumes;
 	uint32_t switch_current;
 	uint32_t switch_previous;
+	uint32_t switch_overlay;
 
 public:
 	~InputManager()
@@ -468,8 +469,14 @@ public:
 		switch_previous = switch_current;
 		switch_current = 0;
 
+		// hacks to hide inputs until all buttons are released
+		static bool disableOverlayInputs = false;
+		static bool disableGameInputs = false;
+
+		if (bindDialog.isListeningForInput == ListenState::Listening)
+			disableOverlayInputs = true;
 		if (Overlay::IsBindingDialogActive)
-			bindDialog.disableGameInputsUntilReleased = true;
+			disableGameInputs = true;
 
 		for (size_t i = 0; i < volumeBindings.size(); ++i)
 		{
@@ -491,10 +498,17 @@ public:
 			if (switchBindings[i].update().isPressed())
 				switch_current |= (1 << i);
 
-		if (bindDialog.disableGameInputsUntilReleased && switch_current == 0) [[unlikely]]
-			bindDialog.disableGameInputsUntilReleased = false;
+		if (disableOverlayInputs && switch_current == 0) [[unlikely]]
+			disableOverlayInputs = false;
+		if (disableGameInputs && switch_current == 0) [[unlikely]]
+			disableGameInputs = false;
 
-		if (bindDialog.disableGameInputsUntilReleased) [[unlikely]]
+		if (disableOverlayInputs) [[unlikely]]
+			switch_current = 0;
+
+		switch_overlay = switch_current;
+
+		if (disableGameInputs || Overlay::IsBindingDialogActive) [[unlikely]]
 			switch_current = 0;
 	}
 
@@ -584,7 +598,6 @@ public:
 	{
 		ListenState isListeningForInput = ListenState::False;
 		bool issListeningForInput = false;
-		bool disableGameInputsUntilReleased = false;
 		std::string currentlyBinding;
 		ADChannel currentVolumeChannel;
 		SwitchId currentSwitchId;
@@ -847,6 +860,9 @@ public:
 	bool RenderBindingDialog()
 	{
 		bool dialogOpen = true;
+		if ((switch_overlay & (1 << int(SwitchId::Back) | 1 << int(SwitchId::B))) != 0)
+			dialogOpen = false;
+
 		if (ImGui::Begin("Input Bindings", &dialogOpen))
 		{
 			if (ImGui::BeginTable("Controllers", 2, ImGuiTableFlags_Borders))
