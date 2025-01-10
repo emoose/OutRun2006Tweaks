@@ -31,7 +31,6 @@ void SetVibration(int userId, float leftMotor, float rightMotor)
     vib.wLeftMotorSpeed = uint16_t(std::clamp(int(leftMotor * 65535.f), 0, 0xFFFF));
     vib.wRightMotorSpeed = uint16_t(std::clamp(int(rightMotor * 65535.f), 0, 0xFFFF));
 
-
     void InputManager_SetVibration(WORD, WORD);
     InputManager_SetVibration(vib.wLeftMotorSpeed, vib.wRightMotorSpeed);
 

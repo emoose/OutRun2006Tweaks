@@ -266,6 +266,9 @@ bool Overlay::render()
 	// Notifications are rendered before any other window
 	Notifications::instance.render();
 
+	void InputManager_RenderBindingDialog();
+	InputManager_RenderBindingDialog();
+
 	for (const auto& wnd : s_windows)
 		wnd->render(overlay_visible);
 
