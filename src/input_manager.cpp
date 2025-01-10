@@ -48,10 +48,11 @@ struct InputState
 class InputSource
 {
 public:
+	virtual ~InputSource() = default;
 	virtual float readValue(SDL_Gamepad* gamepad) = 0;
 	virtual bool isAxis() const = 0;
 	virtual bool isNegated() const = 0;
-	virtual ~InputSource() = default;
+	virtual std::string getBindingName(bool isSteerAction = false) const = 0;
 };
 
 class GamepadSource : public InputSource
@@ -105,6 +106,42 @@ public:
 
 	bool isAxis() const override { return is_axis_; }
 	bool isNegated() const override { return negate_; }
+
+	std::string getBindingName(bool isSteerAction) const override
+	{
+		if (isAxis())
+		{
+			std::string direction = isSteerAction ? "" : (isNegated() ? "+" : "-");
+			switch (axis_)
+			{
+			case SDL_GAMEPAD_AXIS_LEFTX: return "Left Stick X" + direction;
+			case SDL_GAMEPAD_AXIS_LEFTY: return "Left Stick Y" + direction;
+			case SDL_GAMEPAD_AXIS_RIGHTX: return "Right Stick X" + direction;
+			case SDL_GAMEPAD_AXIS_RIGHTY: return "Right Stick Y" + direction;
+			case SDL_GAMEPAD_AXIS_LEFT_TRIGGER: return "Left Trigger";
+			case SDL_GAMEPAD_AXIS_RIGHT_TRIGGER: return "Right Trigger";
+			default: return "Unknown Axis" + direction;
+			}
+		}
+
+		switch (button_)
+		{
+		case SDL_GAMEPAD_BUTTON_A: return "A Button";
+		case SDL_GAMEPAD_BUTTON_B: return "B Button";
+		case SDL_GAMEPAD_BUTTON_X: return "X Button";
+		case SDL_GAMEPAD_BUTTON_Y: return "Y Button";
+		case SDL_GAMEPAD_BUTTON_BACK: return "Back";
+		case SDL_GAMEPAD_BUTTON_START: return "Start";
+		case SDL_GAMEPAD_BUTTON_DPAD_UP: return "D-Pad Up";
+		case SDL_GAMEPAD_BUTTON_DPAD_DOWN: return "D-Pad Down";
+		case SDL_GAMEPAD_BUTTON_DPAD_LEFT: return "D-Pad Left";
+		case SDL_GAMEPAD_BUTTON_DPAD_RIGHT: return "D-Pad Right";
+		case SDL_GAMEPAD_BUTTON_LEFT_SHOULDER: return "L1/LB";
+		case SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER: return "R1/RB";
+		default: return "Unknown Button";
+		}
+	}
+
 	SDL_GamepadButton button() const { return button_; }
 	SDL_GamepadAxis axis() const { return axis_; }
 };
@@ -124,6 +161,10 @@ public:
 
 	bool isAxis() const override { return false; }
 	bool isNegated() const override { return negate_; }
+	std::string getBindingName(bool isSteerAction) const override
+	{
+		return SDL_GetScancodeName(key_);
+	}
 	SDL_Scancode key() const { return key_; }
 };
 
@@ -593,58 +634,6 @@ public:
 
 	BindingDialogState bindDialog;
 
-	// Helper functions to get human-readable binding names
-	static std::string GetGamepadBindingName(const InputSource* source, bool isSteering)
-	{
-		if (!source) return "None";
-
-		const GamepadSource* gamepadSource = dynamic_cast<const GamepadSource*>(source);
-		if (!gamepadSource) return "None";
-
-		if (gamepadSource->isAxis())
-		{
-			std::string direction = isSteering ? "" : (gamepadSource->isNegated() ? "+" : "-");
-			switch (gamepadSource->axis())
-			{
-			case SDL_GAMEPAD_AXIS_LEFTX: return "Left Stick X" + direction;
-			case SDL_GAMEPAD_AXIS_LEFTY: return "Left Stick Y" + direction;
-			case SDL_GAMEPAD_AXIS_RIGHTX: return "Right Stick X" + direction;
-			case SDL_GAMEPAD_AXIS_RIGHTY: return "Right Stick Y" + direction;
-			case SDL_GAMEPAD_AXIS_LEFT_TRIGGER: return "Left Trigger";
-			case SDL_GAMEPAD_AXIS_RIGHT_TRIGGER: return "Right Trigger";
-			default: return "Unknown Axis" + direction;
-			}
-		}
-		else {
-			switch (gamepadSource->button())
-			{
-			case SDL_GAMEPAD_BUTTON_A: return "A Button";
-			case SDL_GAMEPAD_BUTTON_B: return "B Button";
-			case SDL_GAMEPAD_BUTTON_X: return "X Button";
-			case SDL_GAMEPAD_BUTTON_Y: return "Y Button";
-			case SDL_GAMEPAD_BUTTON_BACK: return "Back";
-			case SDL_GAMEPAD_BUTTON_START: return "Start";
-			case SDL_GAMEPAD_BUTTON_DPAD_UP: return "D-Pad Up";
-			case SDL_GAMEPAD_BUTTON_DPAD_DOWN: return "D-Pad Down";
-			case SDL_GAMEPAD_BUTTON_DPAD_LEFT: return "D-Pad Left";
-			case SDL_GAMEPAD_BUTTON_DPAD_RIGHT: return "D-Pad Right";
-			case SDL_GAMEPAD_BUTTON_LEFT_SHOULDER: return "L1/LB";
-			case SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER: return "R1/RB";
-			default: return "Unknown Button";
-			}
-		}
-	}
-
-	static std::string GetKeyboardBindingName(const InputSource* source)
-	{
-		if (!source) return "None";
-
-		const KeyboardSource* kbSource = dynamic_cast<const KeyboardSource*>(source);
-		if (!kbSource) return "None";
-
-		return SDL_GetScancodeName(kbSource->key());
-	}
-
 	bool AnyInputPressed()
 	{
 		int key_count = 0;
@@ -932,7 +921,7 @@ public:
 							{
 								if (dynamic_cast<const GamepadSource*>(source.get()))
 								{
-									controllerBind = GetGamepadBindingName(source.get(), i == 0);
+									controllerBind = source->getBindingName(i == 0);
 									break;
 								}
 							}
@@ -957,15 +946,15 @@ public:
 								{
 									if (volChannel != ADChannel::Steering)
 									{
-										kbd_negative = GetKeyboardBindingName(source.get());
+										kbd_negative = source->getBindingName();
 										break;
 									}
 									else
 									{
 										if (source->isNegated())
-											kbd_negative = GetKeyboardBindingName(source.get());
+											kbd_negative = source->getBindingName(true);
 										else
-											kbd_positive = GetKeyboardBindingName(source.get());
+											kbd_positive = source->getBindingName(true);
 									}
 								}
 							}
@@ -1045,7 +1034,7 @@ public:
 							{
 								if (dynamic_cast<const GamepadSource*>(source.get()))
 								{
-									controllerBind = GetGamepadBindingName(source.get(), false);
+									controllerBind = source->getBindingName();
 									break;
 								}
 							}
@@ -1067,7 +1056,7 @@ public:
 							{
 								if (dynamic_cast<const KeyboardSource*>(source.get()))
 								{
-									keyboardBind = GetKeyboardBindingName(source.get());
+									keyboardBind = source->getBindingName(false);
 									break;
 								}
 							}
