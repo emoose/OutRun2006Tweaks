@@ -340,6 +340,8 @@ bool DrawDist_ReadExclusions()
 	return true;
 }
 
+/*
+
 class SkipQuickSortHack : public Hook
 {
 	inline static SafetyHookInline DrawStoredModel_Execute_hook = {};
@@ -361,7 +363,7 @@ public:
 
 	bool validate() override
 	{
-		return true;
+		return false;
 	}
 
 	bool apply() override
@@ -378,6 +380,7 @@ public:
 	static SkipQuickSortHack instance;
 };
 SkipQuickSortHack SkipQuickSortHack::instance;
+*/
 
 class DrawDistanceIncrease : public Hook
 {
