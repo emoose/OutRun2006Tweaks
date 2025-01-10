@@ -678,6 +678,15 @@ public:
 			return false;
 		}
 
+		file << "# These bindings are used when UseNewInput is enabled inside OutRun2006Tweaks.ini\n";
+		file << "# With that enabled, you can use in-game Controls > Configuration dialog to change these during gameplay\n";
+		file << "# (editing this file manually can allow more advanced config, such as binding multiple inputs to a single action)\n";
+		file << "# If this file doesn't exist or is empty, bindings will be reset to default.\n";
+		file << "#\n";
+		file << "# Actions with a negative symbol after them ('Steering-') either treat the input as a negative value, or only trigger the action on negative inputs\n";
+		file << "# Analog actions bound to digital inputs, eg. 'Steering- = DPad-Left', will make DPad-Left send a negative Steering value, making it move to the left\n";
+		file << "# Digital actions bound to analog inputs, eg. 'Gear Down- = RS-Y', will only trigger the action when RS-Y is negative\n";
+		file << "# Analog -> analog actions can also be inverted by adding a negative to them\n\n";
 		file << "[Gamepad]\n";
 		for (int i = 0; i < 3; ++i)
 		{
