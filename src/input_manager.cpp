@@ -48,10 +48,9 @@ struct InputState
 class InputSource
 {
 public:
-	virtual float readValue() = 0;
+	virtual float readValue(SDL_Gamepad* gamepad) = 0;
 	virtual bool isAxis() const = 0;
 	virtual bool isNegated() const = 0;
-	virtual bool isController(SDL_Gamepad* controller) const = 0;
 	virtual ~InputSource() = default;
 };
 
@@ -60,7 +59,6 @@ class GamepadSource : public InputSource
 	static constexpr float StickRange = 32768.f;
 	static constexpr float RStickDeadzone = 0.7f; // needs pretty high deadzone otherwise flicks will bounce
 
-	SDL_Gamepad* controller_;
 	union
 	{
 		SDL_GamepadAxis axis_;
@@ -69,23 +67,26 @@ class GamepadSource : public InputSource
 	bool is_axis_ = false;
 	bool negate_ = false;
 public:
-	GamepadSource(SDL_Gamepad* ctrl, SDL_GamepadAxis ax, bool negate = false)
-		: controller_(ctrl), axis_(ax), is_axis_(true), negate_(negate)
+	GamepadSource(SDL_GamepadAxis ax, bool negate = false)
+		: axis_(ax), is_axis_(true), negate_(negate)
 	{
 	}
-	GamepadSource(SDL_Gamepad* ctrl, SDL_GamepadButton btn, bool negate = false)
-		: controller_(ctrl), button_(btn), is_axis_(false), negate_(negate)
+	GamepadSource(SDL_GamepadButton btn, bool negate = false)
+		: button_(btn), is_axis_(false), negate_(negate)
 	{
 	}
 
-	float readValue() override
+	float readValue(SDL_Gamepad* gamepad) override
 	{
+		if (!gamepad)
+			return 0.0f;
+
 		float value = 0.0f;
 		if (!is_axis_)
-			value = (float)SDL_GetGamepadButton(controller_, button_);
+			value = (float)SDL_GetGamepadButton(gamepad, button_);
 		else
 		{
-			Sint16 raw = SDL_GetGamepadAxis(controller_, axis_);
+			Sint16 raw = SDL_GetGamepadAxis(gamepad, axis_);
 
 			int deadzone = 0;
 			if (axis_ == SDL_GAMEPAD_AXIS_LEFTX || axis_ == SDL_GAMEPAD_AXIS_LEFTY)
@@ -104,7 +105,6 @@ public:
 
 	bool isAxis() const override { return is_axis_; }
 	bool isNegated() const override { return negate_; }
-	bool isController(SDL_Gamepad* controller) const override { return controller == this->controller_; }
 	SDL_GamepadButton button() const { return button_; }
 	SDL_GamepadAxis axis() const { return axis_; }
 };
@@ -116,7 +116,7 @@ class KeyboardSource : public InputSource
 public:
 	KeyboardSource(SDL_Scancode k, bool negate = false) : key_(k), negate_(negate) {}
 
-	float readValue() override
+	float readValue(SDL_Gamepad* gamepad) override
 	{
 		const bool* state_array = SDL_GetKeyboardState(nullptr);
 		return negate_ ? -float(state_array[key_]) : state_array[key_];
@@ -124,7 +124,6 @@ public:
 
 	bool isAxis() const override { return false; }
 	bool isNegated() const override { return negate_; }
-	bool isController(SDL_Gamepad* controller) const override { return false; }
 	SDL_Scancode key() const { return key_; }
 };
 
@@ -135,7 +134,7 @@ class InputAction
 	InputState state;
 
 public:
-	const InputState& update()
+	const InputState& update(SDL_Gamepad* primary_pad)
 	{
 		float maxValue = 0.0f;
 		bool isAxisInput = false;
@@ -143,7 +142,7 @@ public:
 		// Read all sources and take the highest absolute value
 		for (auto& source : sources_)
 		{
-			float currentValue = source->readValue();
+			float currentValue = source->readValue(primary_pad);
 			if (std::abs(currentValue) > std::abs(maxValue))
 			{
 				maxValue = currentValue;
@@ -172,20 +171,6 @@ public:
 					if(keyboard)
 						return dynamic_cast<const KeyboardSource*>(source.get()) != nullptr;
 					return dynamic_cast<const GamepadSource*>(source.get()) != nullptr;
-				}
-			),
-			sources_.end()
-		);
-	}
-
-	void removeSourceByController(SDL_Gamepad* controller)
-	{
-		sources_.erase(
-			std::remove_if(
-				sources_.begin(),
-				sources_.end(),
-				[controller](const std::unique_ptr<InputSource>& source) {
-					return source->isController(controller);
 				}
 			),
 			sources_.end()
@@ -263,17 +248,24 @@ public:
 		else
 			spdlog::error(__FUNCTION__ ": failed to create properties ({}), keyboard might not work with UseNewInput properly!", SDL_GetError());
 
-		setupKeyboardBindings();
+		setupDefaultBindings();
 	}
 
-	void setupKeyboardBindings()
+	void setupDefaultBindings()
 	{
-		// Remove any previous keyboard bindings
+		// Remove any previous bindings
 		for (auto& binding : volumeBindings)
+		{
 			binding.removeSourcesByType(true);
+			binding.removeSourcesByType(false);
+		}
 		for (auto& binding : switchBindings)
+		{
 			binding.removeSourcesByType(true);
+			binding.removeSourcesByType(false);
+		}
 
+		// Keyboard
 		addVolumeBinding<KeyboardSource>(ADChannel::Steering, SDL_SCANCODE_LEFT, true);
 		addVolumeBinding<KeyboardSource>(ADChannel::Steering, SDL_SCANCODE_RIGHT);
 		addVolumeBinding<KeyboardSource>(ADChannel::Acceleration, SDL_SCANCODE_UP);
@@ -300,9 +292,45 @@ public:
 		addSwitchBinding<KeyboardSource>(SwitchId::License, SDL_SCANCODE_F2);
 		addSwitchBinding<KeyboardSource>(SwitchId::X, SDL_SCANCODE_F1);
 		addSwitchBinding<KeyboardSource>(SwitchId::Y, SDL_SCANCODE_F2);
+
+		// Gamepad
+		addVolumeBinding<GamepadSource>(ADChannel::Steering, SDL_GAMEPAD_AXIS_LEFTX);
+		addVolumeBinding<GamepadSource>(ADChannel::Steering, SDL_GAMEPAD_BUTTON_DPAD_LEFT, true);
+		addVolumeBinding<GamepadSource>(ADChannel::Steering, SDL_GAMEPAD_BUTTON_DPAD_RIGHT);
+		addVolumeBinding<GamepadSource>(ADChannel::Acceleration, SDL_GAMEPAD_AXIS_RIGHT_TRIGGER);
+		addVolumeBinding<GamepadSource>(ADChannel::Brake, SDL_GAMEPAD_AXIS_LEFT_TRIGGER);
+
+		addSwitchBinding<GamepadSource>(SwitchId::GearUp, SDL_GAMEPAD_AXIS_RIGHTY);
+		addSwitchBinding<GamepadSource>(SwitchId::GearDown, SDL_GAMEPAD_AXIS_RIGHTY, true);
+		addSwitchBinding<GamepadSource>(SwitchId::GearUp, SDL_GAMEPAD_BUTTON_A);
+		addSwitchBinding<GamepadSource>(SwitchId::GearDown, SDL_GAMEPAD_BUTTON_B);
+
+		addSwitchBinding<GamepadSource>(SwitchId::Start, SDL_GAMEPAD_BUTTON_START);
+		addSwitchBinding<GamepadSource>(SwitchId::Back, SDL_GAMEPAD_BUTTON_BACK);
+		addSwitchBinding<GamepadSource>(SwitchId::A, SDL_GAMEPAD_BUTTON_A);
+		addSwitchBinding<GamepadSource>(SwitchId::B, SDL_GAMEPAD_BUTTON_B);
+		addSwitchBinding<GamepadSource>(SwitchId::X, SDL_GAMEPAD_BUTTON_X);
+		addSwitchBinding<GamepadSource>(SwitchId::Y, SDL_GAMEPAD_BUTTON_Y);
+
+		addSwitchBinding<GamepadSource>(SwitchId::ChangeView, SDL_GAMEPAD_BUTTON_Y);
+
+		addSwitchBinding<GamepadSource>(SwitchId::SelectionUp, SDL_GAMEPAD_AXIS_LEFTY, true);
+		addSwitchBinding<GamepadSource>(SwitchId::SelectionDown, SDL_GAMEPAD_AXIS_LEFTY, false);
+		addSwitchBinding<GamepadSource>(SwitchId::SelectionLeft, SDL_GAMEPAD_AXIS_LEFTX, true);
+		addSwitchBinding<GamepadSource>(SwitchId::SelectionRight, SDL_GAMEPAD_AXIS_LEFTX, false);
+		addSwitchBinding<GamepadSource>(SwitchId::SelectionUp, SDL_GAMEPAD_BUTTON_DPAD_UP);
+		addSwitchBinding<GamepadSource>(SwitchId::SelectionDown, SDL_GAMEPAD_BUTTON_DPAD_DOWN);
+		addSwitchBinding<GamepadSource>(SwitchId::SelectionLeft, SDL_GAMEPAD_BUTTON_DPAD_LEFT);
+		addSwitchBinding<GamepadSource>(SwitchId::SelectionRight, SDL_GAMEPAD_BUTTON_DPAD_RIGHT);
+
+		// Some reason signin/license need both X/Y and SignIn/License bound, odd
+		addSwitchBinding<GamepadSource>(SwitchId::SignIn, SDL_GAMEPAD_BUTTON_LEFT_SHOULDER);
+		addSwitchBinding<GamepadSource>(SwitchId::License, SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER);
+		addSwitchBinding<GamepadSource>(SwitchId::X, SDL_GAMEPAD_BUTTON_LEFT_SHOULDER);
+		addSwitchBinding<GamepadSource>(SwitchId::Y, SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER);
 	}
 
-	void setupGamepadBindings(SDL_Gamepad* controller)
+	void setupGamepad(SDL_Gamepad* controller)
 	{
 		Game::PadType = Game::GamepadType::Xbox;
 		auto type = SDL_GetGamepadType(controller);
@@ -320,47 +348,6 @@ public:
 			Game::PadType = Game::GamepadType::Switch;
 			break;
 		};
-
-		// Remove any previous gamepad bindings
-		for (auto& binding : volumeBindings)
-			binding.removeSourcesByType(false);
-		for (auto& binding : switchBindings)
-			binding.removeSourcesByType(false);
-
-		addVolumeBinding<GamepadSource>(ADChannel::Steering, controller, SDL_GAMEPAD_AXIS_LEFTX);
-		addVolumeBinding<GamepadSource>(ADChannel::Steering, controller, SDL_GAMEPAD_BUTTON_DPAD_LEFT, true);
-		addVolumeBinding<GamepadSource>(ADChannel::Steering, controller, SDL_GAMEPAD_BUTTON_DPAD_RIGHT);
-		addVolumeBinding<GamepadSource>(ADChannel::Acceleration, controller, SDL_GAMEPAD_AXIS_RIGHT_TRIGGER);
-		addVolumeBinding<GamepadSource>(ADChannel::Brake, controller, SDL_GAMEPAD_AXIS_LEFT_TRIGGER);
-
-		addSwitchBinding<GamepadSource>(SwitchId::GearUp, controller, SDL_GAMEPAD_AXIS_RIGHTY);
-		addSwitchBinding<GamepadSource>(SwitchId::GearDown, controller, SDL_GAMEPAD_AXIS_RIGHTY, true);
-		addSwitchBinding<GamepadSource>(SwitchId::GearUp, controller, SDL_GAMEPAD_BUTTON_A);
-		addSwitchBinding<GamepadSource>(SwitchId::GearDown, controller, SDL_GAMEPAD_BUTTON_B);
-
-		addSwitchBinding<GamepadSource>(SwitchId::Start, controller, SDL_GAMEPAD_BUTTON_START);
-		addSwitchBinding<GamepadSource>(SwitchId::Back, controller, SDL_GAMEPAD_BUTTON_BACK);
-		addSwitchBinding<GamepadSource>(SwitchId::A, controller, SDL_GAMEPAD_BUTTON_A);
-		addSwitchBinding<GamepadSource>(SwitchId::B, controller, SDL_GAMEPAD_BUTTON_B);
-		addSwitchBinding<GamepadSource>(SwitchId::X, controller, SDL_GAMEPAD_BUTTON_X);
-		addSwitchBinding<GamepadSource>(SwitchId::Y, controller, SDL_GAMEPAD_BUTTON_Y);
-
-		addSwitchBinding<GamepadSource>(SwitchId::ChangeView, controller, SDL_GAMEPAD_BUTTON_Y);
-
-		addSwitchBinding<GamepadSource>(SwitchId::SelectionUp, controller, SDL_GAMEPAD_AXIS_LEFTY, true);
-		addSwitchBinding<GamepadSource>(SwitchId::SelectionDown, controller, SDL_GAMEPAD_AXIS_LEFTY, false);
-		addSwitchBinding<GamepadSource>(SwitchId::SelectionLeft, controller, SDL_GAMEPAD_AXIS_LEFTX, true);
-		addSwitchBinding<GamepadSource>(SwitchId::SelectionRight, controller, SDL_GAMEPAD_AXIS_LEFTX, false);
-		addSwitchBinding<GamepadSource>(SwitchId::SelectionUp, controller, SDL_GAMEPAD_BUTTON_DPAD_UP);
-		addSwitchBinding<GamepadSource>(SwitchId::SelectionDown, controller, SDL_GAMEPAD_BUTTON_DPAD_DOWN);
-		addSwitchBinding<GamepadSource>(SwitchId::SelectionLeft, controller, SDL_GAMEPAD_BUTTON_DPAD_LEFT);
-		addSwitchBinding<GamepadSource>(SwitchId::SelectionRight, controller, SDL_GAMEPAD_BUTTON_DPAD_RIGHT);
-
-		// Some reason signin/license need both X/Y and SignIn/License bound, odd
-		addSwitchBinding<GamepadSource>(SwitchId::SignIn, controller, SDL_GAMEPAD_BUTTON_LEFT_SHOULDER);
-		addSwitchBinding<GamepadSource>(SwitchId::License, controller, SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER);
-		addSwitchBinding<GamepadSource>(SwitchId::X, controller, SDL_GAMEPAD_BUTTON_LEFT_SHOULDER);
-		addSwitchBinding<GamepadSource>(SwitchId::Y, controller, SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER);
 	}
 
 	void onControllerAdded(SDL_JoystickID instanceId)
@@ -390,7 +377,7 @@ public:
 		{
 			primaryControllerIndex = controllers.size() - 1;
 			spdlog::debug("InputManager::primaryControllerIndex = {}", primaryControllerIndex);
-			setupGamepadBindings(controller); // Bind inputs to the new primary controller
+			setupGamepad(controller); // Bind inputs to the new primary controller
 		}
 	}
 
@@ -409,11 +396,6 @@ public:
 		{
 			Game::PadType = Game::GamepadType::PC;
 
-			for (auto& binding : volumeBindings)
-				binding.removeSourceByController(*it);
-			for (auto& binding : switchBindings)
-				binding.removeSourceByController(*it);
-
 			SDL_CloseGamepad(*it);
 			controllers.erase(it);
 
@@ -426,7 +408,7 @@ public:
 				else
 				{
 					primaryControllerIndex = 0;
-					setupGamepadBindings(controllers[primaryControllerIndex]); // Rebind inputs to next available controller
+					setupGamepad(controllers[primaryControllerIndex]); // Rebind inputs to next available controller
 				}
 				spdlog::debug("InputManager::primaryControllerIndex = {}", primaryControllerIndex);
 			}
@@ -465,6 +447,8 @@ public:
 				break;
 			}
 
+		auto* gamepad = primary_gamepad();
+
 		// update & cache our bindings
 		switch_previous = switch_current;
 		switch_current = 0;
@@ -480,7 +464,7 @@ public:
 
 		for (size_t i = 0; i < volumeBindings.size(); ++i)
 		{
-			auto& vol = volumeBindings[i].update();
+			auto& vol = volumeBindings[i].update(gamepad);
 			if (Overlay::IsBindingDialogActive) [[unlikely]]
 				continue;
 
@@ -495,7 +479,7 @@ public:
 		}
 
 		for (size_t i = 0; i < switchBindings.size(); ++i)
-			if (switchBindings[i].update().isPressed())
+			if (switchBindings[i].update(gamepad).isPressed())
 				switch_current |= (1 << i);
 
 		if (disableOverlayInputs && switch_current == 0) [[unlikely]]
@@ -781,7 +765,7 @@ public:
 							),
 							binding.sources().end()
 						);
-						binding.addSource<GamepadSource>(controller, static_cast<SDL_GamepadButton>(i));
+						binding.addSource<GamepadSource>(static_cast<SDL_GamepadButton>(i));
 					}
 					else
 					{
@@ -797,7 +781,7 @@ public:
 							),
 							binding.sources().end()
 						);
-						binding.addSource<GamepadSource>(controller, static_cast<SDL_GamepadButton>(i));
+						binding.addSource<GamepadSource>(static_cast<SDL_GamepadButton>(i));
 					}
 
 					bindDialog.isListeningForInput = ListenState::False;
@@ -830,7 +814,7 @@ public:
 							),
 							binding.sources().end()
 						);
-						binding.addSource<GamepadSource>(controller, static_cast<SDL_GamepadAxis>(i), negate);
+						binding.addSource<GamepadSource>(static_cast<SDL_GamepadAxis>(i), negate);
 					}
 					else
 					{
@@ -846,7 +830,7 @@ public:
 							),
 							binding.sources().end()
 						);
-						binding.addSource<GamepadSource>(controller, static_cast<SDL_GamepadAxis>(i), negate);
+						binding.addSource<GamepadSource>(static_cast<SDL_GamepadAxis>(i), negate);
 					}
 
 					bindDialog.isListeningForInput = ListenState::False;
@@ -876,38 +860,37 @@ public:
 				ImGui::TableSetupColumn("Type");
 				ImGui::TableHeadersRow();
 
-				SDL_Gamepad* primary_controller = primary_gamepad();
-
-				for (size_t i = 0; i < controllers.size(); i++)
+				if (controllers.empty())
 				{
 					ImGui::TableNextRow();
 					ImGui::TableNextColumn();
-
-					auto* controller = controllers[i];
-					std::string name = SDL_GetGamepadName(controller);
-					bool isPrimary = (int)i == primaryControllerIndex;
-
-					if (ImGui::Selectable(name.c_str(), isPrimary))
+					ImGui::Text("No controllers detected");
+					ImGui::TableNextColumn();
+				}
+				else
+				{
+					for (size_t i = 0; i < controllers.size(); i++)
 					{
-						if (primary_controller)
+						ImGui::TableNextRow();
+						ImGui::TableNextColumn();
+
+						auto* controller = controllers[i];
+						std::string name = SDL_GetGamepadName(controller);
+						bool isPrimary = (int)i == primaryControllerIndex;
+
+						if (ImGui::Selectable(name.c_str(), isPrimary))
 						{
-							// Remove old bindings
-							for (auto& binding : volumeBindings)
-								binding.removeSourceByController(primary_controller);
-							for (auto& binding : switchBindings)
-								binding.removeSourceByController(primary_controller);
+							primaryControllerIndex = i;
+							setupGamepad(controller);
 						}
 
-						primaryControllerIndex = i;
-						setupGamepadBindings(controller);
+						ImGui::TableNextColumn();
+
+						if (isPrimary)
+							ImGui::Text("Active/Primary");
+						else
+							ImGui::Text("Inactive");
 					}
-
-					ImGui::TableNextColumn();
-
-					if (isPrimary)
-						ImGui::Text("Active/Primary");
-					else
-						ImGui::Text("Inactive");
 				}
 				ImGui::EndTable();
 			}
@@ -1116,9 +1099,9 @@ public:
 				}
 				else
 				{
-					setupKeyboardBindings();
+					setupDefaultBindings();
 					if (auto* controller = primary_gamepad())
-						setupGamepadBindings(controller);
+						setupGamepad(controller);
 					showReallyPrompt = false;
 				}
 			}
