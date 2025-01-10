@@ -483,12 +483,17 @@ public:
 		if (!std::filesystem::exists(iniPath))
 			return false;
 
+		spdlog::info(__FUNCTION__ " - reading INI from {}", iniPath.string());
+
 		std::vector<std::pair<std::string, std::string>> pad_binds;
 		std::vector<std::pair<std::string, std::string>> key_binds;
 
 		std::ifstream file(iniPath);
 		if (!file || !file.is_open())
+		{
+			spdlog::error(__FUNCTION__ " - failed to read INI, using defaults");
 			return false;
+		}
 
 		std::string line;
 		bool inBindingSection = false;
@@ -541,7 +546,12 @@ public:
 		file.close();
 
 		if (key_binds.size() <= 0 && pad_binds.size() <= 0)
+		{
+			spdlog::error(__FUNCTION__ " - failed to read binds from INI, using defaults");
 			return false;
+		}
+
+		spdlog::info(__FUNCTION__ " - {} key binds, {} pad binds", key_binds.size(), pad_binds.size());
 
 		// we have binds, reset any of our defaults
 
@@ -571,7 +581,7 @@ public:
 			SwitchId switchId = SwitchId::Count;
 
 			// is this a volume?
-			for (int i = 0; i < int(ADChannel::Count); i++)
+			for (int i = 0; i < 3; i++)
 			{
 				if (!stricmp(actionName.c_str(), volumeNames[i].c_str()))
 				{
@@ -624,7 +634,7 @@ public:
 			SwitchId switchId = SwitchId::Count;
 
 			// Check if it's a volume action
-			for (int i = 0; i < int(ADChannel::Count); i++)
+			for (int i = 0; i < 3; i++)
 			{
 				if (!stricmp(actionName.c_str(), volumeNames[i].c_str()))
 				{
