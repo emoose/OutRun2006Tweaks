@@ -870,9 +870,8 @@ public:
 
 						auto* controller = controllers[i];
 						std::string name = SDL_GetGamepadName(controller);
-						bool isPrimary = (int)i == primaryControllerIndex;
 
-						if (ImGui::Selectable(name.c_str(), isPrimary))
+						if(ImGui::Button(name.c_str()))
 						{
 							primaryControllerIndex = i;
 							setupGamepad(controller);
@@ -880,7 +879,7 @@ public:
 
 						ImGui::TableNextColumn();
 
-						if (isPrimary)
+						if (int(i) == primaryControllerIndex)
 							ImGui::Text("Active/Primary");
 						else
 							ImGui::Text("Inactive");
