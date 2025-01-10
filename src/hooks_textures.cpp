@@ -620,7 +620,7 @@ class TextureReplacement : public Hook
 		}
 
 		bool usePadDirectory = false;
-		if (isUITexture && (hash == 0x455717B2 || hash == 0x1F77CB88 || hash == 0xFA7BBB13 || hash == 0x39229D64 || hash == 0xACF61D7C)) [[unlikely]]
+		if (isUITexture && (hash == 0x455717B2 || hash == 0x1F77CB88 || hash == 0xFA7BBB13 || hash == 0x39229D64 || hash == 0xACF61D7C || hash == 0x31C58963)) [[unlikely]]
 		{
 			// TODO: switching textures during gameplay (eg. from Xbox -> PC due to controller disconnect) will cause corruption ;_;
 			// instead we'll have to track the first pad-type we switched to, and always use that for the session
