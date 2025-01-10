@@ -811,7 +811,7 @@ public:
 			{
 				float value = SDL_GetGamepadAxis(controller, static_cast<SDL_GamepadAxis>(i)) / 32768.0f;
 				bool negate = value < 0;
-				if (bindDialog.currentVolumeChannel == ADChannel::Steering)
+				if (bindDialog.isBindingVolume && bindDialog.currentVolumeChannel == ADChannel::Steering)
 					negate = false;
 
 				if (std::abs(value) > 0.5f)
@@ -873,6 +873,7 @@ public:
 			if (ImGui::BeginTable("Controllers", 2, ImGuiTableFlags_Borders))
 			{
 				ImGui::TableSetupColumn("Detected Controllers");
+				ImGui::TableSetupColumn("Type");
 				ImGui::TableHeadersRow();
 
 				SDL_Gamepad* primary_controller = primary_gamepad();
@@ -905,6 +906,8 @@ public:
 
 					if (isPrimary)
 						ImGui::Text("Active/Primary");
+					else
+						ImGui::Text("Inactive");
 				}
 				ImGui::EndTable();
 			}
