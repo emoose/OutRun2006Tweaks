@@ -36,7 +36,9 @@ public:
 	inline static float ChatFontSize = 1.0f;
 
 	inline static bool IsActive = false;
-	inline static bool IsBindingInputs = false;
+
+	inline static bool RequestBindingDialog = false;
+	inline static bool IsBindingDialogActive = false;
 
 private:
 	inline static std::vector<OverlayWindow*> s_windows;

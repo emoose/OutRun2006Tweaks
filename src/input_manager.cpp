@@ -160,7 +160,23 @@ public:
 		sources_.push_back(std::make_unique<T>(std::forward<Args>(args)...));
 	}
 
-	void removeSourceController(SDL_Gamepad* controller)
+	void removeSourcesByType(bool keyboard)
+	{
+		sources_.erase(
+			std::remove_if(
+				sources_.begin(),
+				sources_.end(),
+				[keyboard](const std::unique_ptr<InputSource>& source) {
+					if(keyboard)
+						return dynamic_cast<const KeyboardSource*>(source.get()) != nullptr;
+					return dynamic_cast<const GamepadSource*>(source.get()) != nullptr;
+				}
+			),
+			sources_.end()
+		);
+	}
+
+	void removeSourceByController(SDL_Gamepad* controller)
 	{
 		sources_.erase(
 			std::remove_if(
@@ -212,6 +228,15 @@ public:
 		SDL_Quit();
 	}
 
+	SDL_Gamepad* primary_gamepad()
+	{
+		if (primaryControllerIndex < 0)
+			return nullptr;
+		if (primaryControllerIndex >= controllers.size())
+			return nullptr;
+		return controllers[primaryControllerIndex];
+	}
+
 	void init(HWND hwnd)
 	{
 		SDL_SetHint(SDL_HINT_JOYSTICK_RAWINPUT, "0");
@@ -240,6 +265,12 @@ public:
 
 	void setupKeyboardBindings()
 	{
+		// Remove any previous keyboard bindings
+		for (auto& binding : volumeBindings)
+			binding.removeSourcesByType(true);
+		for (auto& binding : switchBindings)
+			binding.removeSourcesByType(true);
+
 		addVolumeBinding<KeyboardSource>(ADChannel::Steering, SDL_SCANCODE_LEFT, true);
 		addVolumeBinding<KeyboardSource>(ADChannel::Steering, SDL_SCANCODE_RIGHT);
 		addVolumeBinding<KeyboardSource>(ADChannel::Acceleration, SDL_SCANCODE_UP);
@@ -286,6 +317,12 @@ public:
 			Game::PadType = Game::GamepadType::Switch;
 			break;
 		};
+
+		// Remove any previous gamepad bindings
+		for (auto& binding : volumeBindings)
+			binding.removeSourcesByType(false);
+		for (auto& binding : switchBindings)
+			binding.removeSourcesByType(false);
 
 		addVolumeBinding<GamepadSource>(ADChannel::Steering, controller, SDL_GAMEPAD_AXIS_LEFTX);
 		addVolumeBinding<GamepadSource>(ADChannel::Steering, controller, SDL_GAMEPAD_BUTTON_DPAD_LEFT, true);
@@ -370,9 +407,9 @@ public:
 			Game::PadType = Game::GamepadType::PC;
 
 			for (auto& binding : volumeBindings)
-				binding.removeSourceController(*it);
+				binding.removeSourceByController(*it);
 			for (auto& binding : switchBindings)
-				binding.removeSourceController(*it);
+				binding.removeSourceByController(*it);
 
 			SDL_CloseGamepad(*it);
 			controllers.erase(it);
@@ -429,13 +466,13 @@ public:
 		switch_previous = switch_current;
 		switch_current = 0;
 
-		if (bindDialog.isListeningForInput)
-			bindDialog.gameInputDisabledUntilButtonRelease = true;
+		if (Overlay::IsBindingDialogActive)
+			bindDialog.disableGameInputsUntilReleased = true;
 
 		for (size_t i = 0; i < volumeBindings.size(); ++i)
 		{
 			auto& vol = volumeBindings[i].update();
-			if (bindDialog.isListeningForInput) [[unlikely]]
+			if (Overlay::IsBindingDialogActive) [[unlikely]]
 				continue;
 
 			volumes[i] = vol;
@@ -452,20 +489,21 @@ public:
 			if (switchBindings[i].update().isPressed())
 				switch_current |= (1 << i);
 
-		if (bindDialog.gameInputDisabledUntilButtonRelease && switch_current == 0) [[unlikely]]
-			bindDialog.gameInputDisabledUntilButtonRelease = false;
+		if (bindDialog.disableGameInputsUntilReleased && switch_current == 0) [[unlikely]]
+			bindDialog.disableGameInputsUntilReleased = false;
 
-		if (bindDialog.gameInputDisabledUntilButtonRelease) [[unlikely]]
+		if (bindDialog.disableGameInputsUntilReleased) [[unlikely]]
 			switch_current = 0;
 	}
 
 	void set_vibration(WORD left, WORD right)
 	{
-		if (primaryControllerIndex == -1)
+		auto* controller = primary_gamepad();
+		if (!controller)
 			return;
 
 		std::lock_guard<std::mutex> lock(mtx);
-		SDL_RumbleGamepad(controllers[primaryControllerIndex], left, right, 1000);
+		SDL_RumbleGamepad(controller, left, right, 1000);
 
 		if (!Settings::ImpulseVibrationMode)
 		{
@@ -483,7 +521,7 @@ public:
 			}
 			impulseLeft = impulseLeft * Settings::ImpulseVibrationLeftMultiplier;
 			impulseRight = impulseRight * Settings::ImpulseVibrationRightMultiplier;
-			SDL_RumbleGamepadTriggers(controllers[primaryControllerIndex], Uint16(ceil(impulseLeft)), Uint16(ceil(impulseRight)), 1000);
+			SDL_RumbleGamepadTriggers(controller, Uint16(ceil(impulseLeft)), Uint16(ceil(impulseRight)), 1000);
 		}
 	}
 
@@ -533,10 +571,17 @@ public:
 	// Input binding window
 	//
 
+	enum class ListenState
+	{
+		False = 0,
+		WaitForButtonRelease = 1,
+		Listening = 2
+	};
 	struct BindingDialogState
 	{
-		bool isListeningForInput = false;
-		bool gameInputDisabledUntilButtonRelease = false;
+		ListenState isListeningForInput = ListenState::False;
+		bool issListeningForInput = false;
+		bool disableGameInputsUntilReleased = false;
 		std::string currentlyBinding;
 		ADChannel currentVolumeChannel;
 		SwitchId currentSwitchId;
@@ -544,6 +589,8 @@ public:
 		bool isBindingVolume = false;
 		bool isBindingKeyboard = false;
 	};
+
+	BindingDialogState bindDialog;
 
 	// Helper functions to get human-readable binding names
 	static std::string GetGamepadBindingName(const InputSource* source, bool isSteering)
@@ -597,17 +644,47 @@ public:
 		return SDL_GetScancodeName(kbSource->key());
 	}
 
-	BindingDialogState bindDialog;
+	bool AnyInputPressed()
+	{
+		int key_count = 0;
+		const bool* key_state = SDL_GetKeyboardState(&key_count);
+		for (int i = 0; i < key_count; i++)
+			if (key_state[i])
+				return true;
+
+		auto* controller = primary_gamepad();
+		if (!controller)
+			return false;
+
+		// Check all possible buttons
+		for (int i = SDL_GAMEPAD_BUTTON_SOUTH; i < SDL_GAMEPAD_BUTTON_COUNT; i++)
+			if (SDL_GetGamepadButton(controller, static_cast<SDL_GamepadButton>(i)))
+				return true;
+		
+		// Check all possible axes
+		for (int i = SDL_GAMEPAD_AXIS_LEFTX; i < SDL_GAMEPAD_AXIS_COUNT; i++)
+		{
+			float value = SDL_GetGamepadAxis(controller, static_cast<SDL_GamepadAxis>(i)) / 32768.0f;
+			if (std::abs(value) > 0.5f)
+				return true;
+		}
+
+		return false;
+	}
 
 	void HandleNewBinding()
 	{
+		auto* controller = primary_gamepad();
+
 		// Handle keyboard binding
 		if (bindDialog.isBindingKeyboard)
 		{
 			// Check all possible keys
-			for (int i = SDL_SCANCODE_A; i < SDL_SCANCODE_COUNT; i++)
+			int key_count = 0;
+			const bool* key_state = SDL_GetKeyboardState(&key_count);
+			for (int i = 0; i < key_count; i++)
 			{
-				if (SDL_GetKeyboardState(nullptr)[i])
+				if (key_state[i])
 				{
 					SDL_Scancode key = static_cast<SDL_Scancode>(i);
 
@@ -655,17 +732,15 @@ public:
 						binding.addSource<KeyboardSource>(key);
 					}
 
-					bindDialog.isListeningForInput = false;
+					bindDialog.isListeningForInput = ListenState::False;
 					ImGui::CloseCurrentPopup();
 					return;
 				}
 			}
 		}
 		// Handle controller binding
-		else if (primaryControllerIndex != -1)
+		else if (controller)
 		{
-			auto* controller = controllers[primaryControllerIndex];
-
 			// Check all possible buttons
 			for (int i = SDL_GAMEPAD_BUTTON_SOUTH; i < SDL_GAMEPAD_BUTTON_COUNT; i++)
 			{
@@ -704,7 +779,7 @@ public:
 						binding.addSource<GamepadSource>(controller, static_cast<SDL_GamepadButton>(i));
 					}
 
-					bindDialog.isListeningForInput = false;
+					bindDialog.isListeningForInput = ListenState::False;
 					ImGui::CloseCurrentPopup();
 					return;
 				}
@@ -753,7 +828,7 @@ public:
 						binding.addSource<GamepadSource>(controller, static_cast<SDL_GamepadAxis>(i), negate);
 					}
 
-					bindDialog.isListeningForInput = false;
+					bindDialog.isListeningForInput = ListenState::False;
 					ImGui::CloseCurrentPopup();
 					return;
 				}
@@ -761,14 +836,17 @@ public:
 		}
 	}
 
-	void RenderBindingDialog()
+	bool RenderBindingDialog()
 	{
-		if (ImGui::Begin("Input Bindings"))
+		bool dialogOpen = true;
+		if (ImGui::Begin("Input Bindings", &dialogOpen))
 		{
 			if (ImGui::BeginTable("Controllers", 2, ImGuiTableFlags_Borders))
 			{
 				ImGui::TableSetupColumn("Detected Controllers");
 				ImGui::TableHeadersRow();
+
+				SDL_Gamepad* primary_controller = primary_gamepad();
 
 				for (size_t i = 0; i < controllers.size(); i++)
 				{
@@ -776,7 +854,28 @@ public:
 					ImGui::TableNextColumn();
 
 					auto* controller = controllers[i];
-					ImGui::Text("%s", SDL_GetGamepadName(controller));
+					std::string name = SDL_GetGamepadName(controller);
+					bool isPrimary = (int)i == primaryControllerIndex;
+
+					if (ImGui::Selectable(name.c_str(), isPrimary))
+					{
+						if (primary_controller)
+						{
+							// Remove old bindings
+							for (auto& binding : volumeBindings)
+								binding.removeSourceByController(primary_controller);
+							for (auto& binding : switchBindings)
+								binding.removeSourceByController(primary_controller);
+						}
+
+						primaryControllerIndex = i;
+						setupGamepadBindings(controller);
+					}
+
+					ImGui::TableNextColumn();
+
+					if (isPrimary)
+						ImGui::Text("Active/Primary");
 				}
 				ImGui::EndTable();
 			}
@@ -824,7 +923,7 @@ public:
 							}
 							if (ImGui::Button(std::format("{}##vol_ctrl_{}", controllerBind, i).c_str()))
 							{
-								bindDialog.isListeningForInput = true;
+								bindDialog.isListeningForInput = ListenState::WaitForButtonRelease;
 								bindDialog.isBindingVolume = true;
 								bindDialog.isBindingKeyboard = false;
 								bindDialog.currentVolumeChannel = static_cast<ADChannel>(i);
@@ -857,7 +956,7 @@ public:
 							}
 							if (ImGui::Button(std::format("{}##vol_kb_neg_{}", kbd_negative, i).c_str()))
 							{
-								bindDialog.isListeningForInput = true;
+								bindDialog.isListeningForInput = ListenState::WaitForButtonRelease;
 								bindDialog.isBindingVolume = true;
 								bindDialog.isBindingKeyboard = true;
 								bindDialog.currentVolumeChannel = static_cast<ADChannel>(i);
@@ -870,7 +969,7 @@ public:
 								ImGui::SameLine();
 								if (ImGui::Button(std::format("{}##vol_kb_pos_{}", kbd_positive, i).c_str()))
 								{
-									bindDialog.isListeningForInput = true;
+									bindDialog.isListeningForInput = ListenState::WaitForButtonRelease;
 									bindDialog.isBindingVolume = true;
 									bindDialog.isBindingKeyboard = true;
 									bindDialog.currentVolumeChannel = static_cast<ADChannel>(i);
@@ -935,7 +1034,7 @@ public:
 							}
 							if (ImGui::Button(std::format("{}##switch_ctrl_{}", controllerBind, i).c_str()))
 							{
-								bindDialog.isListeningForInput = true;
+								bindDialog.isListeningForInput = ListenState::WaitForButtonRelease;
 								bindDialog.isBindingVolume = false;
 								bindDialog.isBindingKeyboard = false;
 								bindDialog.currentSwitchId = static_cast<SwitchId>(i);
@@ -957,7 +1056,7 @@ public:
 							}
 							if (ImGui::Button(std::format("{}##switch_kb_{}", keyboardBind, i).c_str()))
 							{
-								bindDialog.isListeningForInput = true;
+								bindDialog.isListeningForInput = ListenState::WaitForButtonRelease;
 								bindDialog.isBindingVolume = false;
 								bindDialog.isBindingKeyboard = true;
 								bindDialog.currentSwitchId = static_cast<SwitchId>(i);
@@ -969,34 +1068,65 @@ public:
 				}
 			}
 
-			// Input listening overlay
-			if (bindDialog.isListeningForInput)
+			if (ImGui::Button("Return to game"))
+				dialogOpen = false;
+			ImGui::SameLine();
+
+			static bool showReallyPrompt = false;
+			if (ImGui::Button(!showReallyPrompt ? "Reset to default##clear" : "Are you sure?##clear"))
 			{
-				Overlay::IsBindingInputs = true;
-				ImGui::OpenPopup("Listening for Input");
+				if (!showReallyPrompt)
+				{
+					showReallyPrompt = true;
+				}
+				else
+				{
+					setupKeyboardBindings();
+					if (auto* controller = primary_gamepad())
+						setupGamepadBindings(controller);
+					showReallyPrompt = false;
+				}
 			}
 
-			if (ImGui::BeginPopupModal("Listening for Input", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+			// Input listening overlay
+			if (bindDialog.isListeningForInput != ListenState::False)
 			{
-				ImGui::Text("Press %s input to bind to %s",
-					bindDialog.isBindingKeyboard ? "keyboard" : "controller",
-					bindDialog.currentlyBinding.c_str());
-				ImGui::Text("Press ESC to cancel");
-
-				// Check for binding presses
-				HandleNewBinding();
-
-				if (ImGui::IsKeyPressed(ImGuiKey_Escape))
+				if (bindDialog.isListeningForInput == ListenState::WaitForButtonRelease)
 				{
-					bindDialog.isListeningForInput = false;
-					Overlay::IsBindingInputs = false;
-					ImGui::CloseCurrentPopup();
+					// wait for user to release all buttons before we start listening
+					if (!AnyInputPressed())
+					{
+						bindDialog.isListeningForInput = ListenState::Listening;
+					}
 				}
+				else if (bindDialog.isListeningForInput == ListenState::Listening)
+				{
+					ImGui::OpenPopup("Listening for Input");
 
-				ImGui::EndPopup();
+					if (ImGui::BeginPopupModal("Listening for Input", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+					{
+						ImGui::Text("Press %s input to bind to %s",
+							bindDialog.isBindingKeyboard ? "keyboard" : "controller",
+							bindDialog.currentlyBinding.c_str());
+						ImGui::Text("Press ESC to cancel");
+
+						// Check for binding presses
+						HandleNewBinding();
+
+						if (ImGui::IsKeyPressed(ImGuiKey_Escape))
+						{
+							bindDialog.isListeningForInput = ListenState::False;
+							ImGui::CloseCurrentPopup();
+						}
+
+						ImGui::EndPopup();
+					}
+				}
 			}
 		}
 		ImGui::End();
+
+		return dialogOpen;
 	}
 
 	static InputManager instance;
@@ -1014,10 +1144,9 @@ void InputManager_SetVibration(WORD left, WORD right)
 	InputManager::instance.set_vibration(left, right);
 }
 
-void InputManager_RenderBindingDialog()
+bool InputManager_RenderBindingDialog()
 {
-	if (Settings::UseNewInput)
-		InputManager::instance.RenderBindingDialog();
+	return Settings::UseNewInput ? InputManager::instance.RenderBindingDialog() : false;
 }
 
 class NewInputHook : public Hook
@@ -1077,8 +1206,13 @@ class NewInputHook : public Hook
 	inline static SafetyHookMid WindowInit_hook = {};
 	static void WindowInit_dest(SafetyHookContext& ctx)
 	{
-		if (Settings::UseNewInput)
-			InputManager::instance.init((HWND)ctx.ebp);
+		InputManager::instance.init((HWND)ctx.ebp);
+	}
+
+	inline static SafetyHookMid SumoUI_ControlConfiguration_hook = {};
+	static void SumoUI_ControlConfiguration_dest(SafetyHookContext& ctx)
+	{
+		Overlay::RequestBindingDialog = true;
 	}
 
 public:
@@ -1100,6 +1234,10 @@ public:
 		GetVolumeOld_hook = safetyhook::create_inline(Module::exe_ptr(0x53750), GetVolumeOld_dest);
 		VolumeSwitch_hook = safetyhook::create_inline(Module::exe_ptr(0x53780), VolumeSwitch_dest);
 		WindowInit_hook = safetyhook::create_mid(Module::exe_ptr(0xEB2B), WindowInit_dest);
+
+		// Remove code that showed old config screen
+		Memory::VP::Nop(Module::exe_ptr(0xD88D7), 0x1A);
+		SumoUI_ControlConfiguration_hook = safetyhook::create_mid(Module::exe_ptr(0xD88D7), SumoUI_ControlConfiguration_dest);
 
 		return true;
 	}

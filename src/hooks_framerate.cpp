@@ -296,7 +296,7 @@ class ReplaceGameUpdateLoop : public Hook
 			// (do this inside our update-loop so that any hooked game funcs have accurate state...)
 			Input::Update();
 
-			if (!Overlay::IsActive || Overlay::IsBindingInputs)
+			if (!Overlay::IsActive || Overlay::IsBindingDialogActive)
 			{
 				void InputManager_Update();
 				InputManager_Update();

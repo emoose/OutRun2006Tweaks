@@ -54,6 +54,9 @@ public:
 				if (ImGui::Button("Open Draw Distance Debugger"))
 					Game::DrawDistanceDebugEnabled = true;
 
+			if (ImGui::Button("Open Binding Dialog"))
+				Overlay::IsBindingDialogActive = true;
+
 			ImGui::Separator();
 			ImGui::Text("Gameplay");
 
@@ -254,10 +257,7 @@ bool Overlay::render()
 	if (ImGui::IsKeyReleased(ImGuiKey_F11))
 	{
 		overlay_visible = !overlay_visible;
-		if (overlay_visible)
-			ForceShowCursor(true);
-		else
-			ForceShowCursor(false);
+		ForceShowCursor(overlay_visible);
 	}
 
 	// Start the Dear ImGui frame
@@ -266,8 +266,23 @@ bool Overlay::render()
 	// Notifications are rendered before any other window
 	Notifications::instance.render();
 
-	void InputManager_RenderBindingDialog();
-	InputManager_RenderBindingDialog();
+	if (Overlay::RequestBindingDialog)
+	{
+		ForceShowCursor(true);
+		Overlay::IsBindingDialogActive = true;
+		Overlay::RequestBindingDialog = false;
+	}
+
+	if (Overlay::IsBindingDialogActive)
+	{
+		bool InputManager_RenderBindingDialog();
+		if (!InputManager_RenderBindingDialog())
+		{
+			Overlay::IsBindingDialogActive = false;
+			if (!overlay_visible)
+				ForceShowCursor(false);
+		}
+	}
 
 	for (const auto& wnd : s_windows)
 		wnd->render(overlay_visible);
