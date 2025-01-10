@@ -229,16 +229,27 @@ void Overlay::init_imgui()
 	// Setup Dear ImGui style
 	ImGui::StyleColorsDark();
 	//ImGui::StyleColorsLight();
+	
+	ImGuiStyle& style = ImGui::GetStyle();
+	style.PopupRounding = 20.0f;
+	style.WindowRounding = 20.0f;
+	style.ChildRounding = 20.0f;
+	style.FrameRounding = 6.0f;  // For buttons and other frames
+	style.ScrollbarRounding = 6.0f;
+	style.GrabRounding = 6.0f;   // For sliders and scrollbars
+	style.TabRounding = 6.0f;
 
 	ImGui::GetStyle().Colors[ImGuiCol_WindowBg].w = Overlay::GlobalOpacity;
 	ImGui::GetIO().FontGlobalScale = Overlay::GlobalFontScale;
 }
 
-void ForceShowCursor(bool show) {
+void ForceShowCursor(bool show)
+{
 	int counter = 0;
 
 	// Adjust the counter until the cursor visibility matches the desired state
-	do {
+	do
+	{
 		counter = ShowCursor(show);
 	} while ((show && counter < 0) || (!show && counter >= 0));
 }
