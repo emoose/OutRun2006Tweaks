@@ -20,6 +20,8 @@
 #define SDL_GAMEPAD_BUTTON_X SDL_GAMEPAD_BUTTON_WEST
 #define SDL_GAMEPAD_BUTTON_Y SDL_GAMEPAD_BUTTON_NORTH
 
+constexpr float BindScreenTimeout = 5.f;
+
 struct InputState
 {
 	float currentValue = 0.0f;
@@ -577,6 +579,7 @@ public:
 		WaitForButtonRelease = 1,
 		Listening = 2
 	};
+
 	struct BindingDialogState
 	{
 		ListenState isListeningForInput = ListenState::False;
@@ -588,6 +591,7 @@ public:
 		bool currentIsNegate = false;
 		bool isBindingVolume = false;
 		bool isBindingKeyboard = false;
+		float bindScreenDisplayTime = 0.f;
 	};
 
 	BindingDialogState bindDialog;
@@ -679,6 +683,15 @@ public:
 		// Handle keyboard binding
 		if (bindDialog.isBindingKeyboard)
 		{
+			// Update timeout
+			bindDialog.bindScreenDisplayTime -= ImGui::GetIO().DeltaTime;
+			if (bindDialog.bindScreenDisplayTime <= 0.0f)
+			{
+				bindDialog.isListeningForInput = ListenState::False;
+				ImGui::CloseCurrentPopup();
+				return;
+			}
+
 			// Check all possible keys
 			int key_count = 0;
 			const bool* key_state = SDL_GetKeyboardState(&key_count);
@@ -687,11 +700,6 @@ public:
 				if (key_state[i])
 				{
 					SDL_Scancode key = static_cast<SDL_Scancode>(i);
-
-					// TODO: escape is used to cancel binding atm, but we also need to allow user to bind escape in-game...
-					// maybe should use overlay key to cancel instead?
-					if (key == SDL_SCANCODE_ESCAPE)
-						continue;
 
 					// remove existing keyboard bindings
 					if (bindDialog.isBindingVolume)
@@ -962,6 +970,7 @@ public:
 								bindDialog.currentVolumeChannel = static_cast<ADChannel>(i);
 								bindDialog.currentlyBinding = volumeNames[i];
 								bindDialog.currentIsNegate = volChannel == ADChannel::Steering ? true : false;
+								bindDialog.bindScreenDisplayTime = BindScreenTimeout;
 							}
 
 							if (volChannel == ADChannel::Steering)
@@ -975,6 +984,7 @@ public:
 									bindDialog.currentVolumeChannel = static_cast<ADChannel>(i);
 									bindDialog.currentlyBinding = volumeNames[i];
 									bindDialog.currentIsNegate = false;
+									bindDialog.bindScreenDisplayTime = BindScreenTimeout;
 								}
 							}
 						}
@@ -1061,6 +1071,7 @@ public:
 								bindDialog.isBindingKeyboard = true;
 								bindDialog.currentSwitchId = static_cast<SwitchId>(i);
 								bindDialog.currentlyBinding = switchNames[i];
+								bindDialog.bindScreenDisplayTime = BindScreenTimeout;
 							}
 						}
 					}
@@ -1108,12 +1119,16 @@ public:
 						ImGui::Text("Press %s input to bind to %s",
 							bindDialog.isBindingKeyboard ? "keyboard" : "controller",
 							bindDialog.currentlyBinding.c_str());
-						ImGui::Text("Press ESC to cancel");
+
+						if(bindDialog.isBindingKeyboard)
+							ImGui::Text("Aborting in %.1f seconds", bindDialog.bindScreenDisplayTime);
+						else
+							ImGui::Text("Press ESC to abort");
 
 						// Check for binding presses
 						HandleNewBinding();
 
-						if (ImGui::IsKeyPressed(ImGuiKey_Escape))
+						if (!bindDialog.isBindingKeyboard && ImGui::IsKeyPressed(ImGuiKey_Escape))
 						{
 							bindDialog.isListeningForInput = ListenState::False;
 							ImGui::CloseCurrentPopup();
