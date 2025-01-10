@@ -269,6 +269,19 @@ public:
 		return controllers[primaryControllerIndex];
 	}
 
+	void set_primary_gamepad(int index)
+	{
+		if (index < 0 || index >= controllers.size())
+			primaryControllerIndex = -1;
+		else
+			primaryControllerIndex = index;
+
+		spdlog::debug("InputManager::primaryControllerIndex = {}", primaryControllerIndex);
+
+		if (auto* pad = primary_gamepad())
+			setupGamepad(pad);
+	}
+
 	void init(HWND hwnd)
 	{
 		SDL_SetHint(SDL_HINT_JOYSTICK_RAWINPUT, "0");
@@ -376,20 +389,20 @@ public:
 
 	void setupGamepad(SDL_Gamepad* controller)
 	{
-		Game::PadType = Game::GamepadType::Xbox;
+		Game::CurrentPadType = Game::GamepadType::Xbox;
 		auto type = SDL_GetGamepadType(controller);
 		switch (type)
 		{
 		case SDL_GAMEPAD_TYPE_PS3:
 		case SDL_GAMEPAD_TYPE_PS4:
 		case SDL_GAMEPAD_TYPE_PS5:
-			Game::PadType = Game::GamepadType::PS;
+			Game::CurrentPadType = Game::GamepadType::PS;
 			break;
 		case SDL_GAMEPAD_TYPE_NINTENDO_SWITCH_JOYCON_LEFT:
 		case SDL_GAMEPAD_TYPE_NINTENDO_SWITCH_JOYCON_RIGHT:
 		case SDL_GAMEPAD_TYPE_NINTENDO_SWITCH_JOYCON_PAIR:
 		case SDL_GAMEPAD_TYPE_NINTENDO_SWITCH_PRO:
-			Game::PadType = Game::GamepadType::Switch;
+			Game::CurrentPadType = Game::GamepadType::Switch;
 			break;
 		};
 	}
@@ -417,12 +430,9 @@ public:
 
 		controllers.push_back(controller);
 
+		// If we don't have primary already, set it as this
 		if (primaryControllerIndex == -1)
-		{
-			primaryControllerIndex = controllers.size() - 1;
-			spdlog::debug("InputManager::primaryControllerIndex = {}", primaryControllerIndex);
-			setupGamepad(controller); // Bind inputs to the new primary controller
-		}
+			set_primary_gamepad(controllers.size() - 1);
 	}
 
 	void onControllerRemoved(SDL_JoystickID instanceId)
@@ -438,7 +448,7 @@ public:
 
 		if (it != controllers.end())
 		{
-			Game::PadType = Game::GamepadType::PC;
+			Game::CurrentPadType = Game::GamepadType::PC;
 
 			SDL_CloseGamepad(*it);
 			controllers.erase(it);
@@ -446,16 +456,7 @@ public:
 			spdlog::debug(__FUNCTION__ "(instance {}): removed instance", instanceId);
 
 			if (primaryControllerIndex >= controllers.size())
-			{
-				if (controllers.empty())
-					primaryControllerIndex = -1;
-				else
-				{
-					primaryControllerIndex = 0;
-					setupGamepad(controllers[primaryControllerIndex]); // Rebind inputs to next available controller
-				}
-				spdlog::debug("InputManager::primaryControllerIndex = {}", primaryControllerIndex);
-			}
+				set_primary_gamepad(controllers.empty() ? -1 : 0);
 		}
 	}
 
@@ -872,10 +873,7 @@ public:
 						std::string name = SDL_GetGamepadName(controller);
 
 						if(ImGui::Button(name.c_str()))
-						{
-							primaryControllerIndex = i;
-							setupGamepad(controller);
-						}
+							set_primary_gamepad(i);
 
 						ImGui::TableNextColumn();
 
@@ -890,7 +888,6 @@ public:
 
 			ImGui::Separator();
 
-			// Analog Controls Table
 			if (ImGui::CollapsingHeader("Controls", ImGuiTreeNodeFlags_DefaultOpen))
 			{
 				if (ImGui::BeginTable("VolumeBindings", 3, ImGuiTableFlags_Borders))
@@ -1016,6 +1013,7 @@ public:
 					{
 						SwitchId switchId = SwitchId(i);
 
+						// TODO: scan through games SwitchOn/SwitchNow calls and see if these are ever used
 						if (switchId == SwitchId::Unknown0x100 || switchId == SwitchId::Unknown0x200 ||
 							switchId == SwitchId::Unknown0x10000 || switchId == SwitchId::Unknown0x20000)
 						{

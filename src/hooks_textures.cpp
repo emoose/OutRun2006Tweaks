@@ -593,14 +593,6 @@ class TextureReplacement : public Hook
 		}
 	};
 
-	inline static const char* padTypes[] = // Must match the Game::GamepadType enum!
-	{
-		"PC",
-		"Xbox",
-		"PlayStation",
-		"Switch"
-	};
-
 	inline static const char* padType = nullptr;
 
 	static void HandleTexture(void** ppSrcData, UINT* pSrcDataSize, std::filesystem::path texturePackName, bool isUITexture)
@@ -632,9 +624,11 @@ class TextureReplacement : public Hook
 		{
 			// TODO: switching textures during gameplay (eg. from Xbox -> PC due to controller disconnect) will cause corruption ;_;
 			// instead we'll have to track the first pad-type we switched to, and always use that for the session
-			if (Game::PadType != Game::GamepadType::PC && padType == nullptr) [[unlikely]]
+			if (padType == nullptr && (Game::CurrentPadType != Game::GamepadType::None || Game::ForcedPadType != Game::GamepadType::None))
 			{
-				padType = padTypes[int(Game::PadType)];
+				auto type = (Game::ForcedPadType != Game::GamepadType::None) ? Game::ForcedPadType : Game::CurrentPadType;
+				if (type != Game::GamepadType::PC)
+					padType = Game::PadTypes[int(type)];
 			}
 
 			usePadDirectory = padType != nullptr;
@@ -652,6 +646,10 @@ class TextureReplacement : public Hook
 					path_load = XmtLoadPath / texturePackName.filename().stem() / padType / ddsNameIndexed;
 				if (!FileSystem.exists(path_load))
 					path_load = XmtLoadPath / texturePackName.filename().stem() / padType / ddsName;
+				if (!FileSystem.exists(path_load))
+					path_load = XmtLoadPath / padType / texturePackName.filename().stem() / ddsNameIndexed;
+				if (!FileSystem.exists(path_load))
+					path_load = XmtLoadPath / padType / texturePackName.filename().stem() / ddsName;
 				if (!FileSystem.exists(path_load))
 					path_load = XmtLoadPath / padType / ddsNameIndexed;
 				if (!FileSystem.exists(path_load))

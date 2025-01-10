@@ -49,10 +49,20 @@ namespace Game
 {
 	enum class GamepadType
 	{
+		None,
 		PC,
 		Xbox,
 		PS,
 		Switch
+	};
+
+	inline static const char* PadTypes[] =
+	{
+		"None",
+		"PC",
+		"Xbox",
+		"PlayStation",
+		"Switch"
 	};
 
 	inline std::chrono::system_clock::time_point StartupTime;
@@ -60,7 +70,8 @@ namespace Game
 
 	inline bool DrawDistanceDebugEnabled = false;
 
-	inline GamepadType PadType = GamepadType::PC;
+	inline GamepadType CurrentPadType = GamepadType::PC;
+	inline GamepadType ForcedPadType = GamepadType::None;
 };
 
 namespace Settings
