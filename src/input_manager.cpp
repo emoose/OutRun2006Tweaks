@@ -461,11 +461,29 @@ public:
 
 	void set_vibration(WORD left, WORD right)
 	{
-		if (primaryControllerIndex != -1)
+		if (primaryControllerIndex == -1)
+			return;
+
+		std::lock_guard<std::mutex> lock(mtx);
+		SDL_RumbleGamepad(controllers[primaryControllerIndex], left, right, 1000);
+
+		if (!Settings::ImpulseVibrationMode)
 		{
-			std::lock_guard<std::mutex> lock(mtx);
-			SDL_RumbleGamepad(controllers[primaryControllerIndex], left, right, 1000);
-			SDL_RumbleGamepadTriggers(controllers[primaryControllerIndex], left, right, 1000);
+			int impulseLeft = float(left);
+			int impulseRight = float(right);
+
+			if (Settings::ImpulseVibrationMode == 2) // Swap L/R
+			{
+				impulseLeft = float(right);
+				impulseRight = float(left);
+			}
+			else if (Settings::ImpulseVibrationMode == 3) // Merge L/R by using whichever is highest
+			{
+				impulseLeft = impulseRight = max(left, right);
+			}
+			impulseLeft = impulseLeft * Settings::ImpulseVibrationLeftMultiplier;
+			impulseRight = impulseRight * Settings::ImpulseVibrationRightMultiplier;
+			SDL_RumbleGamepadTriggers(controllers[primaryControllerIndex], Uint16(ceil(impulseLeft)), Uint16(ceil(impulseRight)), 1000);
 		}
 	}
 
