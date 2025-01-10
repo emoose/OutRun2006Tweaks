@@ -54,8 +54,10 @@ public:
 				if (ImGui::Button("Open Draw Distance Debugger"))
 					Game::DrawDistanceDebugEnabled = true;
 
+#ifdef _DEBUG
 			if (ImGui::Button("Open Binding Dialog"))
 				Overlay::IsBindingDialogActive = true;
+#endif
 
 			ImGui::Separator();
 			ImGui::Text("Gameplay");

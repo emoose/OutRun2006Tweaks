@@ -242,6 +242,9 @@ class InputManager
 	uint32_t switch_previous;
 	uint32_t switch_overlay;
 
+	// user settings
+	bool BypassGameSensitivity = false;
+
 public:
 	~InputManager()
 	{
@@ -510,7 +513,7 @@ public:
 				continue;
 
 			volumes[i] = vol;
-			if (i == 0)
+			if (i == 0 && !BypassGameSensitivity)
 			{
 				int cur = ceil(volumes[i].currentValue * 127.0f);
 				int prev = ceil(volumes[i].previousValue * 127.0f);
@@ -843,6 +846,8 @@ public:
 			ImGuiWindowFlags_NoMove |
 			ImGuiWindowFlags_AlwaysAutoResize))
 		{
+			ImGui::Text("Note: settings here currently aren't saved, fix soon.");
+
 			if (ImGui::BeginTable("Controllers", 2, ImGuiTableFlags_Borders))
 			{
 				ImGui::TableSetupColumn("Detected Controllers");
@@ -1075,6 +1080,14 @@ public:
 				}
 			}
 
+			int deadzonePercent = Settings::SteeringDeadZone * 100.f;
+			if (ImGui::SliderInt("Steering Deadzone", &deadzonePercent, 5, 20, "%d%%"))
+				Settings::SteeringDeadZone = float(deadzonePercent) / 100.f;
+
+			ImGui::Checkbox("Bypass Sensitivity", &BypassGameSensitivity);
+			if(ImGui::IsItemHovered())
+				ImGui::SetTooltip("Passes steering input to the game directly, allows for more sensitive controls");
+
 			if (ImGui::Button("Return to game"))
 				dialogOpen = false;
 			ImGui::SameLine();
@@ -1088,6 +1101,8 @@ public:
 				}
 				else
 				{
+					Settings::SteeringDeadZone = 0.2f;
+					BypassGameSensitivity = false;
 					setupDefaultBindings();
 					if (auto* controller = primary_gamepad())
 						setupGamepad(controller);
