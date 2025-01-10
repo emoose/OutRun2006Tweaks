@@ -863,7 +863,12 @@ public:
 		if ((switch_overlay & (1 << int(SwitchId::Back) | 1 << int(SwitchId::B))) != 0)
 			dialogOpen = false;
 
-		if (ImGui::Begin("Input Bindings", &dialogOpen))
+		ImGui::OpenPopup("Input Bindings");
+		if (ImGui::BeginPopupModal("Input Bindings", &dialogOpen, ImGuiWindowFlags_NoSavedSettings |
+			ImGuiWindowFlags_NoTitleBar |
+			ImGuiWindowFlags_NoResize |
+			ImGuiWindowFlags_NoMove |
+			ImGuiWindowFlags_AlwaysAutoResize))
 		{
 			if (ImGui::BeginTable("Controllers", 2, ImGuiTableFlags_Borders))
 			{
@@ -1154,8 +1159,8 @@ public:
 					}
 				}
 			}
+			ImGui::EndPopup();
 		}
-		ImGui::End();
 
 		return dialogOpen;
 	}
