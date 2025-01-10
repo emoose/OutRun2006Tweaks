@@ -308,10 +308,11 @@ class CourseReplacement : public Hook
 	}
 
 	inline static SafetyHookInline SumoNet_RecvGameLobbyInfoEx_hook{};
-	static void SumoNet_RecvGameLobbyInfoEx_dest(void* a1)
+	static int SumoNet_RecvGameLobbyInfoEx_dest(void* a1)
 	{
-		SumoNet_RecvGameLobbyInfoEx_hook.call(a1);
+		int ret = SumoNet_RecvGameLobbyInfoEx_hook.call<int>(a1);
 		UpdateCourseFromLobbyInfo();
+		return ret;
 	}
 
 	inline static SafetyHookMid SumoNet_UpdateLobbyInfoFromUI_hook{};
