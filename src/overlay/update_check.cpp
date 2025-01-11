@@ -37,11 +37,10 @@ bool IsVersionNewer(const std::string& latest, const std::string& current)
 // Function to check the latest release version
 std::string UpdateCheck_IsNewerAvailable(const std::string& currentVersion, const std::string& repoOwner, const std::string& repoName)
 {
-	std::wstring host = L"api.github.com";
 	std::wstring path = L"/repos/" + std::wstring(repoOwner.begin(), repoOwner.end()) +
 		L"/" + std::wstring(repoName.begin(), repoName.end()) + L"/releases/latest";
 
-	std::string jsonResponse = Util::HttpGetRequest(host, path);
+	std::string jsonResponse = Util::HttpGetRequest("api.github.com", path, 443);
 	if (jsonResponse.empty())
 	{
 		spdlog::error("UpdateCheck_IsNewerAvailable: Failed to fetch the latest release information");

@@ -25,6 +25,8 @@ class ChatRoom : public OverlayWindow
 {
 private:
 	ix::WebSocket webSocket;
+	bool socketActive = false;
+
 	bool isActive = false;
 	char inputBuffer[256] = "";
 	std::deque<ChatMessage> messages;
@@ -36,6 +38,9 @@ private:
 
 	void connectWebSocket()
 	{
+		if (webSocket.getReadyState() == ix::ReadyState::Open)
+			return;
+
 		std::string url = "ws://" + Settings::DemonwareServerOverride + "/ws";
 		if (Settings::DemonwareServerOverride == "localhost")
 			url = "ws://localhost:4444/ws";
@@ -61,36 +66,20 @@ private:
 	}
 
 public:
-	void init() override
-	{
-		connectWebSocket();
-	}
-
-	static void DrawTextWithOutline(const char* text, ImVec4 textColor, ImVec4 outlineColor, float outlineThickness = 1.0f)
-	{
-		ImVec2 pos = ImGui::GetCursorPos();
-
-		// Draw the outline by drawing the text multiple times with offsets
-		ImGui::PushStyleColor(ImGuiCol_Text, outlineColor);
-		for (float dx = -outlineThickness; dx <= outlineThickness; dx += outlineThickness)
-		{
-			for (float dy = -outlineThickness; dy <= outlineThickness; dy += outlineThickness)
-			{
-				ImGui::SetCursorPos(ImVec2(pos.x + dx, pos.y + dy));
-				ImGui::TextWrapped("%s", text);
-			}
-		}
-		ImGui::PopStyleColor();
-
-		// Draw the main text
-		ImGui::SetCursorPos(pos);
-		ImGui::PushStyleColor(ImGuiCol_Text, textColor);
-		ImGui::TextWrapped("%s", text);
-		ImGui::PopStyleColor();
-	}
+	void init() override {}
 
 	void render(bool overlayEnabled) override
 	{
+		auto socketState = webSocket.getReadyState();
+		
+		// Connect to socket if chat is enabled
+		if (socketState == ix::ReadyState::Closed && Overlay::ChatMode != Overlay::ChatMode_Disabled)
+			connectWebSocket();
+
+		// Otherwise if socket connected and chat is disabled, close connection
+		else if (socketState == ix::ReadyState::Open && Overlay::ChatMode == Overlay::ChatMode_Disabled)
+			webSocket.stop();
+
 		// Toggle active mode with 'Y' key
 		bool justOpened = false;
 		if (!isActive && ImGui::IsKeyReleased(ImGuiKey_Y))
@@ -135,6 +124,10 @@ public:
 
 		if (!overlayEnabled)
 		{
+			// If mode is EnabledOnMenus, only show recent msgs when on menu
+			if (Overlay::ChatMode == Overlay::ChatMode_EnabledOnMenus && hasRecentMessages)
+				hasRecentMessages = !Game::is_in_game();
+
 			// If not active then only show window if there are recent messages
 			if (!isActive && !hasRecentMessages)
 				return;

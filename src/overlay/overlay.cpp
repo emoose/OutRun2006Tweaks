@@ -176,6 +176,8 @@ public:
 
 				if (ImGui::TreeNodeEx("Chat", ImGuiTreeNodeFlags_DefaultOpen))
 				{
+					static const char* items[]{ "Disable", "Enable", "During Menus Only" };
+					settingsChanged |= ImGui::Combo("Chatroom", &Overlay::ChatMode, items, IM_ARRAYSIZE(items));
 					settingsChanged |= ImGui::SliderFloat("Chat Font Size", &Overlay::ChatFontSize, 0.5f, 2.5f);
 					settingsChanged |= ImGui::Checkbox("Hide Chat Background", &Overlay::ChatHideBackground);
 
@@ -333,6 +335,7 @@ bool Overlay::settings_read()
 	NotifyHideMode = ini.Get("Notifications", "HideMode", NotifyHideMode);
 	NotifyUpdateCheck = ini.Get("Notifications", "CheckForUpdates", NotifyUpdateCheck);
 
+	ChatMode = ini.Get("Chat", "ChatMode", ChatMode);
 	ChatFontSize = ini.Get("Chat", "FontSize", ChatFontSize);
 	ChatHideBackground = ini.Get("Chat", "HideBackground", ChatHideBackground);
 
@@ -357,6 +360,7 @@ bool Overlay::settings_write()
 	ini.Set("Notifications", "HideMode", NotifyHideMode);
 	ini.Set("Notifications", "CheckForUpdates", NotifyUpdateCheck);
 
+	ini.Set("Chat", "ChatMode", ChatMode);
 	ini.Set("Chat", "FontSize", ChatFontSize);
 	ini.Set("Chat", "HideBackground", ChatHideBackground);
 

@@ -167,7 +167,7 @@ namespace Settings
 
 namespace Util
 {
-	std::string HttpGetRequest(const std::wstring& host, const std::wstring& path, bool https = true); // network.cpp
+	std::string HttpGetRequest(const std::string& host, const std::wstring& path, int portNum = 80); // network.cpp
 
 	inline uint32_t GetModuleTimestamp(HMODULE moduleHandle)
 	{

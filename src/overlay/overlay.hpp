@@ -32,8 +32,16 @@ public:
 	inline static bool CourseReplacementEnabled = false;
 	inline static char CourseReplacementCode[256] = { 0 };
 
-	inline static bool ChatHideBackground = false;
+	inline static int ChatMode = 0;
+	inline static bool ChatHideBackground = true;
 	inline static float ChatFontSize = 1.0f;
+
+	enum ChatModes
+	{
+		ChatMode_Disabled = 0,
+		ChatMode_Enabled = 1,
+		ChatMode_EnabledOnMenus = 2,
+	};
 
 	inline static bool IsActive = false;
 
