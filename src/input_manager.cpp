@@ -96,6 +96,8 @@ public:
 				deadzone = (StickRange * Settings::SteeringDeadZone);
 			else if (axis_ == SDL_GAMEPAD_AXIS_RIGHTX || axis_ == SDL_GAMEPAD_AXIS_RIGHTY)
 				deadzone = (StickRange * RStickDeadzone);
+			else
+				deadzone = XINPUT_GAMEPAD_TRIGGER_THRESHOLD;
 
 			if (abs(raw) < deadzone)
 				raw = 0;
