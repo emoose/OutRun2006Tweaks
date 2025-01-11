@@ -288,19 +288,15 @@ bool Overlay::render()
 		Overlay::RequestBindingDialog = false;
 	}
 
-	if (Overlay::IsBindingDialogActive)
-	{
-		bool InputManager_RenderBindingDialog();
-		if (!InputManager_RenderBindingDialog())
-		{
-			Overlay::IsBindingDialogActive = false;
-			if (!overlay_visible)
-				ForceShowCursor(false);
-		}
-	}
-
 	for (const auto& wnd : s_windows)
 		wnd->render(overlay_visible);
+
+	if (Overlay::RequestMouseHide)
+	{
+		if (!overlay_visible)
+			ForceShowCursor(false);
+		Overlay::RequestMouseHide = false;
+	}
 
 	ImGui::EndFrame();
 

@@ -47,6 +47,7 @@ public:
 
 	inline static bool RequestBindingDialog = false;
 	inline static bool IsBindingDialogActive = false;
+	inline static bool RequestMouseHide = false;
 
 private:
 	inline static std::vector<OverlayWindow*> s_windows;
