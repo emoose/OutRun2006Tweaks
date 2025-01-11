@@ -1424,6 +1424,11 @@ public:
 				}
 			}
 
+			const char* vibrationModes[] = { "Disabled", "Enabled", "Swap L/R", "Merge L/R" };
+			ImGui::Combo("Vibration Mode", &Settings::VibrationMode, vibrationModes, IM_ARRAYSIZE(vibrationModes));
+			ImGui::SliderInt("Vibration Strength", &Settings::VibrationStrength, 0, 10);
+			ImGui::Combo("Impulse Vibration", &Settings::ImpulseVibrationMode, vibrationModes, IM_ARRAYSIZE(vibrationModes));
+
 			int deadzonePercent = Settings::SteeringDeadZone * 100.f;
 			if (ImGui::SliderInt("Steering Deadzone", &deadzonePercent, 5, 20, "%d%%"))
 				Settings::SteeringDeadZone = float(deadzonePercent) / 100.f;

@@ -65,7 +65,7 @@ public:
 
     bool validate() override
     {
-        return Settings::VibrationMode != 0;
+        return Settings::VibrationMode != 0 || Settings::UseNewInput;
     }
 
     bool apply() override
