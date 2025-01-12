@@ -1546,8 +1546,8 @@ class NewInputHook : public Hook
 	inline static SafetyHookInline SwitchOn_hook = {};
 	static int SwitchOn_dest(uint32_t switches)
 	{
-		// HACK: keyboard has ESC bound to both start & B/return, don't let menus see start button presses otherwise returning won't work
-		if (switches == (1 << int(SwitchId::Start)) && *Game::current_mode == STATE_SUMO_FE)
+		// HACK: keyboard has ESC bound to both start & B/return, only let game see Start press when in-game
+		if (switches == (1 << int(SwitchId::Start)) && *Game::current_mode != STATE_GAME)
 			return 0;
 
 		return InputManager::instance.SwitchOn(switches);
@@ -1556,8 +1556,8 @@ class NewInputHook : public Hook
 	inline static SafetyHookInline SwitchNow_hook = {};
 	static int SwitchNow_dest(uint32_t switches)
 	{
-		// HACK: keyboard has ESC bound to both start & B/return, don't let menus see start button presses otherwise returning won't work
-		if (switches == (1 << int(SwitchId::Start)) && *Game::current_mode == STATE_SUMO_FE)
+		// HACK: keyboard has ESC bound to both start & B/return, only let game see Start press when in-game
+		if (switches == (1 << int(SwitchId::Start)) && *Game::current_mode != STATE_GAME)
 			return 0;
 
 		return InputManager::instance.SwitchNow(switches);
