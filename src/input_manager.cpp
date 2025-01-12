@@ -860,6 +860,9 @@ public:
 			case SDL_EVENT_GAMEPAD_REMOVED:
 				onControllerRemoved(event.gdevice.which);
 				break;
+			case SDL_EVENT_QUIT:
+				PostQuitMessage(0);
+				break;
 			}
 
 		auto* gamepad = getPrimaryGamepad();
