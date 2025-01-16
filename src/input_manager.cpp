@@ -445,14 +445,6 @@ public:
 	{
 		for (auto controller : controllers)
 			SDL_CloseGamepad(controller);
-
-		if (window)
-		{
-			SDL_DestroyWindow(window);
-			window = nullptr;
-		}
-
-		SDL_Quit();
 	}
 
 	SDL_Gamepad* getPrimaryGamepad()
