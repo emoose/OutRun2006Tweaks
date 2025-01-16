@@ -131,6 +131,7 @@ namespace Settings
 		spdlog::info(" - AllowCharacterSelection: {}", AllowCharacterSelection);
 		spdlog::info(" - RandomHighwayAnimSets: {}", RandomHighwayAnimSets);
 		spdlog::info(" - DemonwareServerOverride: {}", DemonwareServerOverride);
+		spdlog::info(" - ProtectLoginData: {}", ProtectLoginData);
 
 		spdlog::info(" - OverlayEnabled: {}", OverlayEnabled);
 
@@ -246,6 +247,7 @@ namespace Settings
 		AllowCharacterSelection = ini.Get("Misc", "AllowCharacterSelection", AllowCharacterSelection);
 		RandomHighwayAnimSets = ini.Get("Misc", "RandomHighwayAnimSets", RandomHighwayAnimSets);
 		DemonwareServerOverride = ini.Get("Misc", "DemonwareServerOverride", DemonwareServerOverride);
+		ProtectLoginData = ini.Get("Misc", "ProtectLoginData", ProtectLoginData);
 
 		OverlayEnabled = ini.Get("Overlay", "Enabled", OverlayEnabled);
 

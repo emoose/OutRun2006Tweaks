@@ -368,6 +368,7 @@ target_link_libraries(outrun2006tweaks PUBLIC
 	SDL3-static
 	Winmm.lib
 	Setupapi.lib
+	Crypt32.lib
 )
 
 target_link_options(outrun2006tweaks PUBLIC

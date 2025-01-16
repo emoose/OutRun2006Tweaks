@@ -8,6 +8,172 @@
 #include <miniupnpc.h>
 #include <upnpcommands.h>
 #include <WinSock2.h>
+#include <fstream>
+#include <wincrypt.h>
+
+class ProtectLoginData : public Hook
+{
+	// C2C saves plaintext online login details into SaveGame/Common.dat by default
+	// It's not obvious this file contains login info though, so some might share it out freely
+	// Now that online is restored those details could be extracted and reused
+	// 
+	// Instead of keeping it inside SaveGame/Common.dat, we'll store it in a seperate file next to game EXE
+	// and zero-out the data inside Common.dat before it gets saved to disk
+	// 
+	// We'll also encrypt the data using CryptProtectData, which encrypts it against the users Windows account
+	// So even if the file does get shared, it'd be difficult for others to be able to decrypt it
+	const static inline std::string LoginDataFilename = "OnlineLoginData.dat";
+
+	static void EncryptDataToFile(const uint8_t* inputData, int dataLength, const std::filesystem::path& outputFilePath)
+	{
+		DATA_BLOB inputBlob = { static_cast<DWORD>(dataLength), const_cast<BYTE*>(inputData) };
+		DATA_BLOB outputBlob;
+
+		if (!CryptProtectData(&inputBlob, L"OnlineLoginData", nullptr, nullptr, nullptr, 0, &outputBlob))
+			throw std::runtime_error("CryptProtectData = false");
+		else
+		{
+			std::ofstream outputFile(outputFilePath, std::ios::binary);
+			if (outputFile.is_open())
+			{
+				outputFile.write((char*)outputBlob.pbData, outputBlob.cbData);
+				outputFile.close();
+			}
+			LocalFree(outputBlob.pbData);
+		}
+	}
+
+	static bool DecryptDataFromFile(uint8_t* outputData, int dataLength, const std::filesystem::path& inputFilePath)
+	{
+		if (!std::filesystem::exists(inputFilePath))
+			return false;
+
+		std::ifstream inputFile(inputFilePath, std::ios::binary | std::ios::ate);
+		if (inputFile.is_open())
+		{
+			std::streamsize size = inputFile.tellg();
+			inputFile.seekg(0, std::ios::beg);
+			std::vector<char> encryptedData(size);
+			if (inputFile.read(encryptedData.data(), size))
+			{
+				DATA_BLOB inputBlob = { static_cast<DWORD>(size), reinterpret_cast<BYTE*>(encryptedData.data()) };
+				DATA_BLOB outputBlob;
+
+				if (!CryptUnprotectData(&inputBlob, nullptr, nullptr, nullptr, nullptr, 0, &outputBlob))
+					throw std::runtime_error("CryptUnprotectData = false");
+				else
+				{
+					std::memcpy(outputData, outputBlob.pbData, min(int(outputBlob.cbData), dataLength));
+					LocalFree(outputBlob.pbData);
+					return true;
+				}
+			}
+			inputFile.close();
+		}
+		
+		return false;
+	}
+
+	inline static SafetyHookInline Sumo_CommonDat_Read_hook = {};
+	static int Sumo_CommonDat_Read_dest()
+	{
+		auto ret = Sumo_CommonDat_Read_hook.call<int>();
+
+		uint8_t* loginData = Module::exe_ptr<uint8_t>(0x3C205C);
+		int loginDataLength = (0x10 * 8) + (8 * 8);
+
+		try
+		{
+			DecryptDataFromFile(loginData, loginDataLength, Module::ExePath.parent_path() / LoginDataFilename);
+		}
+		catch (const std::exception& e)
+		{
+			memset(loginData, 0, loginDataLength);
+			spdlog::error("ProtectLoginData: Failed to decrypt login data from {}: {}", LoginDataFilename, e.what());
+		}
+
+		return ret;
+	}
+	inline static SafetyHookInline Sumo_CommonDat_Write_hook = {};
+	static int Sumo_CommonDat_Write_dest()
+	{
+		constexpr int loginDataLength = (0x10 * 8) + (8 * 8);
+		uint8_t* loginData = Module::exe_ptr<uint8_t>(0x3C205C);
+
+		uint8_t tempLoginData[loginDataLength];
+		memcpy(tempLoginData, loginData, loginDataLength);
+
+		try
+		{
+			EncryptDataToFile(loginData, loginDataLength, Module::ExePath.parent_path() / LoginDataFilename);
+		}
+		catch (const std::exception& e)
+		{
+			spdlog::error("ProtectLoginData: failed to encrypt login data to {} ({}), login details will be scrubbed from common.dat", e.what(), LoginDataFilename);
+		}
+
+		SecureZeroMemory(loginData, loginDataLength);
+
+		auto ret = Sumo_CommonDat_Write_hook.call<int>();
+
+		memcpy(loginData, tempLoginData, loginDataLength);
+
+		return ret;
+	}
+	inline static SafetyHookInline Sumo_CommonDat_WriteRaw_hook = {};
+	static int Sumo_CommonDat_WriteRaw_dest()
+	{
+		constexpr int loginDataLength = (0x10 * 8) + (8 * 8);
+		uint8_t* loginData = Module::exe_ptr<uint8_t>(0x3C205C);
+
+		uint8_t tempLoginData[loginDataLength];
+		memcpy(tempLoginData, loginData, loginDataLength);
+
+		try
+		{
+			EncryptDataToFile(loginData, loginDataLength, Module::ExePath.parent_path() / LoginDataFilename);
+		}
+		catch (const std::exception& e)
+		{
+			spdlog::error("ProtectLoginData: failed to encrypt login data to {} ({}), login details will be scrubbed from common.dat", e.what(), LoginDataFilename);
+		}
+
+		SecureZeroMemory(loginData, loginDataLength);
+
+		auto ret = Sumo_CommonDat_WriteRaw_hook.call<int>();
+
+		memcpy(loginData, tempLoginData, loginDataLength);
+
+		return ret;
+	}
+
+public:
+	std::string_view description() override
+	{
+		return "ProtectLoginData";
+	}
+
+	bool validate() override
+	{
+		return Settings::ProtectLoginData;
+	}
+
+	bool apply() override
+	{
+		constexpr int Sumo_CommonDat_Read_Addr = 0x16380;
+		constexpr int Sumo_CommonDat_Write_Addr = 0x16420;
+		constexpr int Sumo_CommonDat_WriteRaw_Addr = 0x164D0;
+
+		Sumo_CommonDat_Read_hook = safetyhook::create_inline(Module::exe_ptr(Sumo_CommonDat_Read_Addr), Sumo_CommonDat_Read_dest);
+		Sumo_CommonDat_Write_hook = safetyhook::create_inline(Module::exe_ptr(Sumo_CommonDat_Write_Addr), Sumo_CommonDat_Write_dest);
+		Sumo_CommonDat_WriteRaw_hook = safetyhook::create_inline(Module::exe_ptr(Sumo_CommonDat_WriteRaw_Addr), Sumo_CommonDat_WriteRaw_dest);
+
+		return true;
+	}
+
+	static ProtectLoginData instance;
+};
+ProtectLoginData ProtectLoginData::instance;
 
 class PlaySegaJingle : public Hook
 {

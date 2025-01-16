@@ -151,6 +151,7 @@ namespace Settings
 	inline bool AllowCharacterSelection = false;
 	inline bool RandomHighwayAnimSets = false;
 	inline std::string DemonwareServerOverride = "clarissa.port0.org";
+	inline bool ProtectLoginData = true;
 
 	inline bool OverlayEnabled = true;
 

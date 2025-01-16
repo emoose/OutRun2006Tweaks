@@ -101,10 +101,11 @@ link-libraries = [
     "version.lib",
     "xinput9_1_0.lib",
     "Hid.lib",
-	"libminiupnpc-static",
-	"SDL3-static",
-	"Winmm.lib",
-	"Setupapi.lib"
+    "libminiupnpc-static",
+    "SDL3-static",
+    "Winmm.lib",
+    "Setupapi.lib",
+    "Crypt32.lib"
 ]
 
 [target.outrun2006tweaks.properties]
