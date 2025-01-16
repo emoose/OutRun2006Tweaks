@@ -109,7 +109,7 @@ class ProtectLoginData : public Hook
 		}
 		catch (const std::exception& e)
 		{
-			spdlog::error("ProtectLoginData: failed to encrypt login data to {} ({}), login details will be scrubbed from common.dat", e.what(), LoginDataFilename);
+			spdlog::error("ProtectLoginData: failed to encrypt login data to {} ({}), login details will be scrubbed from common.dat", LoginDataFilename, e.what());
 		}
 
 		SecureZeroMemory(loginData, loginDataLength);
@@ -135,7 +135,7 @@ class ProtectLoginData : public Hook
 		}
 		catch (const std::exception& e)
 		{
-			spdlog::error("ProtectLoginData: failed to encrypt login data to {} ({}), login details will be scrubbed from common.dat", e.what(), LoginDataFilename);
+			spdlog::error("ProtectLoginData: failed to encrypt login data to {} ({}), login details will be scrubbed from common.dat", LoginDataFilename, e.what());
 		}
 
 		SecureZeroMemory(loginData, loginDataLength);

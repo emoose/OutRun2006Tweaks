@@ -340,10 +340,15 @@ bool DrawDist_ReadExclusions()
 	return true;
 }
 
-/*
 
 class SkipQuickSortHack : public Hook
 {
+	// Before drawing transparent objects the game uses QuickSort on them, which seems to sort them based on Z order
+	// For some reason on Palm Beach the order ends up incorrect, and some kind of reflection texture draws on top of the ocean texture, causing a black area to appear until getting close enough
+	// If we skip the QuickSort call on this track that seems to fix it though, hadn't seen any other issues with transparent objects after it
+	// Not sure if all tracks would work fine with this though, so this tweak only disables it on certain tracks setup in .lods.ini
+	// (also not sure why console ports seem to be fine here, could it be related to games D3D9 depth buffer issue, or could be an issue with the model data itself?)
+
 	inline static SafetyHookInline DrawStoredModel_Execute_hook = {};
 	static void DrawStoredModel_Execute_dest()
 	{
@@ -380,7 +385,6 @@ public:
 	static SkipQuickSortHack instance;
 };
 SkipQuickSortHack SkipQuickSortHack::instance;
-*/
 
 class DrawDistanceIncrease : public Hook
 {
