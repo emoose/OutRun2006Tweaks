@@ -31,10 +31,16 @@ public:
 
 		if (ImGui::Begin("Globals", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
 		{
+			uint8_t* frontEndData = *Module::exe_ptr<uint8_t*>(0x3B17E8);
+			int frontEndStep = *(int*)frontEndData;
+			int frontEndEvtStep = *(int*)(frontEndData + 0x218);
+			char frontEndMenuLevel = *(char*)(frontEndData + 0x220);
+
 			ImGui::Text("Info");
 			EVWORK_CAR* car = Game::pl_car();
 			ImGui::Text("game_mode: %d", *Game::game_mode);
 			ImGui::Text("current_mode: %d", *Game::current_mode);
+			ImGui::Text("Frontend step indexes: %d / %d / %d", frontEndStep, frontEndEvtStep, int(frontEndMenuLevel));
 			ImGui::Text("Lobby is active: %d", (*Game::SumoNet_CurNetDriver && (*Game::SumoNet_CurNetDriver)->is_in_lobby()));
 			ImGui::Text("Lobby is host: %d", (*Game::SumoNet_CurNetDriver && (*Game::SumoNet_CurNetDriver)->is_hosting()));
 			ImGui::Text("Is MP gamemode: %d", (*Game::game_mode == 3 || *Game::game_mode == 4));

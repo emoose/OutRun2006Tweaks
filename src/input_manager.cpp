@@ -30,11 +30,18 @@ enum class ListenState
 
 ListenState isListeningForInput = ListenState::False;
 
+enum class InputSourceType
+{
+	GamePad,
+	Keyboard
+};
+
 struct InputState
 {
 	float currentValue = 0.0f;
 	float previousValue = 0.0f;
 	bool isAxis = false;
+	InputSourceType lastSourceType;
 
 	void update(float newValue)
 	{
@@ -55,13 +62,18 @@ struct InputState
 
 class InputSource
 {
+protected:
+	InputSourceType type_ = InputSourceType::GamePad;
+
 public:
 	virtual ~InputSource() = default;
 	virtual float readValue(SDL_Gamepad* gamepad) = 0;
 	virtual bool isAxis() const = 0;
 	virtual bool isNegated() const = 0;
-	virtual std::string getBindingName(bool isSteerAction = false) const = 0;
+	virtual std::string getBindingName(SDL_GamepadType padType = SDL_GAMEPAD_TYPE_UNKNOWN, bool isSteerAction = false) const = 0;
 	virtual std::string getBindingIniDefinition() const = 0;
+
+	InputSourceType type() { return type_; }
 };
 
 class GamepadSource : public InputSource
@@ -80,10 +92,12 @@ public:
 	GamepadSource(SDL_GamepadAxis ax, bool negate = false)
 		: axis_(ax), is_axis_(true), negate_(negate)
 	{
+		type_ = InputSourceType::GamePad;
 	}
 	GamepadSource(SDL_GamepadButton btn, bool negate = false)
 		: button_(btn), is_axis_(false), negate_(negate)
 	{
+		type_ = InputSourceType::GamePad;
 	}
 
 	float readValue(SDL_Gamepad* gamepad) override
@@ -118,39 +132,152 @@ public:
 	bool isAxis() const override { return is_axis_; }
 	bool isNegated() const override { return negate_; }
 
-	std::string getBindingName(bool isSteerAction) const override
+	std::string getBindingName_Xbox(bool isSteerAction) const
 	{
 		if (isAxis())
 		{
 			std::string direction = isSteerAction ? "" : (negate_ ? "+" : "-");
 			switch (axis_)
 			{
-			case SDL_GAMEPAD_AXIS_LEFTX: return "Left Stick X" + direction;
-			case SDL_GAMEPAD_AXIS_LEFTY: return "Left Stick Y" + direction;
-			case SDL_GAMEPAD_AXIS_RIGHTX: return "Right Stick X" + direction;
-			case SDL_GAMEPAD_AXIS_RIGHTY: return "Right Stick Y" + direction;
-			case SDL_GAMEPAD_AXIS_LEFT_TRIGGER: return "Left Trigger";
-			case SDL_GAMEPAD_AXIS_RIGHT_TRIGGER: return "Right Trigger";
-			default: return "Unknown Axis" + direction;
+				case SDL_GAMEPAD_AXIS_LEFT_TRIGGER: return "Left Trigger";
+				case SDL_GAMEPAD_AXIS_RIGHT_TRIGGER: return "Right Trigger";
+				default: return "Unknown Axis" + direction;
 			}
 		}
 
 		switch (button_)
 		{
-		case SDL_GAMEPAD_BUTTON_A: return "A Button";
-		case SDL_GAMEPAD_BUTTON_B: return "B Button";
-		case SDL_GAMEPAD_BUTTON_X: return "X Button";
-		case SDL_GAMEPAD_BUTTON_Y: return "Y Button";
-		case SDL_GAMEPAD_BUTTON_BACK: return "Back";
-		case SDL_GAMEPAD_BUTTON_START: return "Start";
-		case SDL_GAMEPAD_BUTTON_DPAD_UP: return "D-Pad Up";
-		case SDL_GAMEPAD_BUTTON_DPAD_DOWN: return "D-Pad Down";
-		case SDL_GAMEPAD_BUTTON_DPAD_LEFT: return "D-Pad Left";
-		case SDL_GAMEPAD_BUTTON_DPAD_RIGHT: return "D-Pad Right";
-		case SDL_GAMEPAD_BUTTON_LEFT_SHOULDER: return "L1/LB";
-		case SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER: return "R1/RB";
-		default: return "Unknown Button";
+			case SDL_GAMEPAD_BUTTON_A: return "A";
+			case SDL_GAMEPAD_BUTTON_B: return "B";
+			case SDL_GAMEPAD_BUTTON_X: return "X";
+			case SDL_GAMEPAD_BUTTON_Y: return "Y";
+			case SDL_GAMEPAD_BUTTON_START: return "Start";
+			case SDL_GAMEPAD_BUTTON_BACK: return "Back";
+			case SDL_GAMEPAD_BUTTON_LEFT_STICK: return "LS";
+			case SDL_GAMEPAD_BUTTON_RIGHT_STICK: return "RS";
+			case SDL_GAMEPAD_BUTTON_LEFT_SHOULDER: return "Left Bumper";
+			case SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER: return "Right Bumper";
 		}
+		return "Unknown Button";
+	}
+
+	std::string getBindingName_PS(SDL_GamepadType padType, bool isSteerAction) const
+	{
+		if (isAxis())
+		{
+			std::string direction = isSteerAction ? "" : (negate_ ? "+" : "-");
+			switch (axis_)
+			{
+				case SDL_GAMEPAD_AXIS_LEFT_TRIGGER: return "L2";
+				case SDL_GAMEPAD_AXIS_RIGHT_TRIGGER: return "R2";
+				default: return "Unknown Axis" + direction;
+			}
+		}
+
+		switch (button_)
+		{
+			case SDL_GAMEPAD_BUTTON_A: return "Cross";
+			case SDL_GAMEPAD_BUTTON_B: return "Circle";
+			case SDL_GAMEPAD_BUTTON_X: return "Square";
+			case SDL_GAMEPAD_BUTTON_Y: return "Triangle";
+			case SDL_GAMEPAD_BUTTON_LEFT_STICK: return "L3";
+			case SDL_GAMEPAD_BUTTON_RIGHT_STICK: return "R3";
+			case SDL_GAMEPAD_BUTTON_LEFT_SHOULDER: return "L1";
+			case SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER: return "L2";
+		}
+
+		// PS4/PS5 changed the start/back names, grr...
+		if (padType == SDL_GAMEPAD_TYPE_PS3)
+		{
+			if (button_ == SDL_GAMEPAD_BUTTON_START)
+				return "Start";
+			else if (button_ == SDL_GAMEPAD_BUTTON_BACK)
+				return "Select";
+		}
+		else if(padType == SDL_GAMEPAD_TYPE_PS4)
+		{
+			if (button_ == SDL_GAMEPAD_BUTTON_START)
+				return "Options";
+			else if (button_ == SDL_GAMEPAD_BUTTON_BACK)
+				return "Share";
+		}
+		else if (padType == SDL_GAMEPAD_TYPE_PS5)
+		{
+			if (button_ == SDL_GAMEPAD_BUTTON_START)
+				return "Options";
+			else if (button_ == SDL_GAMEPAD_BUTTON_BACK)
+				return "Create";
+		}
+		return "Unknown Button";
+	}
+
+	std::string getBindingName_Switch(bool isSteerAction) const
+	{
+		if (isAxis())
+		{
+			std::string direction = isSteerAction ? "" : (negate_ ? "+" : "-");
+			switch (axis_)
+			{
+				case SDL_GAMEPAD_AXIS_LEFT_TRIGGER: return "ZL";
+				case SDL_GAMEPAD_AXIS_RIGHT_TRIGGER: return "ZR";
+				default: return "Unknown Axis" + direction;
+			}
+		}
+
+		switch (button_)
+		{
+			case SDL_GAMEPAD_BUTTON_A: return "B";
+			case SDL_GAMEPAD_BUTTON_B: return "A";
+			case SDL_GAMEPAD_BUTTON_X: return "Y";
+			case SDL_GAMEPAD_BUTTON_Y: return "X";
+			case SDL_GAMEPAD_BUTTON_START: return "Plus";
+			case SDL_GAMEPAD_BUTTON_BACK: return "Minus";
+			case SDL_GAMEPAD_BUTTON_LEFT_STICK: return "LS";
+			case SDL_GAMEPAD_BUTTON_RIGHT_STICK: return "RS";
+			case SDL_GAMEPAD_BUTTON_LEFT_SHOULDER: return "L";
+			case SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER: return "R";
+		}
+		return "Unknown Button";
+	}
+
+	std::string getBindingName(SDL_GamepadType padType, bool isSteerAction) const override
+	{
+		if (isAxis())
+		{
+			std::string direction = isSteerAction ? "" : (negate_ ? "+" : "-");
+			switch (axis_)
+			{
+				case SDL_GAMEPAD_AXIS_LEFTX: return "Left Stick X" + direction;
+				case SDL_GAMEPAD_AXIS_LEFTY: return "Left Stick Y" + direction;
+				case SDL_GAMEPAD_AXIS_RIGHTX: return "Right Stick X" + direction;
+				case SDL_GAMEPAD_AXIS_RIGHTY: return "Right Stick Y" + direction;
+			}
+		}
+		else // !isAxis()
+		{
+			switch (button_)
+			{
+				case SDL_GAMEPAD_BUTTON_DPAD_UP: return "D-Pad Up";
+				case SDL_GAMEPAD_BUTTON_DPAD_DOWN: return "D-Pad Down";
+				case SDL_GAMEPAD_BUTTON_DPAD_LEFT: return "D-Pad Left";
+				case SDL_GAMEPAD_BUTTON_DPAD_RIGHT: return "D-Pad Right";
+			}
+		}
+
+		switch (padType)
+		{
+			case SDL_GAMEPAD_TYPE_PS3:
+			case SDL_GAMEPAD_TYPE_PS4:
+			case SDL_GAMEPAD_TYPE_PS5:
+				return getBindingName_PS(padType, isSteerAction);
+			case SDL_GAMEPAD_TYPE_NINTENDO_SWITCH_JOYCON_LEFT:
+			case SDL_GAMEPAD_TYPE_NINTENDO_SWITCH_JOYCON_RIGHT:
+			case SDL_GAMEPAD_TYPE_NINTENDO_SWITCH_JOYCON_PAIR:
+			case SDL_GAMEPAD_TYPE_NINTENDO_SWITCH_PRO:
+				return getBindingName_Switch(isSteerAction);
+		}
+
+		return getBindingName_Xbox(isSteerAction);
 	}
 
 	std::string getBindingIniDefinition() const override
@@ -196,7 +323,10 @@ class KeyboardSource : public InputSource
 	SDL_Scancode key_;
 	bool negate_;
 public:
-	KeyboardSource(SDL_Scancode k, bool negate = false) : key_(k), negate_(negate) {}
+	KeyboardSource(SDL_Scancode k, bool negate = false) : key_(k), negate_(negate)
+	{
+		type_ = InputSourceType::Keyboard;
+	}
 
 	float readValue(SDL_Gamepad* gamepad) override
 	{
@@ -206,7 +336,7 @@ public:
 
 	bool isAxis() const override { return false; }
 	bool isNegated() const override { return negate_; }
-	std::string getBindingName(bool isSteerAction) const override
+	std::string getBindingName(SDL_GamepadType padType, bool isSteerAction) const override
 	{
 		return SDL_GetScancodeName(key_);
 	}
@@ -221,13 +351,14 @@ template<typename EnumType>
 class InputAction
 {
 	std::vector<std::unique_ptr<InputSource>> sources_;
-	InputState state;
+	InputState state_;
 
 public:
 	const InputState& update(SDL_Gamepad* primary_pad)
 	{
 		float maxValue = 0.0f;
 		bool isAxisInput = false;
+		InputSourceType lastSource = state_.lastSourceType;
 
 		// Read all sources and take the highest absolute value
 		for (auto& source : sources_)
@@ -237,12 +368,14 @@ public:
 			{
 				maxValue = currentValue;
 				isAxisInput = source->isAxis();
+				lastSource = source->type();
 			}
 		}
 
-		state.isAxis = isAxisInput;
-		state.update(maxValue);
-		return state;
+		state_.lastSourceType = lastSource;
+		state_.isAxis = isAxisInput;
+		state_.update(maxValue);
+		return state_;
 	}
 
 	template <typename T, typename... Args>
@@ -258,9 +391,8 @@ public:
 
 	std::vector<std::unique_ptr<InputSource>>& sources() { return sources_; }
 
-	const InputState& getState() const { return state; }
-	void setState(const InputState& state) { this->state = state; }
-
+	const InputState& getState() const { return state_; }
+	void setState(const InputState& state) { this->state_ = state; }
 };
 
 class InputManager
@@ -279,7 +411,9 @@ class InputManager
 	uint32_t switch_current;
 	uint32_t switch_previous;
 	uint32_t switch_overlay;
+	InputSourceType lastInputSource_ = InputSourceType::GamePad;
 
+private:
 	// user settings
 	bool BypassGameSensitivity = false;
 
@@ -889,8 +1023,14 @@ public:
 		}
 
 		for (size_t i = 0; i < switchBindings.size(); ++i)
-			if (switchBindings[i].update(gamepad).isPressed())
+		{
+			auto& switchState = switchBindings[i].update(gamepad);
+			if (switchState.isPressed())
+			{
 				switch_current |= (1 << i);
+				lastInputSource_ = switchState.lastSourceType;
+			}
+		}
 
 		if (disableOverlayInputs && switch_current == 0) [[unlikely]]
 			disableOverlayInputs = false;
@@ -975,6 +1115,8 @@ public:
 
 		return false;
 	}
+
+	InputSourceType lastInputSource() { return lastInputSource_; }
 
 	//
 	// Handlers for games original input functions
@@ -1217,6 +1359,10 @@ public:
 
 		auto& manager = InputManager::instance;
 
+		auto padType = SDL_GAMEPAD_TYPE_XBOX360;
+		if (auto* primary = manager.getPrimaryGamepad())
+			padType = SDL_GetGamepadType(primary);
+
 		bool dialogOpen = true;
 		if ((manager.switch_overlay & (1 << int(SwitchId::Back) | 1 << int(SwitchId::B))) != 0)
 			dialogOpen = false;
@@ -1307,7 +1453,7 @@ public:
 							{
 								if (dynamic_cast<const GamepadSource*>(source.get()))
 								{
-									controllerBind = source->getBindingName(i == 0);
+									controllerBind = source->getBindingName(padType, i == 0);
 									break;
 								}
 							}
@@ -1338,9 +1484,9 @@ public:
 									else
 									{
 										if (source->isNegated())
-											kbd_negative = source->getBindingName(true);
+											kbd_negative = source->getBindingName(padType, true);
 										else
-											kbd_positive = source->getBindingName(true);
+											kbd_positive = source->getBindingName(padType, true);
 									}
 								}
 							}
@@ -1421,7 +1567,7 @@ public:
 							{
 								if (dynamic_cast<const KeyboardSource*>(source.get()))
 								{
-									keyboardBind = source->getBindingName(false);
+									keyboardBind = source->getBindingName(padType, false);
 									break;
 								}
 							}
@@ -1533,24 +1679,29 @@ public:
 };
 InputBindingsUI InputBindingsUI::instance;
 
+constexpr uint32_t StartSwitchMask = 1 << int(SwitchId::Start);
+
 class NewInputHook : public Hook
 {
 	inline static SafetyHookInline SwitchOn_hook = {};
 	static int SwitchOn_dest(uint32_t switches)
 	{
 		// HACK: keyboard has ESC bound to both start & B/return, only let game see Start press when in-game
-		if (switches == (1 << int(SwitchId::Start)) && *Game::current_mode != STATE_GAME)
-			return 0;
+		if (InputManager::instance.lastInputSource() == InputSourceType::Keyboard)
+			if (switches == StartSwitchMask && *Game::current_mode != STATE_GAME)
+				return 0;
 
 		return InputManager::instance.SwitchOn(switches);
 	}
+
 
 	inline static SafetyHookInline SwitchNow_hook = {};
 	static int SwitchNow_dest(uint32_t switches)
 	{
 		// HACK: keyboard has ESC bound to both start & B/return, only let game see Start press when in-game
-		if (switches == (1 << int(SwitchId::Start)) && *Game::current_mode != STATE_GAME)
-			return 0;
+		if (InputManager::instance.lastInputSource() == InputSourceType::Keyboard)
+			if (switches == StartSwitchMask && *Game::current_mode != STATE_GAME)
+				return 0;
 
 		return InputManager::instance.SwitchNow(switches);
 	}
