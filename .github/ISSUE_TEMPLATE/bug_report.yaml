@@ -1,5 +1,5 @@
 name: Bug report
-description: Let us know about bugs found with the game/tweaks
+description: Let us know about bugs found with the game/tweaks (for feature requests, please use Discussions tab)
 title: "[Bug]: "
 labels: bug
 body:
@@ -7,7 +7,9 @@ body:
     type: markdown
     attributes:
       value: |
-        If you've ran into an issue with the game or tweaks let us know about it here.
+        If you've ran into an issue/bug with the game or tweaks let us know about it here.
+        
+        **For feature requests/suggestions**, please write on the [Suggestions discussion board](https://github.com/emoose/OutRun2006Tweaks/discussions/categories/suggestions).
   - id: version
     type: input
     attributes:
