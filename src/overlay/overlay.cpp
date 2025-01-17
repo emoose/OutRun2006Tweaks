@@ -12,8 +12,6 @@
 
 Notifications Notifications::instance;
 
-bool show_demo_window = true;
-
 bool f11_prev_state = false; // previously seen F11 state
 
 bool overlay_visible = false; // user wants overlay to show?
@@ -49,7 +47,7 @@ public:
 
 			GameStage cur_stage_num = *Game::stg_stage_num;
 			ImGui::Text("Loaded Stage: %d (%s / %s)", cur_stage_num, Game::GetStageFriendlyName(cur_stage_num), Game::GetStageUniqueName(cur_stage_num));
-
+				
 			if (Settings::DrawDistanceIncrease > 0)
 				if (ImGui::Button("Open Draw Distance Debugger"))
 					Game::DrawDistanceDebugEnabled = true;
@@ -93,12 +91,21 @@ GlobalsWindow GlobalsWindow::instance;
 
 class UISettingsWindow : public OverlayWindow
 {
+	bool ShowStyleEditor = false;
+
 public:
 	void init() override {}
 	void render(bool overlayEnabled) override
 	{
 		if (!overlayEnabled)
 			return;
+
+		if (ShowStyleEditor)
+		{
+			if (ImGui::Begin("UI Style Editor", &ShowStyleEditor))
+				ImGui::ShowStyleEditor();
+			ImGui::End();
+		}
 
 		ImVec2 screenSize = ImGui::GetIO().DisplaySize;
 
@@ -121,6 +128,9 @@ public:
 
 				if (ImGui::TreeNodeEx("Global", ImGuiTreeNodeFlags_DefaultOpen))
 				{
+					if (ImGui::Button("Open UI Style Editor"))
+						ShowStyleEditor = true;
+
 					static bool fontScaleChanged = false;
 					if (ImGui::SliderFloat("Font Scale", &Overlay::GlobalFontScale, 0.5f, 2.5f))
 						fontScaleChanged |= true;
