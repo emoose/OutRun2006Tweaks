@@ -352,6 +352,10 @@ class UIScaling : public Hook
 		float spacing = -((Game::screen_scale->y * Game::original_resolution.x) - Game::screen_resolution->x) / 2;
 		spacing = spacing / Game::screen_scale->x;
 
+		// round our spacing value if this is an integer
+		if constexpr (std::is_integral_v<T>)
+			spacing = std::round(spacing);
+
 		if(left)
 			*value = T(float(*value) - spacing);
 		else
@@ -469,6 +473,7 @@ class UIScaling : public Hook
 	static inline SafetyHookMid C2CDontLoseGF_AdjustPosition_hk1{};
 	static inline SafetyHookMid C2CDontLoseGF_AdjustPosition_hk2{};
 	static inline SafetyHookMid C2CDontLoseGF_AdjustPosition_hk3{};
+	static inline SafetyHookMid C2CTestSlipstream_AdjustPosition_hk{};
 
 	static void C2CSpeechBubble_AdjustPositionESP0(safetyhook::Context& ctx)
 	{
@@ -629,6 +634,9 @@ public:
 		C2CDontLoseGF_AdjustPosition_hk1 = safetyhook::create_mid((void*)0x4BD397, put_scroll_AdjustPositionRight);
 		C2CDontLoseGF_AdjustPosition_hk2 = safetyhook::create_mid((void*)0x4BD414, put_scroll_AdjustPositionRight);
 		C2CDontLoseGF_AdjustPosition_hk3 = safetyhook::create_mid((void*)0x4BD472, put_scroll_AdjustPositionRight);
+
+		// "test your slipstream" rival text
+		C2CTestSlipstream_AdjustPosition_hk = safetyhook::create_mid((void*)0x4BD32E, put_scroll_AdjustPositionRight);
 
 		return true;
 	}
