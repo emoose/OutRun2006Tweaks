@@ -15,17 +15,31 @@
 #include <string>
 #include <chrono>
 
+#include <json/json.h>
+#include "resource.h"
+
 struct ChatMessage
 {
 	std::string content;
 	std::chrono::system_clock::time_point timestamp;
 };
 
+std::string timePointToString(const std::chrono::system_clock::time_point& timePoint)
+{
+	std::time_t timeT = std::chrono::system_clock::to_time_t(timePoint);
+	std::tm tm = *std::localtime(&timeT);
+
+	std::ostringstream oss;
+	oss << std::put_time(&tm, "%H:%M:%S"); // hour, minute, second
+	return oss.str();
+}
+
 class ChatRoom : public OverlayWindow
 {
 private:
 	ix::WebSocket webSocket;
 	bool socketActive = false;
+	bool socketJsonEnabled = false;
 
 	bool isActive = false;
 	char inputBuffer[256] = "";
@@ -47,22 +61,139 @@ private:
 		webSocket.setUrl(url);
 
 		webSocket.setOnMessageCallback([this](const ix::WebSocketMessagePtr& msg)
-		{
-			if (msg->type == ix::WebSocketMessageType::Message)
-				addMessage(msg->str);
-		});
+			{
+				if (msg->type == ix::WebSocketMessageType::Open)
+				{
+					// Connection established
+					// Let server know our version & switch to json mode
+					socketJsonEnabled = false; // enabled once server acknowledges
+					webSocket.send("//IDENT v" MODULE_VERSION_STR);
+				}
+				else if (msg->type == ix::WebSocketMessageType::Close)
+					socketJsonEnabled = false;
+				else if (msg->type == ix::WebSocketMessageType::Message)
+					parseMessage(msg->str);
+			});
 
 		webSocket.start();
 	}
 
-	void addMessage(const std::string& content)
+	void parseCommandS2C(const std::string& command)
 	{
-		std::lock_guard<std::mutex> lock(mtx);
+		if (command.length() >= 7 && command.substr(0, 7) == "//IDENT")
+		{
+			// server ack'd our //IDENT, enable json mode
+			spdlog::debug(__FUNCTION__ ": received IDENT acknowledgement, enabling json mode");
+			socketJsonEnabled = true;
+			return;
+		}
 
-		messages.push_front({ content, std::chrono::system_clock::now() });
+		// unknown S2C command, silently ignore
+		spdlog::debug(__FUNCTION__ ": received unknown S2C command ({})", command);
+	}
 
-		if (messages.size() > MAX_MESSAGES)
-			messages.pop_back();
+	void parseMessage(const std::string& content)
+	{
+		std::string msgContent;
+
+		auto receivedTime = std::chrono::system_clock::now();
+
+		if (!socketJsonEnabled)
+		{
+			if (content.length() >= 2 && content.substr(0, 2) == "//")
+			{
+				parseCommandS2C(content);
+				return;
+			}
+
+			msgContent = content;
+		}
+		else
+		{
+			Json::CharReaderBuilder builder;
+			Json::Value root;
+			std::string errs;
+
+			std::istringstream stream(content);
+			if (!Json::parseFromStream(builder, stream, &root, &errs))
+			{
+				spdlog::error(__FUNCTION__ ": failed to parse json response ({})", content);
+				return;
+			}
+
+			// root["Type"] - either Server or User
+			// root["UserName"] - message originator
+			// root["Room"] - lobby host name
+			// root["Message"] - message text
+
+			if (!root.isMember("Type") || !root.isMember("UserName") || !root.isMember("Room") || !root.isMember("Message"))
+			{
+				spdlog::error(__FUNCTION__ ": malformed json response ({})", content);
+				return;
+			}
+
+			auto& room = root["Room"];
+
+			// TODO: compare room against current lobby host, accept if matches
+			// right now we'll just silently ignore any messages with non-empty room, so future lobby messages won't show on older clients
+			if (!room.empty() && !room.asString().empty())
+				return;
+
+			auto messageType = root["Type"].asString();
+			auto userName = root["UserName"].asString();
+			auto message = root["Message"].asString();
+
+			if (messageType == "Server")
+			{
+				if (message.length() >= 2 && message.substr(0, 2) == "//")
+				{
+					parseCommandS2C(message);
+					return;
+				}
+
+				msgContent = message;
+			}
+			else
+				msgContent = std::format("[{}] {}: {}", timePointToString(receivedTime), userName, message);
+		}
+
+		{
+			std::lock_guard<std::mutex> lock(mtx);
+
+			messages.push_front({ msgContent, receivedTime });
+
+			if (messages.size() > MAX_MESSAGES)
+				messages.pop_back();
+		}
+	}
+
+	void sendMessage(const std::string& room, const std::string& message)
+	{
+		if (webSocket.getReadyState() != ix::ReadyState::Open)
+		{
+			spdlog::error(__FUNCTION__ ": failed to send message as websocket not ready");
+			return;
+		}
+
+		if (!socketJsonEnabled)
+		{
+			webSocket.send(message);
+			return;
+		}
+
+		const char* onlineName = Game::SumoNet_OnlineUserName;
+
+		Json::Value jsonData;
+		jsonData["Type"] = "User"; // checked server-side
+		jsonData["UserName"] = onlineName; // checked server-side
+		jsonData["Room"] = room;
+		jsonData["Message"] = message;
+
+		Json::StreamWriterBuilder writer;
+		writer["indentation"] = ""; // remove any indentation
+		std::string jsonString = Json::writeString(writer, jsonData);
+
+		webSocket.send(jsonString);
 	}
 
 public:
@@ -71,7 +202,7 @@ public:
 	void render(bool overlayEnabled) override
 	{
 		auto socketState = webSocket.getReadyState();
-		
+
 		// Connect to socket if chat is enabled
 		if (socketState == ix::ReadyState::Closed && Overlay::ChatMode != Overlay::ChatMode_Disabled)
 			connectWebSocket();
@@ -154,7 +285,6 @@ public:
 		ImGui::SetNextWindowPos(ImVec2(borderWidth + 20, (screenQuarterHeight * 3) - 20), ImGuiCond_FirstUseEver);
 		ImGui::SetNextWindowSize(ImVec2(contentWidth - 40, screenQuarterHeight), ImGuiCond_FirstUseEver);
 
-
 		if (ImGui::Begin("Chat Messages", nullptr, !overlayEnabled ? ImGuiWindowFlags_NoDecoration : 0))
 		{
 			ImGui::SetWindowFontScale(Overlay::ChatFontSize);
@@ -219,7 +349,7 @@ public:
 				{
 					if (inputBuffer[0] != '\0')
 					{
-						webSocket.send(inputBuffer);
+						sendMessage("", inputBuffer);
 						inputBuffer[0] = '\0';
 					}
 				}

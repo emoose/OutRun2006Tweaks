@@ -352,7 +352,7 @@ class UIScaling : public Hook
 		float spacing = -((Game::screen_scale->y * Game::original_resolution.x) - Game::screen_resolution->x) / 2;
 		spacing = spacing / Game::screen_scale->x;
 
-		// round our spacing value if this is an integer
+		// round our spacing value to nearest if this is integer, fixes REV indicator light being slightly offset
 		if constexpr (std::is_integral_v<T>)
 			spacing = std::round(spacing);
 
