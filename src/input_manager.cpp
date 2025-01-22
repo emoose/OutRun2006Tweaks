@@ -25,7 +25,8 @@ enum class ListenState
 {
 	False = 0,
 	WaitForButtonRelease = 1,
-	Listening = 2
+	Listening = 2,
+	WaitForBindButtonRelease = 3
 };
 
 ListenState isListeningForInput = ListenState::False;
@@ -98,6 +99,20 @@ public:
 		: button_(btn), is_axis_(false), negate_(negate)
 	{
 		type_ = InputSourceType::GamePad;
+	}
+
+	void set(SDL_GamepadAxis ax, bool negate = false)
+	{
+		axis_ = ax;
+		is_axis_ = true;
+		negate_ = negate;
+	}
+
+	void set(SDL_GamepadButton btn, bool negate = false)
+	{
+		button_ = btn;
+		is_axis_ = false;
+		negate_ = negate;
 	}
 
 	float readValue(SDL_Gamepad* gamepad) override
@@ -328,6 +343,12 @@ public:
 		type_ = InputSourceType::Keyboard;
 	}
 
+	void set(SDL_Scancode k, bool negate = false)
+	{
+		key_ = k;
+		negate_ = negate;
+	}
+
 	float readValue(SDL_Gamepad* gamepad) override
 	{
 		const bool* state_array = SDL_GetKeyboardState(nullptr);
@@ -347,7 +368,6 @@ public:
 	SDL_Scancode key() const { return key_; }
 };
 
-template<typename EnumType>
 class InputAction
 {
 	std::vector<std::unique_ptr<InputSource>> sources_;
@@ -397,8 +417,8 @@ public:
 
 class InputManager
 {
-	std::array<InputAction<ADChannel>, size_t(ADChannel::Count)> volumeBindings;
-	std::array<InputAction<SwitchId>, size_t(SwitchId::Count)> switchBindings;
+	std::array<InputAction, size_t(ADChannel::Count)> volumeBindings;
+	std::array<InputAction, size_t(SwitchId::Count)> switchBindings;
 
 	std::mutex mtx;
 	std::vector<SDL_Gamepad*> controllers;
@@ -1177,6 +1197,7 @@ class InputBindingsUI : public OverlayWindow
 	bool isBindingVolume = false;
 	bool isBindingKeyboard = false;
 	float bindScreenDisplayTime = 0.f;
+	InputSource* currentSourceReplacing = nullptr;
 
 public:
 	void init() override {}
@@ -1186,6 +1207,12 @@ public:
 		auto& manager = InputManager::instance;
 
 		auto* controller = manager.getPrimaryGamepad();
+
+		InputAction* action = nullptr;
+		if (isBindingVolume)
+			action = &manager.volumeBindings[static_cast<int>(currentVolumeChannel)];
+		else
+			action = &manager.switchBindings[static_cast<int>(currentSwitchId)];
 
 		// Handle keyboard binding
 		if (isBindingKeyboard)
@@ -1208,46 +1235,31 @@ public:
 				{
 					SDL_Scancode key = static_cast<SDL_Scancode>(i);
 
-					// remove existing keyboard bindings
-					if (isBindingVolume)
+					if (currentSourceReplacing != nullptr)
 					{
-						auto& binding = manager.volumeBindings[static_cast<int>(currentVolumeChannel)];
-						binding.sources().erase(
+						auto* kbd_source = dynamic_cast<KeyboardSource*>(currentSourceReplacing);
+						kbd_source->set(key, kbd_source->isNegated());
+					}
+					else
+					{
+						// remove all existing keyboard bindings
+
+						action->sources().erase(
 							std::remove_if(
-								binding.sources().begin(),
-								binding.sources().end(),
+								action->sources().begin(),
+								action->sources().end(),
 								[this](const std::unique_ptr<InputSource>& source)
 								{
 									return dynamic_cast<const KeyboardSource*>(source.get()) != nullptr && source->isNegated() == currentIsNegate;
 								}
 							),
-							binding.sources().end()
+							action->sources().end()
 						);
 
-						// If we're adding keyboard binding for steering, make sure we setup negate based on which button user clicked (left / right)
-						if (currentVolumeChannel == ADChannel::Steering)
-							binding.addSource<KeyboardSource>(key, currentIsNegate);
-						else
-							binding.addSource<KeyboardSource>(key);
-					}
-					else
-					{
-						auto& binding = manager.switchBindings[static_cast<int>(currentSwitchId)];
-						binding.sources().erase(
-							std::remove_if(
-								binding.sources().begin(),
-								binding.sources().end(),
-								[](const std::unique_ptr<InputSource>& source)
-								{
-									return dynamic_cast<const KeyboardSource*>(source.get()) != nullptr;
-								}
-							),
-							binding.sources().end()
-						);
-						binding.addSource<KeyboardSource>(key);
+						action->addSource<KeyboardSource>(key, currentIsNegate);
 					}
 
-					isListeningForInput = ListenState::False;
+					isListeningForInput = ListenState::WaitForBindButtonRelease;
 					ImGui::CloseCurrentPopup();
 					return true;
 				}
@@ -1261,40 +1273,30 @@ public:
 			{
 				if (SDL_GetGamepadButton(controller, static_cast<SDL_GamepadButton>(i)))
 				{
-					if (isBindingVolume)
+					if (currentSourceReplacing != nullptr)
 					{
-						auto& binding = manager.volumeBindings[static_cast<int>(currentVolumeChannel)];
-						binding.sources().erase(
-							std::remove_if(
-								binding.sources().begin(),
-								binding.sources().end(),
-								[](const std::unique_ptr<InputSource>& source)
-								{
-									return dynamic_cast<const GamepadSource*>(source.get()) != nullptr;
-								}
-							),
-							binding.sources().end()
-						);
-						binding.addSource<GamepadSource>(static_cast<SDL_GamepadButton>(i));
+						auto* pad_source = dynamic_cast<GamepadSource*>(currentSourceReplacing);
+						pad_source->set(static_cast<SDL_GamepadButton>(i), pad_source->isNegated());
 					}
 					else
 					{
-						auto& binding = manager.switchBindings[static_cast<int>(currentSwitchId)];
-						binding.sources().erase(
+						// remove all existing bindings
+						action->sources().erase(
 							std::remove_if(
-								binding.sources().begin(),
-								binding.sources().end(),
-								[](const std::unique_ptr<InputSource>& source)
+								action->sources().begin(),
+								action->sources().end(),
+								[this](const std::unique_ptr<InputSource>& source)
 								{
-									return dynamic_cast<const GamepadSource*>(source.get()) != nullptr;
+									return dynamic_cast<const GamepadSource*>(source.get()) != nullptr && source->isNegated() == currentIsNegate;
 								}
 							),
-							binding.sources().end()
+							action->sources().end()
 						);
-						binding.addSource<GamepadSource>(static_cast<SDL_GamepadButton>(i));
+
+						action->addSource<GamepadSource>(static_cast<SDL_GamepadButton>(i), currentIsNegate);
 					}
 
-					isListeningForInput = ListenState::False;
+					isListeningForInput = ListenState::WaitForBindButtonRelease;
 					ImGui::CloseCurrentPopup();
 					return true;
 				}
@@ -1310,46 +1312,58 @@ public:
 
 				if (std::abs(value) > 0.5f)
 				{
-					if (isBindingVolume)
+					if (currentSourceReplacing != nullptr)
 					{
-						auto& binding = manager.volumeBindings[static_cast<int>(currentVolumeChannel)];
-						binding.sources().erase(
-							std::remove_if(
-								binding.sources().begin(),
-								binding.sources().end(),
-								[](const std::unique_ptr<InputSource>& source)
-								{
-									return dynamic_cast<const GamepadSource*>(source.get()) != nullptr;
-								}
-							),
-							binding.sources().end()
-						);
-						binding.addSource<GamepadSource>(static_cast<SDL_GamepadAxis>(i), negate);
+						auto* pad_source = dynamic_cast<GamepadSource*>(currentSourceReplacing);
+						pad_source->set(static_cast<SDL_GamepadAxis>(i), pad_source->isNegated());
 					}
 					else
 					{
-						auto& binding = manager.switchBindings[static_cast<int>(currentSwitchId)];
-						binding.sources().erase(
+						action->sources().erase(
 							std::remove_if(
-								binding.sources().begin(),
-								binding.sources().end(),
+								action->sources().begin(),
+								action->sources().end(),
 								[](const std::unique_ptr<InputSource>& source)
 								{
 									return dynamic_cast<const GamepadSource*>(source.get()) != nullptr;
 								}
 							),
-							binding.sources().end()
+							action->sources().end()
 						);
-						binding.addSource<GamepadSource>(static_cast<SDL_GamepadAxis>(i), negate);
+						action->addSource<GamepadSource>(static_cast<SDL_GamepadAxis>(i), negate);
 					}
 
-					isListeningForInput = ListenState::False;
+					isListeningForInput = ListenState::WaitForBindButtonRelease;
 					ImGui::CloseCurrentPopup();
 					return true;
 				}
 			}
 		}
 		return false;
+	}
+
+	void showPromptVolume(ADChannel channel, bool isNegate, bool isKeyboard, InputSource* replacing)
+	{
+		isListeningForInput = ListenState::WaitForButtonRelease;
+		isBindingVolume = true;
+		currentVolumeChannel = channel;
+		currentIsNegate = isNegate;
+		isBindingKeyboard = isKeyboard;
+		currentlyBinding = InputManager::volumeNames[int(channel)];
+		currentSourceReplacing = replacing;
+		bindScreenDisplayTime = BindScreenTimeout;
+	}
+
+	void showPromptSwitch(SwitchId switchId, bool isNegate, bool isKeyboard, InputSource* replacing)
+	{
+		isListeningForInput = ListenState::WaitForButtonRelease;
+		isBindingVolume = false;
+		currentSwitchId = switchId;
+		currentIsNegate = isNegate;
+		isBindingKeyboard = isKeyboard;
+		currentlyBinding = InputManager::switchNames[int(switchId)];
+		currentSourceReplacing = replacing;
+		bindScreenDisplayTime = BindScreenTimeout;
 	}
 
 	void render(bool overlayEnabled) override
@@ -1364,8 +1378,6 @@ public:
 			padType = SDL_GetGamepadType(primary);
 
 		bool dialogOpen = true;
-		if ((manager.switch_overlay & (1 << int(SwitchId::Back) | 1 << int(SwitchId::B))) != 0)
-			dialogOpen = false;
 
 		static bool unsavedChanges = false;
 
@@ -1448,22 +1460,27 @@ public:
 						// Controller binding
 						{
 							ImGui::TableNextColumn();
-							std::string controllerBind = "None";
+
+							// Show all bindings for this action
+							int sourceIdx = 0;
+							bool hasBinds = false;
 							for (const auto& source : volAction.sources())
 							{
 								if (dynamic_cast<const GamepadSource*>(source.get()))
 								{
-									controllerBind = source->getBindingName(padType, i == 0);
-									break;
+									hasBinds = true;
+
+									if (ImGui::Button(std::format("{}##vol_ctrl_{}_{}", source->getBindingName(padType, i == 0), i, sourceIdx).c_str()))
+										showPromptVolume(ADChannel(i), source->isNegated(), false, source.get());
 								}
+								sourceIdx++;
 							}
-							if (ImGui::Button(std::format("{}##vol_ctrl_{}", controllerBind, i).c_str()))
+
+							// If no binds were displayed, show a single None button to allow user to bind it
+							if (!hasBinds)
 							{
-								isListeningForInput = ListenState::WaitForButtonRelease;
-								isBindingVolume = true;
-								isBindingKeyboard = false;
-								currentVolumeChannel = static_cast<ADChannel>(i);
-								currentlyBinding = manager.volumeNames[i];
+								if (ImGui::Button(std::format("None##vol_ctrl_{}", i).c_str()))
+									showPromptVolume(ADChannel(i), false, false, nullptr);
 							}
 						}
 
@@ -1491,29 +1508,13 @@ public:
 								}
 							}
 							if (ImGui::Button(std::format("{}##vol_kb_neg_{}", kbd_negative, i).c_str()))
-							{
-								isListeningForInput = ListenState::WaitForButtonRelease;
-								isBindingVolume = true;
-								isBindingKeyboard = true;
-								currentVolumeChannel = static_cast<ADChannel>(i);
-								currentlyBinding = manager.volumeNames[i];
-								currentIsNegate = volChannel == ADChannel::Steering ? true : false;
-								bindScreenDisplayTime = BindScreenTimeout;
-							}
+								showPromptVolume(ADChannel(i), volChannel == ADChannel::Steering ? true : false, true, nullptr);
 
 							if (volChannel == ADChannel::Steering)
 							{
 								ImGui::SameLine();
 								if (ImGui::Button(std::format("{}##vol_kb_pos_{}", kbd_positive, i).c_str()))
-								{
-									isListeningForInput = ListenState::WaitForButtonRelease;
-									isBindingVolume = true;
-									isBindingKeyboard = true;
-									currentVolumeChannel = static_cast<ADChannel>(i);
-									currentlyBinding = manager.volumeNames[i];
-									currentIsNegate = false;
-									bindScreenDisplayTime = BindScreenTimeout;
-								}
+									showPromptVolume(ADChannel(i), false, true, nullptr);
 							}
 						}
 					}
@@ -1540,23 +1541,25 @@ public:
 						// Controller binding
 						{
 							ImGui::TableNextColumn();
-							std::string controllerBind = "None";
+
+							// Show all bindings for this action
+							int sourceIdx = 0;
+							bool hasBinds = false;
 							for (const auto& source : switchAction.sources())
 							{
 								if (dynamic_cast<const GamepadSource*>(source.get()))
 								{
-									controllerBind = source->getBindingName();
-									break;
+									hasBinds = true;
+
+									if (ImGui::Button(std::format("{}##switch_ctrl_{}_{}", source->getBindingName(), i, sourceIdx).c_str()))
+										showPromptSwitch(SwitchId(i), source->isNegated(), false, source.get());
 								}
+								sourceIdx++;
 							}
-							if (ImGui::Button(std::format("{}##switch_ctrl_{}", controllerBind, i).c_str()))
-							{
-								isListeningForInput = ListenState::WaitForButtonRelease;
-								isBindingVolume = false;
-								isBindingKeyboard = false;
-								currentSwitchId = static_cast<SwitchId>(i);
-								currentlyBinding = manager.switchNames[i];
-							}
+
+							if(!hasBinds)
+								if (ImGui::Button(std::format("None##switch_ctrl_{}", i).c_str()))
+									showPromptSwitch(SwitchId(i), false, false, nullptr);
 						}
 
 						// Keyboard binding
@@ -1572,14 +1575,7 @@ public:
 								}
 							}
 							if (ImGui::Button(std::format("{}##switch_kb_{}", keyboardBind, i).c_str()))
-							{
-								isListeningForInput = ListenState::WaitForButtonRelease;
-								isBindingVolume = false;
-								isBindingKeyboard = true;
-								currentSwitchId = static_cast<SwitchId>(i);
-								currentlyBinding = manager.switchNames[i];
-								bindScreenDisplayTime = BindScreenTimeout;
-							}
+								showPromptSwitch(SwitchId(i), false, true, nullptr);
 						}
 					}
 					ImGui::EndTable();
@@ -1627,7 +1623,13 @@ public:
 			}
 
 			// Input listening overlay
-			if (isListeningForInput != ListenState::False)
+			if (isListeningForInput == ListenState::False)
+			{
+				// Close bind dialog if user pressed back/B
+				if ((manager.switch_overlay & (1 << int(SwitchId::Back) | 1 << int(SwitchId::B))) != 0)
+					dialogOpen = false;
+			}
+			else
 			{
 				if (isListeningForInput == ListenState::WaitForButtonRelease)
 				{
@@ -1635,6 +1637,13 @@ public:
 					if (!manager.anyInputPressed())
 					{
 						isListeningForInput = ListenState::Listening;
+					}
+				}
+				else if (isListeningForInput == ListenState::WaitForBindButtonRelease)
+				{
+					if (!manager.anyInputPressed())
+					{
+						isListeningForInput = ListenState::False;
 					}
 				}
 				else if (isListeningForInput == ListenState::Listening)
