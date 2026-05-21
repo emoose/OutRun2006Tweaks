@@ -302,7 +302,10 @@ void Plugin_Init()
 		spdlog::error("Settings::read - Launching game with default OR2006Tweaks INI settings!");
 
 	if (std::filesystem::exists(Module::UserIniPath))
+	{
+		Settings::CDTracks.clear();
 		Settings::read(Module::UserIniPath);
+	}
 
 	Settings::to_log();
 
