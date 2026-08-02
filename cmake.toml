@@ -52,17 +52,20 @@ type = "static"
 sources = ["external/spdlog/src/*.cpp"]
 include-directories = ["external/spdlog/include"]
 compile-definitions = ["SPDLOG_COMPILED_LIB", "_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR"]
-compile-options = []
+# /utf-8: newer fmt (bundled in spdlog) #errors out on MSVC unless the source
+# and execution charsets are both UTF-8. It is a header-level check, so every
+# TU that includes spdlog needs this - see outrun2006tweaks below.
+compile-options = ["/utf-8"]
 
 [fetch-content]
 zydis = { git = "https://github.com/zyantific/zydis", tag = "v4.0.0" }
 safetyhook = { git = "https://github.com/cursey/safetyhook", tag = "629558c64009a7291ba6ed5cfb49187086a27a47" }
-ogg = { git = "https://github.com/xiph/ogg", tag = "v1.3.5" }
-flac = { git = "https://github.com/xiph/flac", tag = "1.4.3" }
-miniupnpc = { git = "https://github.com/miniupnp/miniupnp", tag = "miniupnpd_2_3_7", subdir = "miniupnpc" }
-jsoncpp = { git = "https://github.com/open-source-parsers/jsoncpp.git", tag = "1.9.6" }
-zlib = { git = "https://github.com/madler/zlib", tag = "v1.3.1" }
-sdl = { git = "https://github.com/libsdl-org/SDL", tag = "preview-3.1.8" }
+ogg = { git = "https://github.com/xiph/ogg", tag = "v1.3.6" }
+flac = { git = "https://github.com/xiph/flac", tag = "1.5.0" }
+miniupnpc = { git = "https://github.com/miniupnp/miniupnp", tag = "miniupnpd_2_3_10", subdir = "miniupnpc" }
+jsoncpp = { git = "https://github.com/open-source-parsers/jsoncpp.git", tag = "1.9.8" }
+zlib = { git = "https://github.com/madler/zlib", tag = "v1.3.2" }
+sdl = { git = "https://github.com/libsdl-org/SDL", tag = "release-3.4.12" }
 
 [target.outrun2006tweaks]
 type = "shared"
@@ -88,7 +91,7 @@ include-directories = ["shared/", "src/", "include/",
     "external/imgui/",
 	"external/IXWebSocket/"
 ]
-compile-options = ["/GS-", "/bigobj", "/EHa", "/MP"]
+compile-options = ["/GS-", "/bigobj", "/EHa", "/MP", "/utf-8"]
 link-options = ["/DEBUG", "/OPT:REF", "/OPT:ICF"]
 compile-features = ["cxx_std_20"]
 compile-definitions = ["_SILENCE_STDEXT_ARR_ITERS_DEPRECATION_WARNING", "_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR", "DIRECTINPUT_VERSION=0x0800"]

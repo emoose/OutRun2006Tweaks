@@ -91,59 +91,59 @@ FetchContent_Declare(safetyhook
 )
 FetchContent_MakeAvailable(safetyhook)
 
-message(STATUS "Fetching ogg (v1.3.5)...")
+message(STATUS "Fetching ogg (v1.3.6)...")
 FetchContent_Declare(ogg
 	GIT_REPOSITORY
 		"https://github.com/xiph/ogg"
 	GIT_TAG
-		v1.3.5
+		v1.3.6
 )
 FetchContent_MakeAvailable(ogg)
 
-message(STATUS "Fetching flac (1.4.3)...")
+message(STATUS "Fetching flac (1.5.0)...")
 FetchContent_Declare(flac
 	GIT_REPOSITORY
 		"https://github.com/xiph/flac"
 	GIT_TAG
-		1.4.3
+		1.5.0
 )
 FetchContent_MakeAvailable(flac)
 
-message(STATUS "Fetching miniupnpc (miniupnpd_2_3_7)...")
+message(STATUS "Fetching miniupnpc (miniupnpd_2_3_10)...")
 FetchContent_Declare(miniupnpc
 	GIT_REPOSITORY
 		"https://github.com/miniupnp/miniupnp"
 	GIT_TAG
-		miniupnpd_2_3_7
+		miniupnpd_2_3_10
 	SOURCE_SUBDIR
 		miniupnpc
 )
 FetchContent_MakeAvailable(miniupnpc)
 
-message(STATUS "Fetching jsoncpp (1.9.6)...")
+message(STATUS "Fetching jsoncpp (1.9.8)...")
 FetchContent_Declare(jsoncpp
 	GIT_REPOSITORY
 		"https://github.com/open-source-parsers/jsoncpp.git"
 	GIT_TAG
-		1.9.6
+		1.9.8
 )
 FetchContent_MakeAvailable(jsoncpp)
 
-message(STATUS "Fetching zlib (v1.3.1)...")
+message(STATUS "Fetching zlib (v1.3.2)...")
 FetchContent_Declare(zlib
 	GIT_REPOSITORY
 		"https://github.com/madler/zlib"
 	GIT_TAG
-		v1.3.1
+		v1.3.2
 )
 FetchContent_MakeAvailable(zlib)
 
-message(STATUS "Fetching sdl (preview-3.1.8)...")
+message(STATUS "Fetching sdl (release-3.4.12)...")
 FetchContent_Declare(sdl
 	GIT_REPOSITORY
 		"https://github.com/libsdl-org/SDL"
 	GIT_TAG
-		preview-3.1.8
+		release-3.4.12
 )
 FetchContent_MakeAvailable(sdl)
 
@@ -167,6 +167,10 @@ source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${spdlog_SOURCES})
 target_compile_definitions(spdlog PUBLIC
 	SPDLOG_COMPILED_LIB
 	_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR
+)
+
+target_compile_options(spdlog PUBLIC
+	"/utf-8"
 )
 
 target_include_directories(spdlog PUBLIC
@@ -308,10 +312,13 @@ set(outrun2006tweaks_SOURCES
 	"src/hooks_textures.cpp"
 	"src/hooks_uiscaling.cpp"
 	"src/input_manager.cpp"
+	"src/input_manager.hpp"
+	"src/input_names.hpp"
 	"src/network.cpp"
 	"src/overlay/chatroom.cpp"
 	"src/overlay/course_editor.cpp"
 	"src/overlay/hooks_overlay.cpp"
+	"src/overlay/input_bindings_ui.cpp"
 	"src/overlay/notifications.hpp"
 	"src/overlay/overlay.cpp"
 	"src/overlay/overlay.hpp"
@@ -341,6 +348,7 @@ target_compile_options(outrun2006tweaks PUBLIC
 	"/bigobj"
 	"/EHa"
 	"/MP"
+	"/utf-8"
 )
 
 target_include_directories(outrun2006tweaks PUBLIC
