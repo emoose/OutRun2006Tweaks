@@ -268,6 +268,11 @@ private:
 		"Change View"
 	};
 
+	// switchNames must stay 1:1 with SwitchId - the ini reader/writer index both
+	// by the same value. (volumeNames deliberately does NOT match ADChannel:
+	// the enum reserves 4 unused AD channels, so always bound by std::size.)
+	static_assert(std::size(switchNames) == size_t(SwitchId::Count));
+
 	static int Sumo_CalcSteerSensitivity_wrapper(int a1, int a2)
 	{
 		int returnValue;
@@ -549,7 +554,7 @@ public:
 
 		const std::string trimmed(name);
 
-		for (int i = 0; i < int(ADChannel::Count); i++)
+		for (int i = 0; i < int(std::size(volumeNames)); i++)
 			if (!stricmp(trimmed.c_str(), volumeNames[i].c_str()))
 			{
 				ref.isVolume = true;
@@ -678,7 +683,7 @@ public:
 			}
 		};
 
-		for (int i = 0; i < int(ADChannel::Count); ++i)
+		for (int i = 0; i < int(std::size(volumeNames)); ++i)
 			writeAction(volumeNames[i], volumeBindings[i]);
 
 		for (int i = 0; i < int(SwitchId::Count); ++i)
