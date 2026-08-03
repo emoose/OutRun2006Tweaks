@@ -99,55 +99,125 @@ public:
 	}
 };
 
-class SumoUIFlashingTextFix : public Hook
+//
+// Every 2D draw in the game, sprites and individual text glyphs alike, is
+// queued rather than drawn immediately: draw_entried_sprites walks the queue
+// once per rendered frame, drawing and unlinking as it goes, a queued draw 
+// only survives that frame.
+//
+// Most of the game queues draws from a _Disp callback, which runs every rendered
+// frame. The Sumo front-end UI queues from its _Ctrl instead, which only runs
+// on a game sim tick.
+// Above 60FPS not every frame runs a tick, and on the frames that don't, nothing 
+// queues that UI draw at all, causing a flicker to show on some UI elements where 
+// the draw had been skipped.
+// (text entry UI, showroom purchase prompt, sign-in status text)
+//
+// Rather than trying to hook all the individual callers (which the Sumo UI has 
+// dozens of, behind different vtables), this works on the queue itself.
+// Immediately after the sim tick the queue only holds whatever the sim tick had
+// chosen to draw, and nothing else, since the render path has not run yet and the 
+// last frame's entries were already unlinked at the end of it.
+// 
+// So we just snapshot there on frames that tick, and re-queue that snapshot on frames
+// that don't.
+//
+namespace SumoUISpriteReplay
 {
-	static SumoUIFlashingTextFix instance;
-
-	// Hacky fix for the flashing "Not Signed In" / "Signed In As" text when playing above 60FPS
-	// Normally SumoFrontEndEvent_Ctrl calls into SumoFrontEnd_animate function, which then handles drawing the text
-	// SumoFrontEndEvent_Ctrl is only ran at 60FPS however, and will skip frames when running above that
-	// (If playing at 120FPS, 1/2 frames will skip calling EventControl, which will skip running SumoFrontEndEvent_Ctrl, and the text won't be drawn that frame)
-	// 
-	// Unfortunately running SumoFrontEndEvent_Ctrl every frame makes the C2C UI speed up too
-	// Instead this just removes the original SumoFrontEnd_animate caller, and handles calling that function ourselves every frame instead
-	// 
-	// TODO: this fixes the Not Signed In text, but there are still other flashing Sumo menus that need a fix too (eg. showroom menus), maybe there's others too?
-public:
-	static void draw()
+	// One captured draw. kind_C selects which payload struct the draw uses and
+	// the other is left zeroed, so keeping both avoids interpreting either.
+	struct Entry
 	{
-		if (!instance.active())
+		float priority;
+		uint32_t kind;
+		SPRARGS args;
+		SPRARGS2 args2;
+	};
+
+	static Entry Captured[Game::SpriteNodeMax];
+	static int CapturedCount = 0;
+
+	static bool available()
+	{
+		return Game::sprite_prio_root && Game::put_sprite_ex;
+	}
+
+	// Copies out every pending draw. The walk matches draw_entried_sprites: one
+	// list head per priority, first node at next_0, then next_0 node to node.
+	static void capture()
+	{
+		CapturedCount = 0;
+		if (!available())
 			return;
 
-		// Make sure sumo FE event is active...
-		uint8_t* status = Module::exe_ptr<uint8_t>(0x39FB48);
-		if ((status[0x195] & 0x18) == 0 && (status[0x195] & 2) != 0) // 0x195 = EVENT_SUMOFE
+		for (int prio = 0; prio < Game::SpritePriorityCount; prio++)
 		{
-			uint8_t* frontend = (uint8_t*)Game::SumoFrontEnd_GetSingleton_4035F0();
-			// Check we're in the right state #
-			if (frontend && *(int*)(frontend + 0x218) == 2)
-				Game::SumoFrontEnd_animate_443110(frontend, 0);
+			const SpriteNode* root = Game::sprite_prio_root[prio];
+			if (!root)
+				continue;
+
+			for (const SpriteNode* node = root->next_0; node; node = node->next_0)
+			{
+				// The node pool is SpriteNodeMax entries, so the queue can't exceed it.
+				if (CapturedCount >= Game::SpriteNodeMax)
+					return;
+
+				Entry& entry = Captured[CapturedCount++];
+				entry.priority = float(prio);
+				entry.kind = node->kind_C;
+				entry.args = node->args_10;
+				entry.args2 = node->args2_58;
+			}
 		}
 	}
-	std::string_view description() override
+
+	// Puts the captured draws back, in capture order and at the same point in the
+	// frame the originals were queued, so draws sharing a priority keep their
+	// relative order.
+	//
+	// Nodes are allocated by calling put_sprite_ex rather than by hand, to keep
+	// the game's pool bookkeeping correct, then overwritten with the captured
+	// body. It is only ever given a throwaway copy: hooks_textures hooks it and
+	// rewrites the SPRARGS in place to remap UVs onto a replacement texture,
+	// which a captured draw has already had done to it once.
+	static void replay()
 	{
-		return "SumoUIFlashingTextFix";
+		if (!available())
+			return;
+
+		for (int i = 0; i < CapturedCount; i++)
+		{
+			const Entry& entry = Captured[i];
+			const int prio = int(entry.priority);
+
+			const SpriteNode* before = Game::sprite_prio_root[prio];
+			const SpriteNode* tailBefore = before ? before->tail_4 : nullptr;
+
+			SPRARGS scratch = entry.args;
+			Game::put_sprite_ex(&scratch, entry.priority);
+
+			// tail_4 is the node linked last, so an unchanged tail means the
+			// pool was full and nothing was linked.
+			SpriteNode* root = Game::sprite_prio_root[prio];
+			SpriteNode* node = root ? root->tail_4 : nullptr;
+			if (!node || node == tailBefore)
+				continue;
+
+			node->kind_C = entry.kind;
+			node->args_10 = entry.args;
+			node->args2_58 = entry.args2;
+		}
 	}
 
-	bool validate() override
+	// Call once per rendered frame, after the tick loop, before the render path.
+	static void update(int numUpdates)
 	{
-		return (Settings::FramerateLimit == 0 || Settings::FramerateLimit > 60) && Settings::FramerateUnlockExperimental;
+		if (numUpdates > 0)
+			capture();
+		else
+			replay();
 	}
-
-	bool apply() override
-	{
-
-		constexpr int SumoFe_Animate_CallerAddr = 0x45C4E;
-		Memory::VP::Nop(Module::exe_ptr(SumoFe_Animate_CallerAddr), 5);
-		return true;
-	}
-
-};
-SumoUIFlashingTextFix SumoUIFlashingTextFix::instance;
+}
 
 class ReplaceGameUpdateLoop : public Hook
 {
@@ -293,8 +363,6 @@ class ReplaceGameUpdateLoop : public Hook
 				DInput_RegisterNewDevices();
 		}
 
-		SumoUIFlashingTextFix::draw();
-
 		for (int curUpdateIdx = 0; curUpdateIdx < numUpdates; curUpdateIdx++)
 		{
 			Interp::BeforeTick();
@@ -323,6 +391,11 @@ class ReplaceGameUpdateLoop : public Hook
 
 			Interp::AfterTick();
 		}
+
+		// Keeps tick-drawn UI present on frames that skip a tick. Must sit after
+		// the last tick and before the render path queues any draw of its own.
+		if (Settings::FramerateUnlockExperimental)
+			SumoUISpriteReplay::update(numUpdates);
 
 		// Re-run the display-matrix builders with a fractional alpha. Must be
 		// the last thing we do: the mid-hook returns straight into the game's

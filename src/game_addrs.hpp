@@ -22,6 +22,12 @@ typedef void(__cdecl* CalcCameraMatrix_fn)(EvWorkCamera*);
 typedef float(__cdecl* GetInterpAlpha_fn)();
 typedef void(__cdecl* mxCalcPoint_fn)(D3DVECTOR* out, const D3DVECTOR* in);
 
+// Queues 2D draws into sprite_prio_root
+// 
+// Note: not const! hooks_textures hooks this and rewrites the SPRARGS in place to
+// remap UVs onto a higher-resolution replacement texture.
+typedef void(__cdecl* put_sprite_ex_fn)(SPRARGS* sprargs, float priority);
+
 // Module offsets used outside of this file.
 namespace GameAddr
 {
@@ -193,11 +199,15 @@ namespace Game
 	inline fn_2args sprLocateP = nullptr;
 	inline fn_printf sprPrintf = nullptr;
 
+	// The per-frame 2D draw queue itself: one list head per priority.
+	inline SpriteNode** sprite_prio_root = nullptr;
+	inline put_sprite_ex_fn put_sprite_ex = nullptr;
+
+	inline constexpr int SpritePriorityCount = 0x15;
+	inline constexpr int SpriteNodeMax = 0x230; // ring capacity of spr_list
+
 	inline fn_1arg_char Sumo_GetStringFromId = nullptr;
 	inline fn_printf Sumo_Printf = nullptr;
-
-	inline fn_0args_void SumoFrontEnd_GetSingleton_4035F0 = nullptr;
-	inline fn_0args_class SumoFrontEnd_animate_443110 = nullptr;
 
 	// 3d drawing
 	inline DrawObject_Internal_fn DrawObject_Internal = nullptr;
@@ -412,11 +422,11 @@ namespace Game
 		sprLocateP = Module::fn_ptr<fn_2args>(0x2CC00);
 		sprPrintf = Module::fn_ptr<fn_printf>(0x2CCE0);
 
+		sprite_prio_root = Module::exe_ptr<SpriteNode*>(0x556C00);
+		put_sprite_ex = Module::fn_ptr<put_sprite_ex_fn>(0x2CFE0);
+
 		Sumo_GetStringFromId = Module::fn_ptr<fn_1arg_char>(0x65EB0);
 		Sumo_Printf = Module::fn_ptr<fn_printf>(0x2CDD0);
-
-		SumoFrontEnd_GetSingleton_4035F0 = Module::fn_ptr<fn_0args_void>(0x35F0);
-		SumoFrontEnd_animate_443110 = Module::fn_ptr<fn_0args_class>(0x43110);
 
 		DrawObject_Internal = Module::fn_ptr<DrawObject_Internal_fn>(0x5360);
 		DrawObjectAlpha_Internal = Module::fn_ptr<DrawObjectAlpha_Internal_fn>(0x56D0);

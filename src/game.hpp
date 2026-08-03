@@ -1213,6 +1213,23 @@ typedef struct tagSPRARGS2
 } SPRARGS2;
 static_assert(sizeof(SPRARGS2) == 0xB8);
 
+// A queued 2D draw, allocated from the spr_list ring by put_sprite_ex (fills
+// args_10, kind_C = 0) or put_sprite_ex2 (fills args2_58, kind_C = 1)
+// sprite_prio_root holds one list head per priority, itself a node of this shape using only the link fields.
+//
+// draw_entried_sprites walks each list, draws it, and unlinks the lot at the end
+// of every rendered frame, so a node only lives for the frame that queued it.
+typedef struct tagSpriteNode
+{
+	tagSpriteNode* next_0;  // on a list head: first node in the list
+	tagSpriteNode* tail_4;  // on a list head: last node added
+	tagSpriteNode* owner_8;
+	uint32_t kind_C;
+	SPRARGS args_10;
+	SPRARGS2 args2_58;
+} SpriteNode;
+static_assert(sizeof(SpriteNode) == 0x110);
+
 typedef struct tagEvWorkRobot
 {
 	uint32_t workId_0;
