@@ -209,6 +209,38 @@ public:
 	void setState(const InputState& state) { this->state_ = state; }
 };
 
+// ReadSwitch translates the raw DirectInput button mask into the SwitchId bits
+// the rest of the game uses. Code that reads the raw mask instead needs to see
+// the same presses, so this is that translation table, inverted.
+struct RawButtonMapping
+{
+	uint32_t rawBit;
+	SwitchId switchId;
+};
+inline constexpr RawButtonMapping RawButtonMap[] = {
+	{ 0x00000001, SwitchId::Start          },
+	{ 0x00000200, SwitchId::Back           },
+	{ 0x00000002, SwitchId::A              },
+	{ 0x00000004, SwitchId::B              },
+	{ 0x00000008, SwitchId::X              },
+	{ 0x00000010, SwitchId::Y              },
+	{ 0x00000040, SwitchId::SelectionUp    },
+	{ 0x00000020, SwitchId::SelectionDown  },
+	{ 0x00000100, SwitchId::SelectionLeft  },
+	{ 0x00000080, SwitchId::SelectionRight },
+	{ 0x00000800, SwitchId::License        },
+	{ 0x00000400, SwitchId::SignIn         },
+	{ 0x08000000, SwitchId::Unknown0x200   },
+	{ 0x00100000, SwitchId::Unknown0x100   },
+};
+
+// Two buttons that ReadSwitch has no entry for, so they reach the game only
+// through the raw mask. A DirectInput pad reports the triggers here, and the
+// Sumo car select screen toggles between its two car lists on the right one.
+inline constexpr uint32_t RawTriggerLeft = 0x1000;
+inline constexpr uint32_t RawTriggerRight = 0x2000;
+inline constexpr float RawTriggerThreshold = 0.5f;
+
 class InputManager
 {
 	std::array<InputAction, size_t(ADChannel::Count)> volumeBindings;
@@ -229,6 +261,13 @@ class InputManager
 	uint32_t switch_current;
 	uint32_t switch_previous;
 	uint32_t switch_overlay;
+
+	// Mirror of the raw DirectInput masks. Edges are tracked here rather than
+	// read back out of the game's copy, because DInputUpdate rewrites the same
+	// fields whenever a device is still being polled.
+	uint32_t raw_buttons = 0;
+	uint32_t raw_pressed = 0;
+	uint32_t raw_released = 0;
 
 	// Latched until the user releases everything - see update().
 	// Previously function-local statics inside update().
@@ -816,6 +855,43 @@ public:
 
 		if (suppressGameUntilRelease || Overlay::IsBindingDialogActive) [[unlikely]]
 			switch_current = 0;
+
+		updateRawDInputState();
+	}
+
+	// Rebuilds the raw DirectInput masks from the bindings. Called once per
+	// update so that a held button produces a single press edge.
+	void updateRawDInputState()
+	{
+		uint32_t buttons = 0;
+		for (const auto& mapping : RawButtonMap)
+			if (switch_current & (1u << int(mapping.switchId)))
+				buttons |= mapping.rawBit;
+
+		if (volumes[int(ADChannel::Acceleration)].currentValue >= RawTriggerThreshold)
+			buttons |= RawTriggerRight;
+		if (volumes[int(ADChannel::Brake)].currentValue >= RawTriggerThreshold)
+			buttons |= RawTriggerLeft;
+
+		raw_pressed = buttons & ~raw_buttons;
+		raw_released = raw_buttons & ~buttons;
+		raw_buttons = buttons;
+
+		applyRawDInputState();
+	}
+
+	// Copies the cached masks into the game's state. Also called after ReadIO,
+	// which rebuilds them from whatever device DInputUpdate polled. Copying
+	// rather than recomputing means running twice in a frame cannot swallow a
+	// press edge.
+	void applyRawDInputState()
+	{
+		if (!Game::dinput_state)
+			return;
+
+		Game::dinput_state->buttons_4 = raw_buttons;
+		Game::dinput_state->pressed_8 = raw_pressed;
+		Game::dinput_state->released_C = raw_released;
 	}
 
 	void setVibration(WORD left, WORD right)

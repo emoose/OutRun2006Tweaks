@@ -70,6 +70,17 @@ class NewInputHook : public Hook
 		return VolumeSwitch_hook.ccall<int>(volumeId);
 	}
 
+	// ReadIO updates the dinput_state structs values with data from dinput.
+	// Hook that so we can overwrite them afterward.
+	// (needed due to some Sumo UI code peeking the dinput data directly instead of using SwitchOn/GetVolume/etc)
+	inline static SafetyHookInline ReadIO_hook = {};
+	static int ReadIO_dest()
+	{
+		int result = ReadIO_hook.ccall<int>();
+		InputManager::instance.applyRawDInputState();
+		return result;
+	}
+
 	inline static SafetyHookMid WindowInit_hook = {};
 	static void WindowInit_dest(SafetyHookContext& ctx)
 	{
@@ -100,6 +111,7 @@ public:
 		GetVolume_hook = safetyhook::create_inline(Module::exe_ptr(0x53720), GetVolume_dest);
 		GetVolumeOld_hook = safetyhook::create_inline(Module::exe_ptr(0x53750), GetVolumeOld_dest);
 		VolumeSwitch_hook = safetyhook::create_inline(Module::exe_ptr(0x53780), VolumeSwitch_dest);
+		ReadIO_hook = safetyhook::create_inline(Module::exe_ptr(0x53BB0), ReadIO_dest);
 		WindowInit_hook = safetyhook::create_mid(Module::exe_ptr(0xEB2B), WindowInit_dest);
 
 		// Remove code that showed old config screen

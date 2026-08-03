@@ -118,6 +118,36 @@ enum class SwitchId // SwitchOn/SwitchNow bit indexes
 	Count
 };
 
+// The game's raw DirectInput state, rebuilt by DInputUpdate at the top of every
+// ReadIO. Most input reaches the game through SwitchOn and GetVolume, but parts
+// of the Sumo UI and the camera code test these button masks directly instead,
+// so presses have to appear here as well or those inputs never register.
+typedef struct tagSumoDInputState
+{
+	uint8_t gap0[4];
+	uint32_t buttons_4;      // currently held, one bit per button
+	uint32_t pressed_8;      // buttons_4 & ~previous
+	uint32_t released_C;     // previous & ~buttons_4
+	uint8_t gap10[4];
+	uint32_t field_14[2];
+	uint32_t field_1C[2];
+	uint32_t field_24[28];
+	uint16_t axes_94[25];    // raw axis values, scaled by ReadVolume
+	uint8_t unk_C6[2];
+	uint8_t unk_C8[60];
+	uint32_t dword104;
+	uint32_t field_108;
+	int int10C;
+	uint8_t gap110[108];
+	uint8_t byte17C;
+	uint8_t unk_17D[3];
+	uint8_t unk_180[24];
+	char field_198[28];
+	uint8_t field_1B4[28];
+	uint32_t deviceReady_1D0; // ReadIO reads a different config table when zero
+} SumoDInputState;
+static_assert(sizeof(SumoDInputState) == 0x1D4);
+
 enum GameState
 {
 	STATE_SYSTEM = 0x0,

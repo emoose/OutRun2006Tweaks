@@ -163,6 +163,7 @@ namespace Game
 	inline mxCalcPoint_fn mxCalcPoint = nullptr;  // 0x40A7D0
 
 	inline fn_0args ReadIO = nullptr;
+	inline SumoDInputState* dinput_state = nullptr;
 	inline fn_0args SoundControl_mb = nullptr;
 	inline fn_0args LinkControlReceive = nullptr;
 	inline fn_0args ModeControl = nullptr;
@@ -387,6 +388,7 @@ namespace Game
 		CalcCharMatrixAddr = reinterpret_cast<uintptr_t>(Module::exe_ptr(GameAddr::CalcCharMatrix));
 
 		ReadIO = Module::fn_ptr<fn_0args>(0x53BB0); // ReadIO
+		dinput_state = Module::exe_ptr<SumoDInputState>(0x4999C0);
 		SoundControl_mb = Module::fn_ptr<fn_0args>(0x2F330); // SoundControl_mb
 		LinkControlReceive = Module::fn_ptr<fn_0args>(0x55130); // LinkControlReceive
 		ModeControl = Module::fn_ptr<fn_0args>(0x3FA20); // ModeControl
