@@ -215,7 +215,10 @@ public:
 
     bool validate() override
     {
-        return Settings::ImpulseVibrationMode != 0 && Settings::VibrationMode != 0 && !Settings::UseNewInput;
+        // TODO: This should disable when UseNewInput is on, since SDL3 is meant to support trigger rumble
+        // But some reason I couldn't get it to work through SDL3 with any backend? (GameInput/RawInput/WGI/DirectInput)
+        // Fortunately keeping this hook active seems to work with it at least.
+        return Settings::ImpulseVibrationMode != 0 && Settings::VibrationMode != 0; // && !Settings::UseNewInput;  
     }
 
     bool apply() override

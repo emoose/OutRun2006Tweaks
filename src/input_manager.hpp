@@ -903,7 +903,10 @@ public:
 		std::lock_guard<std::mutex> lock(mtx);
 		SDL_RumbleGamepad(controller, left, right, 1000);
 
-		if (!Settings::ImpulseVibrationMode)
+		// TODO: SDL_RumbleGamepadTriggers doesn't appear to work with any backend?
+		// Disabling this code for now, we'll rely on the old ImpulseVibration / DetourDeviceIoControl method instead.
+#if 0
+		if (Settings::ImpulseVibrationMode != 0)
 		{
 			int impulseLeft = float(left);
 			int impulseRight = float(right);
@@ -921,6 +924,7 @@ public:
 			impulseRight = impulseRight * Settings::ImpulseVibrationRightMultiplier;
 			SDL_RumbleGamepadTriggers(controller, Uint16(ceil(impulseLeft)), Uint16(ceil(impulseRight)), 1000);
 		}
+#endif
 	}
 
 	// Add sources to bindings
