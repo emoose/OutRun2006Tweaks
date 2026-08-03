@@ -81,6 +81,9 @@ namespace Settings
 	inline bool FramerateLimitMode = 0;
 	inline int FramerateFastLoad = 3;
 	inline bool FramerateUnlockExperimental = true;
+	inline bool FramerateInterpolation = false;
+	inline float FramerateInterpolationDebugAlpha = -1.0f;
+	inline bool FramerateInterpolationDebugLog = false;
 	inline int VSync = 1;
 	inline bool SingleCoreAffinity = true;
 

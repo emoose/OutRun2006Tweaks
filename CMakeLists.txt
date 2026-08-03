@@ -314,6 +314,8 @@ set(outrun2006tweaks_SOURCES
 	"src/input_manager.cpp"
 	"src/input_manager.hpp"
 	"src/input_names.hpp"
+	"src/interpolation.cpp"
+	"src/interpolation.hpp"
 	"src/network.cpp"
 	"src/overlay/chatroom.cpp"
 	"src/overlay/course_editor.cpp"

@@ -13,6 +13,31 @@ typedef void(__cdecl* DrawObject_Internal_fn)(int, int, uint16_t*, int, int, int
 typedef void(__cdecl* DrawObjectAlpha_Internal_fn)(int, float, void*, int);
 typedef void(__cdecl* mxPopMatrix_fn)();
 
+// Frame interpolation: display-matrix builders, safe to re-run per rendered
+// frame. Both read their blend factor from sub_4493E0 -> g_InterpAlpha.
+typedef void(__cdecl* CalcDispMatrix_fn)(EVWORK_CAR*);
+typedef void(__cdecl* CalcCameraMatrix_fn)(EvWorkCamera*);
+// sub_4493E0: returns the effective interpolation alpha - g_InterpAlpha normally,
+// but a hard 1.0 during autoscenes (GetPettyAutoSceneEnable / GetAutosceneStatus==3).
+typedef float(__cdecl* GetInterpAlpha_fn)();
+typedef void(__cdecl* mxCalcPoint_fn)(D3DVECTOR* out, const D3DVECTOR* in);
+
+// Module offsets used outside of this file.
+namespace GameAddr
+{
+	constexpr int CalcDispMatrix = 0xA2650;
+	constexpr int CalcCameraMatrix = 0x84BD0;
+	constexpr int CalcCharMatrix = 0x88AF0;   // sub_488AF0, __usercall
+	constexpr int OsoDynamics_Ctrl = 0xA9C80;
+	constexpr int OsoDynamics_Disp = 0xA9DF0;
+	constexpr int OsoCommonFunc_Disp = 0xA8A90;
+	constexpr int OsoCommon_PushMatrix = 0xA8AAE; // push esi, just before mxPushLoadMatrix
+	constexpr int OsoCommon_AfterPush = 0xA8AB4;  // add esp, 4, just after it
+	// push ebp in HeartDisp_car_heart, where ebp holds the attached-heart
+	// animation angle - used for both Sinf (bob/squash) and mxRotateY (spin).
+	constexpr int HeartDisp_PulseAngle = 0x5B43A;
+}
+
 namespace Game
 {
 	inline D3DXVECTOR2 original_resolution{ 640, 480 };
@@ -81,6 +106,56 @@ namespace Game
 
 	inline fn_1arg fn43FA10 = nullptr;
 
+	// --- frame interpolation ---
+	// The game has a complete render-interpolation system that is disabled by
+	// a hardcoded constant. Car *_Ctrl functions copy the current transform into
+	// a "previous" slot each tick (position_14 -> field_16C, field_2C ->
+	// field_17C), and the display-matrix builders lerp between them using a
+	// single global alpha read via sub_4493E0:
+	//
+	//     if (GetPettyAutoSceneEnable() || GetAutosceneStatus() == 3) return 1.0;
+	//     return g_InterpAlpha;
+	//
+	// g_InterpAlpha is 1.0 and is never changed by any code, so both lerps
+	// collapse to a no-op. Writing a fractional value re-enables the original system.
+	//
+	// CalcDispMatrix / CalcCameraMatrix make use of this function that returns the alpha,
+	// however these are only ever called as part of the game ticks, never from the
+	// render path, so they must be replayed once per rendered frame to interpolate.
+	inline CalcDispMatrix_fn CalcDispMatrix = nullptr;     // 0x4A2650
+	inline CalcCameraMatrix_fn CalcCameraMatrix = nullptr; // 0x484BD0
+
+	inline float* g_InterpAlpha = nullptr; // 0x634B34
+
+	// Always ask this for the alpha actually in force rather than reading
+	// g_InterpAlpha directly - it is what CalcDispMatrix/sub_482F20 see.
+	inline GetInterpAlpha_fn GetInterpAlpha = nullptr; // 0x4493E0
+
+	// Sub-tick remainder maintained by CalcNumUpdatesToRun, in QPC ticks:
+	//     ticks     = 60 * (elapsed + remainder) / freq
+	//     remainder = elapsed + remainder - ticks * freq / 60
+	// so alpha = remainder * 60 / qpc_freq, valid right after that call.
+	inline int64_t* frameskip_remainder = nullptr; // 0x8A8CD0
+
+	// Y-scale of the whole stage during the load-in "rise from the ground"
+	// animation.
+	inline float* stage_disp_scale = nullptr; // 0x7D3184
+
+	// HAM "catch the hearts": AttachHeart bakes each heart's world position from
+	// its owner car's matrix_B0 during the tick, and HeartDisp_car_heart draws
+	// straight from those baked values - so they stall at tick rate once the car
+	// matrices are interpolated. Entry layout (stride 0x5C, 32 entries):
+	//   +0x00 event id (0x19A = unused)
+	//   +0x04 / +0x10 local offsets
+	//   +0x28 / +0x34 baked world positions
+	//   +0x4C / +0x50 per-heart active flags
+	inline AttachHeartEntry* attach_heart_table = nullptr; // 0x8037C8
+	inline ConnectionEntry* connection_tbl = nullptr;      // 0x800AF8
+	// Y-spin of the 3D heart drawn above each connected line.
+	inline float* hart_rot_f = nullptr;                    // 0x804384
+	inline uint8_t* g_EventIsOpenFlag = nullptr;  // 0x79FB48
+	inline mxCalcPoint_fn mxCalcPoint = nullptr;  // 0x40A7D0
+
 	inline fn_0args ReadIO = nullptr;
 	inline fn_0args SoundControl_mb = nullptr;
 	inline fn_0args LinkControlReceive = nullptr;
@@ -141,6 +216,36 @@ namespace Game
 	// D3DX
 	inline D3DXVec4Transform_fn D3DXVec4Transform = nullptr;
 
+	// sub_488AF0(car@<esi>, rob, charIndex) rebuilds an in-car character's base
+	// matrix from the car's transform.
+	// Unfortunately this is __usercall, with car pointer inside esi, so needs
+	// a thunk in order to call properly.
+	inline uintptr_t CalcCharMatrixAddr = 0;
+
+	static __declspec(naked) void CalcCharMatrix(EVWORK_CAR* /*car*/, void* /*rob*/, int /*charIndex*/)
+	{
+		__asm
+		{
+			push ebp
+			mov  ebp, esp
+			push esi
+			push ebx
+			mov  eax, [ebp + 16]   // charIndex
+			push eax
+			mov  eax, [ebp + 12]   // rob
+			push eax
+			mov  esi, [ebp + 8]    // car -> esi
+			mov  ebx, CalcCharMatrixAddr
+			call ebx
+			add  esp, 8            // caller-cleaned
+			pop  ebx
+			pop  esi
+			mov  esp, ebp
+			pop  ebp
+			ret
+		}
+	}
+
 	inline sEventWork* event(int event_id)
 	{
 		sEventWork* s_EventWork = Module::exe_ptr<sEventWork>(0x399B30);
@@ -150,6 +255,13 @@ namespace Game
 	inline EVWORK_CAR* pl_car()
 	{
 		return event(8)->data<EVWORK_CAR>();
+	}
+
+	// Camera object used by CalcCameraMatrix / sub_482F20. May be null outside
+	// of gameplay (menus, loading), so callers must check.
+	inline EvWorkCamera* camera()
+	{
+		return event(EVENT_CAMERA)->data<EvWorkCamera>();
 	}
 
 	inline bool is_in_game()
@@ -250,6 +362,19 @@ namespace Game
 		Sumo_D3DResourcesCreate = Module::fn_ptr<fn_0args>(0x17A20);
 
 		fn43FA10 = Module::fn_ptr<fn_1arg>(0x3FA10);
+
+		CalcDispMatrix = Module::fn_ptr<CalcDispMatrix_fn>(GameAddr::CalcDispMatrix);
+		CalcCameraMatrix = Module::fn_ptr<CalcCameraMatrix_fn>(GameAddr::CalcCameraMatrix);
+		g_InterpAlpha = Module::exe_ptr<float>(0x234B34);
+		GetInterpAlpha = Module::fn_ptr<GetInterpAlpha_fn>(0x493E0);
+		frameskip_remainder = Module::exe_ptr<int64_t>(0x4A8CD0);
+		stage_disp_scale = Module::exe_ptr<float>(0x3D3184);
+		attach_heart_table = Module::exe_ptr<AttachHeartEntry>(0x4037C8);
+		connection_tbl = Module::exe_ptr<ConnectionEntry>(0x400AF8);
+		hart_rot_f = Module::exe_ptr<float>(0x404384);
+		g_EventIsOpenFlag = Module::exe_ptr<uint8_t>(0x39FB48);
+		mxCalcPoint = Module::fn_ptr<mxCalcPoint_fn>(0xA7D0);
+		CalcCharMatrixAddr = reinterpret_cast<uintptr_t>(Module::exe_ptr(GameAddr::CalcCharMatrix));
 
 		ReadIO = Module::fn_ptr<fn_0args>(0x53BB0); // ReadIO
 		SoundControl_mb = Module::fn_ptr<fn_0args>(0x2F330); // SoundControl_mb

@@ -2,6 +2,7 @@
 #include "plugin.hpp"
 #include "game_addrs.hpp"
 #include "overlay/overlay.hpp"
+#include "interpolation.hpp"
 
 // from timeapi.h, which we can't include since our proxy timeBeginPeriod etc funcs will conflict...
 typedef struct timecaps_tag {
@@ -10,6 +11,10 @@ typedef struct timecaps_tag {
 } TIMECAPS;
 
 #include <d3d9.h>
+#include <vector>
+#include <algorithm>
+#include <cstring>
+#include <cmath>
 
 class Snooze
 {
@@ -292,6 +297,8 @@ class ReplaceGameUpdateLoop : public Hook
 
 		for (int curUpdateIdx = 0; curUpdateIdx < numUpdates; curUpdateIdx++)
 		{
+			Interp::BeforeTick();
+
 			// Fetch latest input state
 			// (do this inside our update-loop so that any hooked game funcs have accurate state...)
 			Input::Update();
@@ -313,7 +320,19 @@ class ReplaceGameUpdateLoop : public Hook
 			Game::EventControl();
 			Game::GhostCarExecServer();
 			Game::fn4666A0();
+
+			Interp::AfterTick();
 		}
+
+		// Re-run the display-matrix builders with a fractional alpha. Must be
+		// the last thing we do: the mid-hook returns straight into the game's
+		// render path (sub_454670 / BeginScene / SceneControl).
+		//
+		// Only meaningful when the experimental unlock is on - otherwise
+		// numUpdates is clamped to >=1, alpha sits near 0, and we would render
+		// a frame behind rather than smoothly between frames.
+		if (Settings::FramerateUnlockExperimental && Settings::FramerateInterpolation)
+			Interp::AfterTicks(FramelimiterFrequency);
 	}
 
 	// Fixes animation rate of certain stage textures (beach waves / street lights...)
@@ -339,6 +358,59 @@ class ReplaceGameUpdateLoop : public Hook
 	{
 		if (*Game::sprani_num_ticks == 0)
 			ctx.eax = 1; // make func skip adding to sin_param
+	}
+
+	// GameOthCar_Disp - a *display* function, which for some reason alters
+	// the EVWORK_CAR::field_B62/field_B64 timers, and also flips the
+	// flash-parity byte there. All three are gameplay state read from tick code:
+	//
+	//   SetCollisionImpactPlcar  sets B64 = 90 (or 60) and flags_C5C |= 1 when
+	//                            the player rams a traffic car
+	//   ColiCar_CheckPl2Oth      skips car-to-car collision while B64 != 0
+	//   CloseOthcarEventByVanishReq  EventCloses the car once B64 <= 0
+	//
+	// So a hit car flashes, turns non-solid, then despawns, but this is all paced
+	// by the render code, not the tick code - above 60FPS this causes cars to vanish
+	// sooner.
+	//
+	// Rather than patch the instructions out, pre-adjust the field so the game's
+	// own dec/xor lands on the value a 60Hz tick rate would have produced. That
+	// keeps every other read of these fields untouched.
+	inline static SafetyHookMid OthCarTimer_midhook1 = {};
+	inline static SafetyHookMid OthCarTimer_midhook2 = {};
+	inline static SafetyHookMid OthCarFlash_midhook = {};
+
+	static void OthCarTimer_scale(uintptr_t car, int fieldOffset)
+	{
+		int16_t* counter = reinterpret_cast<int16_t*>(car + fieldOffset);
+
+		int value = *counter - *Game::sprani_num_ticks;
+		if (value < 0)
+			value = 0; // several readers test <= 0, never let it run past zero
+
+		// +1 because the dec we're standing on is about to take one off.
+		*counter = int16_t(value + 1);
+	}
+
+	static void OthCarTimerB62_dest(SafetyHookContext& ctx)
+	{
+		OthCarTimer_scale(ctx.esi, 0xB62);
+	}
+
+	static void OthCarTimerB64_dest(SafetyHookContext& ctx)
+	{
+		OthCarTimer_scale(ctx.esi, 0xB64);
+	}
+
+	static void OthCarFlash_dest(SafetyHookContext& ctx)
+	{
+		// The xor below flips the parity byte once per call and the car is drawn
+		// on every other flip, so the flash rate tracks the render rate.
+		// Undo the flip on frames that ran an even number of ticks (usually zero) to
+		// hold it at the vanilla 30Hz. bl is 0 while paused, which no-ops both
+		// the game's xor and ours.
+		if ((*Game::sprani_num_ticks & 1) == 0)
+			*reinterpret_cast<uint8_t*>(ctx.esi + 0xB53) ^= uint8_t(ctx.ebx);
 	}
 
 public:
@@ -387,6 +459,11 @@ public:
 
 		if (Settings::FramerateUnlockExperimental)
 		{
+			if (Settings::FramerateInterpolation)
+			{
+				Interp::Apply();
+			}
+
 			constexpr int SetTweeningTable_Addr = 0xED60;
 			SetTweeningTable = safetyhook::create_inline(Module::exe_ptr(SetTweeningTable_Addr), SetTweeningTable_dest);
 
@@ -396,6 +473,10 @@ public:
 			EventDisplay_midhook1 = safetyhook::create_mid(Module::exe_ptr(EventDisplay_HookAddr1), EventDisplay_dest);
 			EventDisplay_midhook2 = safetyhook::create_mid(Module::exe_ptr(EventDisplay_HookAddr2), EventDisplay_dest);
 			DispPlCar_midhook = safetyhook::create_mid(Module::exe_ptr(DispPlCar_HookAddr), EventDisplay_dest);
+
+			OthCarTimer_midhook1 = safetyhook::create_mid(Module::exe_ptr(0xAE65C), OthCarTimerB62_dest);
+			OthCarTimer_midhook2 = safetyhook::create_mid(Module::exe_ptr(0xAE6A9), OthCarTimerB64_dest);
+			OthCarFlash_midhook = safetyhook::create_mid(Module::exe_ptr(0xAE6B0), OthCarFlash_dest);
 		}
 
 		// Increase reflection update rate, default is 3 (30fps)

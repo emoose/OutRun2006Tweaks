@@ -64,6 +64,9 @@ namespace Settings
 		spdlog::info(" - FramerateLimitMode: {}", FramerateLimitMode);
 		spdlog::info(" - FramerateFastLoad: {}", FramerateFastLoad);
 		spdlog::info(" - FramerateUnlockExperimental: {}", FramerateUnlockExperimental);
+		spdlog::info(" - FramerateInterpolation: {}", FramerateInterpolation);
+		spdlog::info(" - FramerateInterpolationDebugAlpha: {}", FramerateInterpolationDebugAlpha);
+		spdlog::info(" - FramerateInterpolationDebugLog: {}", FramerateInterpolationDebugLog);
 		spdlog::info(" - VSync: {}", VSync);
 		spdlog::info(" - SingleCoreAffinity: {}", SingleCoreAffinity);
 
@@ -165,6 +168,9 @@ namespace Settings
 		FramerateLimitMode = ini.Get("Performance", "FramerateLimitMode", FramerateLimitMode);
 		FramerateFastLoad = ini.Get("Performance", "FramerateFastLoad", FramerateFastLoad);
 		FramerateUnlockExperimental = ini.Get("Performance", "FramerateUnlockExperimental", FramerateUnlockExperimental);
+		FramerateInterpolation = ini.Get("Performance", "FramerateInterpolation", FramerateInterpolation);
+		FramerateInterpolationDebugAlpha = ini.Get("Performance", "FramerateInterpolationDebugAlpha", FramerateInterpolationDebugAlpha);
+		FramerateInterpolationDebugLog = ini.Get("Performance", "FramerateInterpolationDebugLog", FramerateInterpolationDebugLog);
 		VSync = ini.Get("Performance", "VSync", VSync);
 		SingleCoreAffinity = ini.Get("Performance", "SingleCoreAffinity", SingleCoreAffinity);
 

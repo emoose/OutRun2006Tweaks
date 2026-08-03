@@ -1254,6 +1254,94 @@ typedef struct TDrawBuffer
 } DrawBuffer;
 static_assert(sizeof(DrawBuffer) == 0x1C);
 
+// Oso "dynamics" objects (UFOs and similar). OsoDynamics_Disp interpolates
+// between d3dmatrix_0 (current) and d3dmatrixE0 (previous) itself - but it
+// advances that previous-state once per rendered frame rather than once per
+// tick, so above 60fps it collapses to no interpolation. See hooks_framerate.
+typedef struct TEvWorkOsoDynamics
+{
+	D3DMATRIX d3dmatrix_0;          // 0x00
+	D3DVECTOR Translate_40;         // 0x40
+	uint8_t gap4C[8];
+	uint32_t flags_54;              // 0x54
+	uint32_t dword58;
+	uint8_t gap5C[8];
+	int xmtxst_textureId_64;        // 0x64
+	D3DVECTOR Rotate_68;            // 0x68
+	float float74;
+	float float78;
+	uint32_t dword7C;
+	uint32_t dword80;
+	uint32_t dword84;
+	uint32_t UsePosMatrix_88;       // 0x88
+	uint32_t dword8C;
+	uint16_t cull_backside_90;      // 0x90
+	uint16_t word92;
+	uint8_t unk_94[12];
+	D3DMATRIX PosMatrix_A0;         // 0xA0
+	D3DMATRIX d3dmatrixE0;          // 0xE0 - previous frame, written by Disp
+} EvWorkOsoDynamics;
+static_assert(sizeof(EvWorkOsoDynamics) == 0x120);
+
+// Partial view of the objects drawn through OsoCommonFunc_Disp (beach balls,
+// cones...). Only the leading fields are known - the concrete types behind it
+// differ per Oso kind, so do NOT assume this is the whole struct.
+typedef struct TOsoCommonWork
+{
+	D3DMATRIX matrix_0;             // 0x00 - pushed directly by OsoCommonFunc_Disp
+	uint8_t unk_40[0x10];
+	uint32_t scale_50;              // 0x50 - written by OsoCommonFunc_Disp
+	uint32_t flags_54;              // 0x54 - bit0 visible, bit1 hidden
+	uint8_t unk_58[0x04];
+	uint32_t kind_5C;               // 0x5C - 0x38 bypasses the flags check
+	uint8_t unk_60[0x04];
+	uint32_t modelId_64;            // 0x64 - xmtObjId handed to DrawObject_Internal
+} OsoCommonWork;
+
+// HAM "catch the hearts" table entry. AttachHeart bakes world[] from the owner
+// car's matrix_B0 each tick; HeartDisp_car_heart draws from world[] and
+// HeartCtrl_car_heart measures it against the player to decide collection, so
+// world[] is gameplay state, not just display.
+typedef struct TAttachHeartEntry
+{
+	uint32_t eventId;               // 0x00 - 0x19A means unused
+	D3DVECTOR local[2];             // 0x04, 0x10 - offsets in car space
+	uint8_t gap1C[0x0C];
+	D3DVECTOR world[2];             // 0x28, 0x34 - baked = matrix_B0 * local
+	uint8_t gap40[0x0C];
+	uint32_t active[2];             // 0x4C, 0x50
+	uint8_t gap54[0x04];
+	uint16_t pulseCounter;          // 0x58 - incremented once per tick
+	uint16_t pad5A;
+} AttachHeartEntry;
+static_assert(sizeof(AttachHeartEntry) == 0x5C);
+
+static constexpr int AttachHeartEntryCount = 32;
+static constexpr uint32_t AttachHeartUnusedId = 0x19A;
+
+// HAM "cut the lines": ConnectBetweenCars bakes one entry per linked car pair
+// from the two cars' position_14 each tick. DispConnectBetweenCars draws the
+// line model (0x570038) between posA/posB and the 3D heart (0x57002F) at their
+// midpoint, and HeartCtrl_cut_line reads the table back through GetCbcTableAdr
+// to detect the player cutting a line - so this is gameplay state, not display.
+typedef struct TConnectionEntry
+{
+	uint32_t eventIdA;      // 0x00 - 0x19A means unused
+	uint32_t eventIdB;      // 0x04
+	D3DVECTOR posA;         // 0x08
+	D3DVECTOR posB;         // 0x14
+	float rotX;             // 0x20
+	float rotY;             // 0x24
+	uint32_t unk28;
+	float lineScaleZ;       // 0x2C - line length
+	float heartScale;       // 0x30
+	uint32_t unk34;
+} ConnectionEntry;
+static_assert(sizeof(ConnectionEntry) == 0x38);
+
+static constexpr int ConnectionEntryCount = 10;
+static constexpr uint32_t ConnectionUnusedId = 0x19A;
+
 // Info sent between game and master server
 struct SumoNet_MatchMakingInfo
 {
