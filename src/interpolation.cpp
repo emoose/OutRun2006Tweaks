@@ -9,32 +9,29 @@
 #include <cstring>
 #include <cmath>
 
-// ---------------------------------------------------------------------------
-// Frame interpolation
 //
-// OR2006C2C already contains a complete render-interpolation system that was
-// left dormant. Every car *_Ctrl function opens by copying the current
-// transform into a "previous" slot, and the display-matrix builders lerp
-// between previous and current using a single global alpha:
+// Frame interpolation: draws cars, camera and effects at positions between two
+// game ticks, so the picture stays smooth above the fixed 60Hz update rate.
 //
-//   EVWORK_CAR:
-//     +0x014 position_14      current position     +0x16C field_16C  prev pos
-//     +0x02C field_2C[3]      current rotation     +0x17C field_17C  prev rot
-//                             (packed int16 angles, scale 2pi/65536)
-//     +0x0B0 matrix_B0        display matrix (written by CalcDispMatrix)
+// The game already contains the parts needed for this, unused. Every car *_Ctrl
+// function copies its transform into a "previous" slot each tick, and the
+// display matrix builders lerp between that and the current one using an alpha
+// from sub_4493E0, which reads g_InterpAlpha.
+// 
+// Nothing in the game ever writes g_InterpAlpha however, so the alpha is always 
+// 1.0 and the lerp always lands on the current transform. 
+// Writing a fractional alpha and running the display builders again each rendered 
+// frame lets us make use of the existing interpolation.
 //
-//   sub_4493E0 (0x4493E0) returns the alpha:
-//     if (GetPettyAutoSceneEnable() || GetAutosceneStatus() == 3) return 1.0;
-//     return g_InterpAlpha;   // hardcoded 1.0, never written by the game
+// Though that alone is not enough, as the engine also computes derived transforms
+// during the tick and stores them for the draw to reuse: character matrices,
+// camera prev-state, Oso objects, HAM hearts and lines, stage scale.
+// 
+// Most of those are built from car matrices, so they are wrong as soon as a car is
+// drawn somewhere other than its tick position, and each needs its own previous/current pair.
+// Some of them are read back by tick code as well as by drawing code, so they are put back 
+// before the next tick runs.
 //
-// g_InterpAlpha has exactly one xref in the whole binary - that read. Pinning
-// it to 1.0 collapses both lerps to a no-op, which is why vanilla renders at
-// the tick rate. Writing a fractional alpha re-enables the original system.
-//
-// CalcDispMatrix and CalcCameraMatrix are only ever called from *_Ctrl (tick)
-// code, never from the render path, so we replay them once per rendered frame
-// with a fractional alpha before the game reaches BeginScene/SceneControl.
-// ---------------------------------------------------------------------------
 namespace Interp
 {
 
@@ -176,7 +173,7 @@ static void OsoCommonDisp_dest(SafetyHookContext& ctx)
 {
 	OsoCommonPending = nullptr;
 
-	if (!Settings::FramerateInterpolation || !Game::g_InterpAlpha)
+	if (!Settings::FramerateInterpolation)
 		return;
 
 	auto* obj = reinterpret_cast<OsoCommonWork*>(ctx.esi);
@@ -349,7 +346,7 @@ static bool StageScaleOverridden = false;
 
 static void RestoreStageScale()
 {
-	if (!StageScaleOverridden || !Game::stage_disp_scale)
+	if (!StageScaleOverridden)
 		return;
 
 	*Game::stage_disp_scale = StageScaleReal;
@@ -384,13 +381,13 @@ static bool HartRotOverridden = false;
 
 static void RestoreConnections()
 {
-	if (HartRotOverridden && Game::hart_rot_f)
+	if (HartRotOverridden)
 	{
 		*Game::hart_rot_f = HartRotReal;
 		HartRotOverridden = false;
 	}
 
-	if (!ConnOverridden || !Game::connection_tbl)
+	if (!ConnOverridden)
 		return;
 
 	for (int i = 0; i < ConnectionEntryCount; i++)
@@ -401,14 +398,8 @@ static void RestoreConnections()
 
 static void CaptureConnPrev()
 {
-	if (Game::hart_rot_f)
-	{
-		HartRotPrev = *Game::hart_rot_f;
-		HartRotPrevValid = true;
-	}
-
-	if (!Game::connection_tbl)
-		return;
+	HartRotPrev = *Game::hart_rot_f;
+	HartRotPrevValid = true;
 
 	for (int i = 0; i < ConnectionEntryCount; i++)
 		ConnPrev[i] = Game::connection_tbl[i];
@@ -418,7 +409,7 @@ static void CaptureConnPrev()
 
 static void InterpolateConnections(float alpha)
 {
-	if (!ConnPrevValid || !Game::connection_tbl)
+	if (!ConnPrevValid)
 		return;
 
 	for (int i = 0; i < ConnectionEntryCount; i++)
@@ -451,7 +442,7 @@ static void InterpolateConnections(float alpha)
 
 static void InterpolateHartRot(float alpha)
 {
-	if (!HartRotPrevValid || !Game::hart_rot_f)
+	if (!HartRotPrevValid)
 		return;
 
 	if (!HartRotOverridden)
@@ -479,7 +470,7 @@ static bool HeartOverridden = false;
 
 static void RestoreHeartWorld()
 {
-	if (!HeartOverridden || !Game::attach_heart_table)
+	if (!HeartOverridden)
 		return;
 
 	for (int i = 0; i < AttachHeartEntryCount; i++)
@@ -496,10 +487,6 @@ static void RestoreHeartWorld()
 // its allocation or entry-retirement bookkeeping, which must stay per-tick.
 static void RebakeHeartWorld()
 {
-	if (!Game::attach_heart_table || !Game::g_EventIsOpenFlag ||
-		!Game::mxCalcPoint || !Game::mxPushLoadMatrix || !Game::mxPopMatrix)
-		return;
-
 	for (int i = 0; i < AttachHeartEntryCount; i++)
 	{
 		auto& entry = Game::attach_heart_table[i];
@@ -573,11 +560,7 @@ static void __cdecl CalcDispMatrix_dest(EVWORK_CAR* car)
 	CalcDispMatrix_hook.ccall(car);
 }
 
-// Replays the game's own display-matrix builders with a fractional alpha.
-// Called once per rendered frame, immediately before the game continues on
-// into sub_454670 / BeginScene / SceneControl.
-// Bounded diagnostic: logs the first InterpLogMaxLines frames of gameplay
-// then goes quiet, so the log stays readable.
+// Debug logging.
 static constexpr int InterpLogMaxLines = 180;
 static int InterpLogCount = 0;
 
@@ -588,33 +571,16 @@ static bool InterpLogActive()
 
 void AfterTicks(double qpcFreqMs)
 {
-	if (!Game::CalcDispMatrix || !Game::CalcCameraMatrix ||
-		!Game::g_InterpAlpha || !Game::frameskip_remainder)
-	{
-		if (InterpLogActive())
-		{
-			InterpLogCount++;
-			spdlog::info("interp: BAIL null extern - CalcDispMatrix={} CalcCameraMatrix={} g_InterpAlpha={} frameskip_remainder={}",
-				fmt::ptr((void*)Game::CalcDispMatrix), fmt::ptr((void*)Game::CalcCameraMatrix),
-				fmt::ptr(Game::g_InterpAlpha), fmt::ptr(Game::frameskip_remainder));
-		}
-		return;
-	}
-
 	// The camera path dereferences the player car, and neither is valid
 	// outside of gameplay. Drop the cached camera prev-state too, so we
 	// never restore a stale one across a mode change - we patched out the
 	// game's own snap-guard, so nothing else would catch it.
 	if (!Game::is_in_game())
 	{
-		// Put the camera back before dropping our state, otherwise an
-		// interpolated override would be stranded across the mode change.
-		if (EvWorkCamera* cam = Game::camera())
-			RestoreCameraReal(cam);
+		// Restore before dropping the cached prev-state, otherwise an override
+		// stays applied with nothing left that would undo it.
+		Reset();
 
-		RestoreStageScale();
-		RestoreHeartWorld();
-		RestoreConnections();
 		ConnPrevValid = false;
 		HartRotPrevValid = false;
 		StageScalePrevValid = false;
@@ -622,7 +588,6 @@ void AfterTicks(double qpcFreqMs)
 		OsoDynPrevCount = 0; // object pointers do not survive a mode change
 		OsoCommonCount = 0;
 		OsoCommonPending = nullptr;
-		*Game::g_InterpAlpha = 1.0f; // never leave a fractional alpha behind
 		return;
 	}
 
@@ -654,7 +619,7 @@ void AfterTicks(double qpcFreqMs)
 	// The alpha actually in force: sub_4493E0 returns a hard 1.0 during
 	// autoscenes, and everything we interpolate must agree with whatever
 	// CalcDispMatrix used, or one thing slides while another is frozen.
-	const float effectiveAlpha = Game::GetInterpAlpha ? Game::GetInterpAlpha() : alpha;
+	const float effectiveAlpha = Game::GetInterpAlpha();
 
 	for (EVWORK_CAR* car : InterpCars)
 	{
@@ -683,7 +648,7 @@ void AfterTicks(double qpcFreqMs)
 	InterpolateHartRot(effectiveAlpha);
 
 	// Stage load-in scale.
-	if (StageScalePrevValid && Game::stage_disp_scale && !StageScaleOverridden)
+	if (StageScalePrevValid && !StageScaleOverridden)
 	{
 		StageScaleReal = *Game::stage_disp_scale;
 		*Game::stage_disp_scale = LerpF(StageScalePrev, StageScaleReal, effectiveAlpha);
@@ -692,13 +657,10 @@ void AfterTicks(double qpcFreqMs)
 
 	// Characters ride the car's matrix, but their own matrix was baked from
 	// it during the tick - rebake it now that matrix_B0 has moved.
-	if (Game::CalcCharMatrixAddr)
+	for (const CharEntry& e : InterpChars)
 	{
-		for (const CharEntry& e : InterpChars)
-		{
-			if (e.car && e.rob)
-				Game::CalcCharMatrix(e.car, e.rob, e.index);
-		}
+		if (e.car && e.rob)
+			Game::CalcCharMatrix(e.car, e.rob, e.index);
 	}
 
 	if (logThis)
@@ -838,7 +800,7 @@ void AfterTicks(double qpcFreqMs)
 static SafetyHookMid HeartPulse_hook = {};
 static void HeartPulse_dest(SafetyHookContext& ctx)
 {
-	if (!Settings::FramerateInterpolation || !Game::GetInterpAlpha)
+	if (!Settings::FramerateInterpolation)
 		return;
 
 	const float alpha = Game::GetInterpAlpha();
@@ -856,39 +818,41 @@ static void HeartPulse_dest(SafetyHookContext& ctx)
 // Entry points used by the replaced game loop.
 //
 
+// Puts back every value AfterTicks wrote into the game and returns the alpha to
+// 1.0. Each step does nothing when that value is not currently overridden, so
+// this is safe to call at any point.
+void Reset()
+{
+	// sub_4493E0 hands this alpha to ExecPhysics as well as to the display
+	// matrix builders, so a fractional value left behind changes how the game
+	// runs rather than only how it looks.
+	*Game::g_InterpAlpha = 1.0f;
+
+	if (EvWorkCamera* cam = Game::camera())
+		RestoreCameraReal(cam);
+
+	RestoreHeartWorld();
+	RestoreConnections();
+	RestoreStageScale();
+}
+
 void BeforeTick()
 {
+	// Restoring happens whatever FramerateInterpolation is set to. It can change
+	// between frames, and a value already written into the game still has to be
+	// put back before tick code reads it.
+	Reset();
+
 	if (Settings::FramerateInterpolation)
 	{
-		// Tick code must always see alpha 1.0 - ExecPhysics reads it, and the
-		// display builders have to produce true current-state transforms here
-		// so they become the 'cur' we interpolate toward.
-		if (Game::g_InterpAlpha)
-			*Game::g_InterpAlpha = 1.0f;
-
-		// Unwind last frame's interpolated overrides before any tick code reads
-		// them back, then snapshot the pre-tick state as 'prev'.
-		//
-		// Each of these is independent - they were previously nested inside the
-		// camera's null-check, so they silently stopped running whenever the
-		// camera did not resolve.
+		// Keep the restored values as the prev side of the next frame's lerp.
 		if (EvWorkCamera* cam = Game::camera())
-		{
-			RestoreCameraReal(cam);
 			CaptureCameraPrev(cam);
-		}
 
-		RestoreHeartWorld();
-
-		RestoreConnections();
 		CaptureConnPrev();
 
-		if (Game::stage_disp_scale)
-		{
-			RestoreStageScale();
-			StageScalePrev = *Game::stage_disp_scale;
-			StageScalePrevValid = true;
-		}
+		StageScalePrev = *Game::stage_disp_scale;
+		StageScalePrevValid = true;
 	}
 
 	// Drives the prev<-cur shift for objects we track ourselves, so it happens

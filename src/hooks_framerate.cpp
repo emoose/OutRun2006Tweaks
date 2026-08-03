@@ -219,6 +219,16 @@ namespace SumoUISpriteReplay
 	}
 }
 
+bool IsKeyPressed(int vk)
+{
+	static bool prev[256] = {};
+
+	bool down = (GetAsyncKeyState(vk) & 0x8000) != 0;
+	bool pressed = down && !prev[vk];
+	prev[vk] = down;
+	return pressed;
+}
+
 class ReplaceGameUpdateLoop : public Hook
 {
 	inline static double FramelimiterFrequency = 0;
@@ -242,6 +252,13 @@ class ReplaceGameUpdateLoop : public Hook
 	static void destination(safetyhook::Context& ctx)
 	{
 		auto CurGameState = *Game::current_mode;
+
+		// TEMP: Allow toggling interpolation with K key
+		if (IsKeyPressed('K'))
+		{
+			Settings::FramerateInterpolation = !Settings::FramerateInterpolation;
+			Interp::Reset();
+		}
 
 		// Skip framelimiter during load screens to help reduce load times
 		bool skipFrameLimiter = Settings::FramerateLimit == 0;
