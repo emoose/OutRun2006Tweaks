@@ -118,7 +118,7 @@ public:
 // Immediately after the sim tick the queue only holds whatever the sim tick had
 // chosen to draw, and nothing else, since the render path has not run yet and the 
 // last frame's entries were already unlinked at the end of it.
-// 
+//
 // So we just snapshot there on frames that tick, and re-queue that snapshot on frames
 // that don't.
 //
@@ -222,9 +222,21 @@ namespace SumoUISpriteReplay
 class ReplaceGameUpdateLoop : public Hook
 {
 	inline static double FramelimiterFrequency = 0;
+
+	// Time the previous frame should ideally have been released at, in ms. This
+	// advances by exactly one frame interval each time rather than snapping to
+	// when the wait actually finished, so a wait that runs long is made up by
+	// the next frame instead of pushing every later frame back.
 	inline static double FramelimiterPrevCounter = 0;
 
-	inline static double FramelimiterDeviation = 0;
+	// Snooze::PreciseSleep spins out the last millisecond or so of a request
+	// itself, so anything shorter than that spins for its whole duration.
+	static constexpr double FramelimiterMinSleepMs = 2.0;
+
+	// FramerateFastLoad 3 leaves the limiter running during loads and pumps the
+	// file loader while it waits, so its sleeps are capped short enough to keep
+	// coming back to it.
+	static constexpr double FramelimiterFastLoadSleepMs = 4.0;
 
 	inline static SafetyHookMid dest_hook = {};
 	static void destination(safetyhook::Context& ctx)
@@ -281,47 +293,47 @@ class ReplaceGameUpdateLoop : public Hook
 		if (!skipFrameLimiter)
 		{
 			// Framelimiter
-			double timeElapsed = 0;
 			double timeCurrent = 0;
 			LARGE_INTEGER counter;
 
-			double FramelimiterTargetFrametime = double(1000.f) / double(Settings::FramerateLimit);
-			double FramelimiterMaxDeviation = FramelimiterTargetFrametime / (16.f * 1000.f);
+			const double FramelimiterTargetFrametime = 1000.0 / double(Settings::FramerateLimit);
+			const double deadline = FramelimiterPrevCounter + FramelimiterTargetFrametime;
 
-			do
+			for (;;)
 			{
 				if (Settings::FramerateFastLoad == 3)
 					Game::FileLoad_Ctrl();
 
 				QueryPerformanceCounter(&counter);
 				timeCurrent = double(counter.QuadPart) / FramelimiterFrequency;
-				timeElapsed = timeCurrent - FramelimiterPrevCounter;
 
-				if (Settings::FramerateLimitMode == 0) // "efficient" mode
+				double remaining = deadline - timeCurrent;
+				if (remaining <= 0.0)
+					break;
+
+				if (Settings::FramerateLimitMode != 0) // busy-wait mode
 				{
-					if (FramelimiterTargetFrametime + FramelimiterDeviation <= timeElapsed)
-					{
-						FramelimiterDeviation = 0;
-						break;
-					}
-					else if ((FramelimiterTargetFrametime + FramelimiterDeviation) - timeElapsed > 2.0)
-						Snooze::PreciseSleep(1.f / 1000.f); // Sleep for ~1ms
-					else
-						Sleep(0); // Yield thread's time-slice (does not actually sleep)
+					YieldProcessor();
+					continue;
 				}
-			} while (FramelimiterTargetFrametime + FramelimiterDeviation > timeElapsed);
 
-			QueryPerformanceCounter(&counter);
-			timeCurrent = double(counter.QuadPart) / FramelimiterFrequency;
-			timeElapsed = timeCurrent - FramelimiterPrevCounter;
+				if (Settings::FramerateFastLoad == 3)
+					remaining = min(remaining, FramelimiterFastLoadSleepMs);
 
-			// Compensate for any deviation, in the next frame (based on dxvk util_fps_limiter)
-			double deviation = timeElapsed - FramelimiterTargetFrametime;
-			FramelimiterDeviation += deviation;
-			// Limit the cumulative deviation
-			FramelimiterDeviation = std::clamp(FramelimiterDeviation, -FramelimiterMaxDeviation, FramelimiterMaxDeviation);
+				// PreciseSleep returns right on the deadline, having spun out
+				// the last part of the wait, so this normally runs once.
+				if (remaining > FramelimiterMinSleepMs)
+					Snooze::PreciseSleep(remaining / 1000.0);
+				else
+					Sleep(0); // Yield thread's time-slice (does not actually sleep)
+			}
 
-			FramelimiterPrevCounter = timeCurrent;
+			FramelimiterPrevCounter += FramelimiterTargetFrametime;
+
+			// A stall (loading, alt-tab) leaves the ideal timeline far behind.
+			// Resync rather than releasing a burst of uncapped frames to catch up.
+			if (timeCurrent - FramelimiterPrevCounter > FramelimiterTargetFrametime)
+				FramelimiterPrevCounter = timeCurrent;
 		}
 		else
 		{
