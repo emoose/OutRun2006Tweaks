@@ -28,6 +28,9 @@ typedef void(__cdecl* mxCalcPoint_fn)(D3DVECTOR* out, const D3DVECTOR* in);
 // remap UVs onto a higher-resolution replacement texture.
 typedef void(__cdecl* put_sprite_ex_fn)(SPRARGS* sprargs, float priority);
 
+typedef int(__cdecl* sprani_play_ae_auth_alpha_fn)(uint32_t spriteId, float x, float y, int a4, int a5, float alpha);
+typedef int(__cdecl* put_clip_sprite_fn)(int xstnum, int x, int y, uint32_t flags, float priority, uint32_t color);
+
 // Module offsets used outside of this file.
 namespace GameAddr
 {
@@ -203,6 +206,8 @@ namespace Game
 	// The per-frame 2D draw queue itself: one list head per priority.
 	inline SpriteNode** sprite_prio_root = nullptr;
 	inline put_sprite_ex_fn put_sprite_ex = nullptr;
+	inline sprani_play_ae_auth_alpha_fn sprani_play_ae_auth_alpha = nullptr;
+	inline put_clip_sprite_fn put_clip_sprite = nullptr;
 
 	inline constexpr int SpritePriorityCount = 0x15;
 	inline constexpr int SpriteNodeMax = 0x230; // ring capacity of spr_list
@@ -426,6 +431,8 @@ namespace Game
 
 		sprite_prio_root = Module::exe_ptr<SpriteNode*>(0x556C00);
 		put_sprite_ex = Module::fn_ptr<put_sprite_ex_fn>(0x2CFE0);
+		sprani_play_ae_auth_alpha = Module::fn_ptr<sprani_play_ae_auth_alpha_fn>(0x29580);
+		put_clip_sprite = Module::fn_ptr<put_clip_sprite_fn>(0x2D280);
 
 		Sumo_GetStringFromId = Module::fn_ptr<fn_1arg_char>(0x65EB0);
 		Sumo_Printf = Module::fn_ptr<fn_printf>(0x2CDD0);
