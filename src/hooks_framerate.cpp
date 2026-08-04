@@ -515,6 +515,19 @@ class ReplaceGameUpdateLoop : public Hook
 			*reinterpret_cast<uint8_t*>(ctx.esi + 0xB53) ^= uint8_t(ctx.ebx);
 	}
 
+	// A SumoSprite slides and stretches into place from a rate per second that
+	// update_move_tween and update_scale_tween multiply by this, the milliseconds
+	// since the last rendered frame.
+	// Race announcements step theirs from a _Ctrl, one call per 60Hz tick, so above 
+	// 60FPS a step covers only one frame of the time it stands for, causing the tween 
+	// to crawl extremely slowly at high FPS.
+	// The frame's tick count suits both those and the selector screens, which step once per _Disp.
+	inline static SafetyHookInline SumoSpriteDeltaTime = {};
+	static double __cdecl SumoSpriteDeltaTime_dest()
+	{
+		return double(*Game::sprani_num_ticks) * (1000.0 / 60.0);
+	}
+
 public:
 	std::string_view description() override
 	{
@@ -579,6 +592,9 @@ public:
 			OthCarTimer_midhook1 = safetyhook::create_mid(Module::exe_ptr(0xAE65C), OthCarTimerB62_dest);
 			OthCarTimer_midhook2 = safetyhook::create_mid(Module::exe_ptr(0xAE6A9), OthCarTimerB64_dest);
 			OthCarFlash_midhook = safetyhook::create_mid(Module::exe_ptr(0xAE6B0), OthCarFlash_dest);
+
+			constexpr int SumoSpriteDeltaTime_Addr = 0x49E30;
+			SumoSpriteDeltaTime = safetyhook::create_inline(Module::exe_ptr(SumoSpriteDeltaTime_Addr), SumoSpriteDeltaTime_dest);
 		}
 
 		// Increase reflection update rate, default is 3 (30fps)
