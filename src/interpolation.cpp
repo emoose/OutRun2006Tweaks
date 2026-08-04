@@ -325,6 +325,23 @@ static D3DVECTOR CameraPrevLook{};
 static D3DVECTOR CameraPrevAng{};
 static bool CameraPrevValid = false;
 
+// Last used values for the camera (only updated on frames that also draw cars)
+// Opening the pause menu stops the game drawing cars, so nothing re-registers
+// them and InterpCars comes back empty.
+// Each car's matrix_B0 then keeps whatever the last replay left in it, part way 
+// between two ticks, while the camera's own prev value collapses onto its current 
+// position and sends it the rest of the way to the tick position. 
+// The camera is the frame of reference, so the car would appear to slide backwards 
+// by the difference when paused.
+static D3DVECTOR CameraHeldPos{};
+static D3DVECTOR CameraHeldLook{};
+static D3DVECTOR CameraHeldAng{};
+static bool CameraHeldValid = false;
+
+// Alpha the last replayed frame used, reused while no cars are being drawn so
+// that everything reading it lands back on that same frame.
+static float HeldAlpha = 1.0f;
+static bool HeldAlphaValid = false;
 
 // --- stage load-in scale ---
 //
@@ -585,6 +602,8 @@ void AfterTicks(double qpcFreqMs)
 		HartRotPrevValid = false;
 		StageScalePrevValid = false;
 		CameraPrevValid = false;
+		CameraHeldValid = false;
+		HeldAlphaValid = false;
 		OsoDynPrevCount = 0; // object pointers do not survive a mode change
 		OsoCommonCount = 0;
 		OsoCommonPending = nullptr;
@@ -612,6 +631,23 @@ void AfterTicks(double qpcFreqMs)
 	// rather than by the interpolated value.
 	if (Settings::FramerateInterpolationDebugAlpha >= 0.0f)
 		alpha = std::clamp(Settings::FramerateInterpolationDebugAlpha, 0.0f, 1.0f);
+
+	// An empty car list means the game has stopped drawing cars (which the pause
+	// menu does), so nothing is advancing and the last replay is still what is on
+	// screen.
+	// Objects whose prev-state the game also stopped refreshing keep a
+	// stale one, and lerping that against a frozen current with a fresh alpha
+	// every frame will cause them to jitter between positions. Reuse the alpha of the last
+	// replayed frame to keep everything reproducing that frame instead.
+	if (InterpCars.empty() && HeldAlphaValid)
+	{
+		alpha = HeldAlpha;
+	}
+	else
+	{
+		HeldAlpha = alpha;
+		HeldAlphaValid = true;
+	}
 
 	// From here until the next tick, everything renders at this alpha.
 	*Game::g_InterpAlpha = alpha;
@@ -724,11 +760,22 @@ void AfterTicks(double qpcFreqMs)
 			if ((dx * dx + dy * dy + dz * dz) > (10.0f * 10.0f))
 				camAlpha = 1.0f;
 
-			LerpVec(cam->cam_pos_F8, CameraPrevPos, CameraRealPos, camAlpha);
-			LerpVec(cam->look_pos_104, CameraPrevLook, CameraRealLook, camAlpha);
-			cam->cam_ang_128.x = LerpAngle(CameraPrevAng.x, CameraRealAng.x, camAlpha);
-			cam->cam_ang_128.y = LerpAngle(CameraPrevAng.y, CameraRealAng.y, camAlpha);
-			cam->cam_ang_128.z = LerpAngle(CameraPrevAng.z, CameraRealAng.z, camAlpha);
+			// Only advance when there are cars to match. An empty list means the
+			// game stopped drawing them, so their matrices still hold the last
+			// replay and the camera has to stay with it.
+			if (!InterpCars.empty() || !CameraHeldValid)
+			{
+				LerpVec(CameraHeldPos, CameraPrevPos, CameraRealPos, camAlpha);
+				LerpVec(CameraHeldLook, CameraPrevLook, CameraRealLook, camAlpha);
+				CameraHeldAng.x = LerpAngle(CameraPrevAng.x, CameraRealAng.x, camAlpha);
+				CameraHeldAng.y = LerpAngle(CameraPrevAng.y, CameraRealAng.y, camAlpha);
+				CameraHeldAng.z = LerpAngle(CameraPrevAng.z, CameraRealAng.z, camAlpha);
+				CameraHeldValid = true;
+			}
+
+			cam->cam_pos_F8 = CameraHeldPos;
+			cam->look_pos_104 = CameraHeldLook;
+			cam->cam_ang_128 = CameraHeldAng;
 
 			// Force sub_482F20's own lerp to the identity so it simply
 			// builds the view matrix from the values we just wrote.
