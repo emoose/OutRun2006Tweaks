@@ -85,6 +85,7 @@ namespace Game
 
 	inline int* app_time = nullptr; // used by SetTweeningTable etc
 	inline int* sprani_num_ticks = nullptr; // number of game ticks being ran in the current frame (can be 0 if above 60FPS)
+	inline uint16_t* stage_info_timer = nullptr; // counts DispNextStageInfo calls since the sign naming the stage past a fork appeared
 
 	inline GameStage* stg_stage_num = nullptr;
 
@@ -358,6 +359,7 @@ namespace Game
 
 		app_time = Module::exe_ptr<int>(0x49EDB8);
 		sprani_num_ticks = Module::exe_ptr<int>(0x380278);
+		stage_info_timer = Module::exe_ptr<uint16_t>(0x444708);
 
 		stg_stage_num = Module::exe_ptr<GameStage>(0x3D2E8C);
 

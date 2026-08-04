@@ -515,6 +515,16 @@ class ReplaceGameUpdateLoop : public Hook
 			*reinterpret_cast<uint8_t*>(ctx.esi + 0xB53) ^= uint8_t(ctx.ebx);
 	}
 
+	// DispNextStageInfo, a _Disp, increments stage_info_timer every render frame
+	// Hooked code to only increment on actual sim-tick frames.
+	inline static SafetyHookMid StageInfoTimer_midhook1 = {};
+	inline static SafetyHookMid StageInfoTimer_midhook2 = {};
+	static void StageInfoTimer_dest(SafetyHookContext& ctx)
+	{
+		if (*Game::sprani_num_ticks > 0)
+			*Game::stage_info_timer += 1;
+	}
+
 	// A SumoSprite slides and stretches into place from a rate per second that
 	// update_move_tween and update_scale_tween multiply by this, the milliseconds
 	// since the last rendered frame.
@@ -595,6 +605,12 @@ public:
 
 			constexpr int SumoSpriteDeltaTime_Addr = 0x49E30;
 			SumoSpriteDeltaTime = safetyhook::create_inline(Module::exe_ptr(SumoSpriteDeltaTime_Addr), SumoSpriteDeltaTime_dest);
+
+			// Fix "Next Stage" not blinking at high FPS
+			Memory::VP::Nop(Module::exe_ptr<uint8_t>(0xB9554), 7);
+			Memory::VP::Nop(Module::exe_ptr<uint8_t>(0xB960D), 7);
+			StageInfoTimer_midhook1 = safetyhook::create_mid(Module::exe_ptr(0xB9554), StageInfoTimer_dest);
+			StageInfoTimer_midhook2 = safetyhook::create_mid(Module::exe_ptr(0xB960D), StageInfoTimer_dest);
 		}
 
 		// Increase reflection update rate, default is 3 (30fps)
