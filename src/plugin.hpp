@@ -85,7 +85,6 @@ namespace Settings
 	inline float FramerateInterpolationDebugAlpha = -1.0f;
 	inline bool FramerateInterpolationDebugLog = false;
 	inline int VSync = 1;
-	inline bool SingleCoreAffinity = true;
 
 	inline bool WindowedBorderless = true;
 	inline int WindowPositionX = 0;

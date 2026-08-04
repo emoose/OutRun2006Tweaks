@@ -7,6 +7,7 @@
 
 typedef void (*fn_0args)();
 typedef void* (*fn_0args_void)();
+typedef int (*fn_0args_int)();
 typedef void (*fn_1arg)(int);
 typedef void (*fn_2args)(int, int);
 typedef void (*fn_3args)(int, int, int);

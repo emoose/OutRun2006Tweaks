@@ -175,6 +175,13 @@ namespace Game
 	inline fn_0args fn4666A0 = nullptr;
 	inline fn_0args FileLoad_Ctrl = nullptr;
 
+	// Guard the loader thread takes around the two pending-read lists. Sumo's
+	// own critical section in sub_423670 sets both of these to null while it
+	// holds them, so any other thread that samples one during that window ends
+	// up calling WaitForSingleObject(nullptr).
+	inline HANDLE* FileLoadSemaphore2 = nullptr;
+	inline HANDLE* FileLoadSemaphore3 = nullptr;
+
 	inline fn_1arg PrjSndRequest = nullptr;
 	inline fn_1arg SetSndQueue = nullptr;
 
@@ -401,6 +408,8 @@ namespace Game
 		GhostCarExecServer = Module::fn_ptr<fn_0args>(0x80F80); // GhostCarExecServer
 		fn4666A0 = Module::fn_ptr<fn_0args>(0x666A0);
 		FileLoad_Ctrl = Module::fn_ptr<fn_0args>(0x4FBA0);
+		FileLoadSemaphore2 = Module::exe_ptr<HANDLE>(0x555AAC);
+		FileLoadSemaphore3 = Module::exe_ptr<HANDLE>(0x555A90);
 
 		PrjSndRequest = Module::fn_ptr<fn_1arg>(0x249F0);
 		SetSndQueue = Module::fn_ptr<fn_1arg>(0x24940);

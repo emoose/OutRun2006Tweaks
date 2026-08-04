@@ -68,7 +68,6 @@ namespace Settings
 		spdlog::info(" - FramerateInterpolationDebugAlpha: {}", FramerateInterpolationDebugAlpha);
 		spdlog::info(" - FramerateInterpolationDebugLog: {}", FramerateInterpolationDebugLog);
 		spdlog::info(" - VSync: {}", VSync);
-		spdlog::info(" - SingleCoreAffinity: {}", SingleCoreAffinity);
 
 		spdlog::info(" - WindowedBorderless: {}", WindowedBorderless);
 		spdlog::info(" - WindowPosition: {}x{}", WindowPositionX, WindowPositionY);
@@ -172,7 +171,6 @@ namespace Settings
 		FramerateInterpolationDebugAlpha = ini.Get("Performance", "FramerateInterpolationDebugAlpha", FramerateInterpolationDebugAlpha);
 		FramerateInterpolationDebugLog = ini.Get("Performance", "FramerateInterpolationDebugLog", FramerateInterpolationDebugLog);
 		VSync = ini.Get("Performance", "VSync", VSync);
-		SingleCoreAffinity = ini.Get("Performance", "SingleCoreAffinity", SingleCoreAffinity);
 
 		WindowedBorderless = ini.Get("Window", "WindowedBorderless", WindowedBorderless);
 		WindowPositionX = ini.Get("Window", "WindowPositionX", WindowPositionX);

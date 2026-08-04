@@ -1,6 +1,7 @@
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
 #include <shellapi.h>
+#include <atomic>
 #include "hook_mgr.hpp"
 #include "plugin.hpp"
 #include "game_addrs.hpp"
@@ -494,3 +495,133 @@ public:
 	static HideOnlineSigninText instance;
 };
 HideOnlineSigninText HideOnlineSigninText::instance;
+
+class FixFileLoadRace : public Hook
+{
+	static constexpr int Sumo_FileLoadThread_Addr = 0x23940;
+	static constexpr int ListPop_Addr = 0x244F0;          // sub_4244F0
+	static constexpr int ListPush_Addr = 0x24580;         // sub_424580
+	static constexpr int sumo_fread_finished_Addr = 0x23E30;
+
+	// Request id meaning "nothing is in flight", answered without consulting
+	// either list, so it never reaches a guard.
+	static constexpr int NoRequest = 0x80000000;
+
+	// The guarded section is a single pop followed by a single push, so a caller
+	// that has to wait is only ever waiting on those. The bound exists so a
+	// loader thread stalled by the scheduler cannot hold up the main thread
+	// indefinitely; going over it falls back to the original behaviour.
+	static constexpr int MaxYields = 10000;
+
+	inline static std::atomic<DWORD> LoaderThreadId = 0;
+
+	inline static std::atomic<uint32_t> WaitCount = 0;
+	inline static std::atomic<uint32_t> TimeoutCount = 0;
+
+	// Each of the two pending-read lists keeps its guard semaphore in its own
+	// header at +0x8, and the list helpers treat a null there as "no guard
+	// needed, mutate directly". sub_423670 takes both guards and then nulls both
+	// fields, so that its own pops and pushes skip a lock it already holds and do
+	// not deadlock on a non-recursive semaphore.
+	//
+	// That signal is global though, so while it is set every other thread also
+	// reads "no guard needed" and mutates the same lists with no synchronisation
+	// at all, and sumo_fread_finished waits on a null handle, fails, and reports
+	// an in-flight read as finished.
+	//
+	// Waiting for the field to come back makes those callers take the guard the
+	// way they would have outside the window.
+	static void WaitForGuard(HANDLE volatile* slot)
+	{
+		if (!slot || *slot)
+			return;
+
+		// The loader thread is the one holding it, so it must never wait here.
+		if (GetCurrentThreadId() == LoaderThreadId.load(std::memory_order_relaxed))
+			return;
+
+		WaitCount++;
+
+		for (int i = 0; i < MaxYields; i++)
+		{
+			SwitchToThread();
+			if (*slot)
+				return;
+		}
+
+		if (++TimeoutCount <= 5)
+			spdlog::warn("FixFileLoadRace: file loader held list guard for longer than expected, proceeding unguarded");
+	}
+
+	inline static SafetyHookMid LoaderThread_hook = {};
+	static void LoaderThread_dest(SafetyHookContext& ctx)
+	{
+		LoaderThreadId.store(GetCurrentThreadId(), std::memory_order_relaxed);
+	}
+
+	// Only these two lists have their guard field nulled by sub_423670. The same
+	// helpers serve other lists, and sub_424430 creates some of those with no
+	// guard at all, so a null there is normal and must not be waited on.
+	inline static uintptr_t PendingList = 0;  // dword_955AA4, reads not yet started
+	inline static uintptr_t ActiveList = 0;   // dword_955A88, reads in progress
+
+	// Both helpers take the list header in eax.
+	static void WaitForListGuard(uintptr_t list)
+	{
+		if (list != PendingList && list != ActiveList)
+			return;
+
+		WaitForGuard(reinterpret_cast<HANDLE volatile*>(list) + 2);
+	}
+
+	inline static SafetyHookMid ListPop_hook = {};
+	static void ListPop_dest(SafetyHookContext& ctx)
+	{
+		WaitForListGuard(ctx.eax);
+	}
+
+	inline static SafetyHookMid ListPush_hook = {};
+	static void ListPush_dest(SafetyHookContext& ctx)
+	{
+		WaitForListGuard(ctx.eax);
+	}
+
+	inline static SafetyHookInline sumo_fread_finished_hook = {};
+	static int __cdecl sumo_fread_finished_dest(int a1, int a2)
+	{
+		if (a2 != NoRequest)
+		{
+			WaitForGuard(reinterpret_cast<HANDLE volatile*>(Game::FileLoadSemaphore2));
+			WaitForGuard(reinterpret_cast<HANDLE volatile*>(Game::FileLoadSemaphore3));
+		}
+
+		return sumo_fread_finished_hook.ccall<int>(a1, a2);
+	}
+
+public:
+	std::string_view description() override
+	{
+		return "FixFileLoadRace";
+	}
+
+	bool validate() override
+	{
+		return true;
+	}
+
+	bool apply() override
+	{
+		PendingList = reinterpret_cast<uintptr_t>(Module::exe_ptr(0x555AA4));
+		ActiveList = reinterpret_cast<uintptr_t>(Module::exe_ptr(0x555A88));
+
+		LoaderThread_hook = safetyhook::create_mid(Module::exe_ptr(Sumo_FileLoadThread_Addr), LoaderThread_dest);
+		ListPop_hook = safetyhook::create_mid(Module::exe_ptr(ListPop_Addr), ListPop_dest);
+		ListPush_hook = safetyhook::create_mid(Module::exe_ptr(ListPush_Addr), ListPush_dest);
+		sumo_fread_finished_hook = safetyhook::create_inline(Module::exe_ptr(sumo_fread_finished_Addr), sumo_fread_finished_dest);
+
+		return LoaderThread_hook && ListPop_hook && ListPush_hook && sumo_fread_finished_hook;
+	}
+
+	static FixFileLoadRace instance;
+};
+FixFileLoadRace FixFileLoadRace::instance;
