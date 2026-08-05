@@ -77,11 +77,11 @@ namespace Game
 
 namespace Settings
 {
-	inline int FramerateLimit = 60;
+	inline int FramerateLimit = 0;
 	inline bool FramerateLimitMode = 0;
 	inline int FramerateFastLoad = 3;
 	inline bool FramerateUnlockExperimental = true;
-	inline bool FramerateInterpolation = false;
+	inline bool FramerateInterpolation = true;
 	inline float FramerateInterpolationDebugAlpha = -1.0f;
 	inline bool FramerateInterpolationDebugLog = false;
 	inline int VSync = 1;
@@ -134,7 +134,7 @@ namespace Settings
 	inline bool EnableTextureCache = true;
 	inline bool UseNewTextureAllocator = true;
 
-	inline bool UseNewInput = false;
+	inline bool UseNewInput = true;
 	inline float SteeringDeadZone = 0.2f;
 	inline bool ControllerHotPlug = false;
 	inline bool DefaultManualTransmission = false;
