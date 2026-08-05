@@ -703,6 +703,45 @@ public:
 };
 FileLoadSliceEndsEarly FileLoadSliceEndsEarly::instance;
 
+// outrun2006.ini parser fix
+// Games ini reader uses sub_4304B0 to parse DX/WINDOWED=X line, which copies the value to a 32-bit int pointer
+// The ini code passes pointer to g_Cfg_DxWindowed though, which is an 8-bit byte, not 32-bit.
+// After that byte comes the setting for enabling glow, and two bytes related to mipmapping
+// So if an INI is present with DX/WINDOWED line it'll always clear those following bytes
+// Not a huge deal in vanilla game, but this now stops our RestoreSkyGlow fix from working..
+class FixOutRunIniRead : public Hook
+{
+	static void __cdecl destination(uint8_t* dest)
+	{
+		typedef void (*sub_4304B0_fn)(int*);
+		sub_4304B0_fn sub_4304B0 = Module::fn_ptr<sub_4304B0_fn>(0x304B0);
+		int temp = 0;
+		sub_4304B0(&temp);
+		*dest = temp;
+	}
+
+public:
+	std::string_view description() override
+	{
+		return "FixOutRunIniRead";
+	}
+
+	bool validate() override
+	{
+		return true;
+	}
+
+	bool apply() override
+	{
+		Memory::VP::InjectHook(Module::exe_ptr(0xE704), destination, Memory::HookType::Call);
+
+		return true;
+	}
+
+	static FixOutRunIniRead instance;
+};
+FixOutRunIniRead FixOutRunIniRead::instance;
+
 // Sumo UI wraparound fix
 // For some reason UIs with options layed out vertically (pause menu) allow wraparound
 // from top/bottom ends, but the UIs that are horizontal (main menu) don't.
