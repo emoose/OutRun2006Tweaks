@@ -112,6 +112,7 @@ namespace Settings
 
 	inline int UIScalingMode = 1;
 	inline int UILetterboxing = 1;
+	inline int SkyGlowFactor = 4;
 	inline int AnisotropicFiltering = 16;
 	inline int ReflectionResolution = 2048;
 	inline bool UseHiDefCharacters = true;

@@ -102,6 +102,187 @@ public:
 };
 RestoreCarBaseShadow RestoreCarBaseShadow::instance;
 
+// Restores the console sky glow, which PC port mostly included but was disabled
+// in the code due to various issues.
+//
+// The effect blooms pixels whose framebuffer alpha beats a per stage baseline,
+// alpha being an HDR exposure of 0 to 4.0 rather than opacity. vsSetMaterial
+// turns a material's intensity into that exposure, clamp(((intensity + 1) * 0.25)
+// * glow_param[1] * 255), so an ordinary material at intensity 0 gives 63, and
+// g_GlowParamTable sets the baseline to match.
+//
+// Four (4!) separate things had to be fixed for this to work properly:
+class RestoreSkyGlow : public Hook
+{
+	// (1) The exposure reaches pixel shader constant c7 alpha, but nothing reads
+	// it. Games pixel shaders are assembled by concatenating ps_1_1 snippets looked
+	// up by combiner encoding, and entry for the HDR alpha op holds an empty snippet 
+	// on PC, so alpha keeps whatever the texture stages left: opaque scenery writes 255 
+	// where it should write 63 and the whole stage blooms.
+	//
+	// A key names an NV2A sum, (b3 * b2) + (b1 * b0), where 0x10 is zero, 0x30 one,
+	// 0x14 v0, 0x18 to 0x1B t0 to t3, 0x1C r0, and 0x11 and 0x12 the stage's two
+	// constants. SetHDRPostProcessCombiner picks by the draw's alpha reference:
+	// 0x1C301010 below 0x80, which is r0 alone and so leaves alpha untouched, and
+	// 0x10101230 at 0x80 and above, the second constant on its own. Only the second
+	// is the exposure write, so only its entry is redirected and draws that keep
+	// their own alpha are unaffected.
+	//
+	// Its key2 of 0x4C00 carries the one flag nibble set anywhere in either table,
+	// AB_CD_MUX, making the result (r0.a >= 0.5) ? exposure : 0 rather than the
+	// exposure everywhere. Multiplying by the alpha already in the register gives
+	// the same two outcomes for a cutout mask in one instruction.
+	static constexpr int AlphaOpTable_ps11_Entry0Snippet = 0x21F248;
+	static constexpr int AlphaOpTable_ps14_Entry0Snippet = 0x21F2B8;
+
+	// Alpha shader snippet for ps_1_1
+	static inline const uint32_t Snippet_ps11[] = {
+		0xFFFF0101, // not copied
+		0x00000005, // mul
+		0x80080000, // r0.a
+		0x80FF0000, // r0.a
+		0xA0FF0007, // c7.a
+		0x0000FFFF, // end
+	};
+	// Alpha shader snippet for ps_1_4
+	static inline const uint32_t Snippet_ps14[] = {
+		0xFFFF0104,
+		0x00000005,
+		0x80080004, // r4.a
+		0x80FF0004, // r4.a
+		0xA0FF0007,
+		0x0000FFFF,
+	};
+
+	// (2) InitRender leaves the alpha test on with D3DCMP_GREATEREQUAL and the
+	// opaque class carries a reference of 128. That works while alpha holds texture
+	// alpha, opaque texels being 255, but no exposure can reach it, so every opaque
+	// draw would fail and vanish.
+	//
+	// Only the copy psSetPixelShader reasserts is lowered. The 128 in
+	// SetDefaultAlphaState is also what SetHDRPostProcessCombiner tests to choose
+	// the alpha op, and below 0x80 it installs the no-op, reverting the effect.
+	// ApplyAlphaRenderState sets the device reference and picks the op from that
+	// same value, then psSetPixelShader runs per material and leaves 1 for the draw.
+	static constexpr int AlphaRefCompare_Imm = 0xB027;
+	static constexpr int AlphaRefReassert_Imm = 0xB039;
+
+	// (3) D3D9 blends alpha with the colour factors, so the sky's exposure lands as
+	// srcA*srcA + dstA*(1 - srcA) instead of srcA.
+	//
+	// Seeding the frame clear colour with that exposure, E = 0.25 * glow_param[0], 
+	// makes that E*E + E*(1 - E), which is E, the blend's fixed point, so it comes 
+	// out with right value without needing to override blend modes.
+	//
+	// Consoles seem to reach E by never clearing alpha and letting it settle across
+	// frames, which the DISCARD swap chain used on PC can't do. E also suits pixels 
+	// no sky covers: Sky_Disp draws with depth off and transparent scenery writes RGB 
+	// only, so on Alaska, which has no skyId0 and shows black, a 0 clear would previously
+	// leave a hard edge on surfaces that intersect empty sky parts.
+	static constexpr int ClearBuffer_Addr = 0xEC70;
+	static constexpr int BackColor_Addr = 0x49BD5C;
+	static constexpr int GlowParam0_Addr = 0x4A8C18;
+
+	// (4) Flag for enabling the glow effect - always set to 0 on PC.
+	// (the launcher exe did include a setting for the glow that was hidden, devs
+	// likely intended to add an option for it, but guess they ran out of time
+	// to implement it fully - to be fair it took us over 2 years to fix too :P)
+	static constexpr int GlowEnabled_Addr = 0x55AF09;
+
+	// Addresses for glow texture sizes
+	static constexpr int GlowInit_Addr = 0x14C00;
+	static constexpr int GlowInit_WidthImm[] = { 0x14C22, 0x14C45, 0x14C69 };
+	static constexpr int GlowInit_HeightImm[] = { 0x14C1D, 0x14C40, 0x14C64 };
+
+	// Extract and blur passes both draw a quad spanning 0,0 to the target size,
+	// so also have to be updated with the proper texture size.
+	static constexpr int ExtractQuad_XY[] = { 0x2236CC, 0x2236EC, 0x223704, 0x223708 };
+	static constexpr int BlurQuad_XY[] = { 0x223754, 0x22378C, 0x2237BC, 0x2237C0 };
+
+	inline static SafetyHookInline GlowInit_hook = {};
+	static void __stdcall GlowInit_dest()
+	{
+		// Sized here rather than in apply because the render resolution is only
+		// known once the game has read its config.
+		int w = Game::screen_resolution->x / Settings::SkyGlowFactor;
+		int h = Game::screen_resolution->y / Settings::SkyGlowFactor;
+
+		// Floor at the size the console ran, so a small window still leaves the blur
+		// room to work in.
+		if (w < 160)
+			w = 160;
+		if (h < 120)
+			h = 120;
+
+		for (int addr : GlowInit_WidthImm)
+			Memory::VP::Patch(Module::exe_ptr<uint32_t>(addr), uint32_t(w));
+		for (int addr : GlowInit_HeightImm)
+			Memory::VP::Patch(Module::exe_ptr<uint32_t>(addr), uint32_t(h));
+
+		for (const int* quad : { ExtractQuad_XY, BlurQuad_XY })
+		{
+			Memory::VP::Patch(Module::exe_ptr<float>(quad[0]), float(w));
+			Memory::VP::Patch(Module::exe_ptr<float>(quad[1]), float(h));
+			Memory::VP::Patch(Module::exe_ptr<float>(quad[2]), float(w));
+			Memory::VP::Patch(Module::exe_ptr<float>(quad[3]), float(h));
+		}
+
+		spdlog::info("RestoreSkyGlow: glow buffers sized {}x{}", w, h);
+
+		GlowInit_hook.stdcall();
+	}
+
+	inline static SafetyHookInline ClearBuffer_hook = {};
+	static int __cdecl ClearBuffer_dest(int a1)
+	{
+		if (Game::is_in_game())
+		{
+			float exposure = 0.25f * *Module::exe_ptr<float>(GlowParam0_Addr);
+
+			int alpha = int(exposure * 255.0f);
+			if (alpha < 0)
+				alpha = 0;
+			if (alpha > 255)
+				alpha = 255;
+
+			uint32_t* backColor = Module::exe_ptr<uint32_t>(BackColor_Addr);
+			*backColor = (*backColor & 0x00FFFFFF) | (uint32_t(alpha) << 24);
+		}
+
+		return ClearBuffer_hook.ccall<int>(a1);
+	}
+
+public:
+	std::string_view description() override
+	{
+		return "RestoreSkyGlow";
+	}
+
+	bool validate() override
+	{
+		return Settings::SkyGlowFactor > 0;
+	}
+
+	bool apply() override
+	{
+		Memory::VP::Patch(Module::exe_ptr<uint8_t>(GlowEnabled_Addr), uint8_t(1));
+
+		Memory::VP::Patch(Module::exe_ptr(AlphaOpTable_ps11_Entry0Snippet), uintptr_t(Snippet_ps11));
+		Memory::VP::Patch(Module::exe_ptr(AlphaOpTable_ps14_Entry0Snippet), uintptr_t(Snippet_ps14));
+
+		for (int addr : { AlphaRefCompare_Imm, AlphaRefReassert_Imm })
+			Memory::VP::Patch(Module::exe_ptr<uint32_t>(addr), uint32_t(1));
+
+		GlowInit_hook = safetyhook::create_inline(Module::exe_ptr(GlowInit_Addr), GlowInit_dest);
+		ClearBuffer_hook = safetyhook::create_inline(Module::exe_ptr(ClearBuffer_Addr), ClearBuffer_dest);
+
+		return !!GlowInit_hook && !!ClearBuffer_hook;
+	}
+
+	static RestoreSkyGlow instance;
+};
+RestoreSkyGlow RestoreSkyGlow::instance;
+
 class ReflectionResolution : public Hook
 {
 	inline static std::array<int, 6> ReflectionResolution_Addrs = 
