@@ -525,6 +525,58 @@ class ReplaceGameUpdateLoop : public Hook
 			*Game::stage_info_timer += 1;
 	}
 
+	// DispScore draws the popup turning a passed car into "PASS!" and its score.
+	// Its state is asd_tbl, and every part of an entry advances once per call:
+	// field_C counts 140 down and picks the frame as 140 - field_C, field_10 eases,
+	// field_14 rises then fades. DispScore runs from NaviPub_Disp, a _Disp, so that
+	// is per rendered frame and the popup passes too fast above 60FPS. Advances are
+	// undone on frames without a tick rather than scaled by sprani_num_ticks, since
+	// sparkles spawn on exact values of field_C.
+	inline static SafetyHookMid ScorePopupPos_midhook = {};
+	static void ScorePopupPos_dest(SafetyHookContext& ctx)
+	{
+		// eax is the new position, about to overwrite field_10.
+		if (*Game::sprani_num_ticks == 0)
+			ctx.eax = *reinterpret_cast<uint32_t*>(ctx.esi - 4);
+	}
+
+	// field_14's add and multiply are NOPed and reapplied here, since undoing a
+	// float in place would drift.
+	inline static SafetyHookMid ScorePopupRise_midhook = {};
+	static void ScorePopupRise_dest(SafetyHookContext& ctx)
+	{
+		if (*Game::sprani_num_ticks > 0)
+			*reinterpret_cast<float*>(ctx.esi) += 0.1f;
+	}
+
+	inline static SafetyHookMid ScorePopupFade_midhook = {};
+	static void ScorePopupFade_dest(SafetyHookContext& ctx)
+	{
+		if (*Game::sprani_num_ticks > 0)
+			*reinterpret_cast<float*>(ctx.esi) *= 0.8f;
+	}
+
+	inline static SafetyHookMid ScorePopupTimer_midhook = {};
+	static void ScorePopupTimer_dest(SafetyHookContext& ctx)
+	{
+		// The dec after this reloads field_C, so adding one cancels it.
+		if (*Game::sprani_num_ticks == 0)
+			*reinterpret_cast<int32_t*>(ctx.esi - 8) += 1;
+	}
+
+	// field_C now holds still for several frames, so sparkle spawns keyed to it
+	// would repeat and drain the 64 entry sprani list. Returning -1 is what
+	// sprani_add_list does when full, and sprani_set_matrix ignores a negative id.
+	// Nothing else uses 0x2B0046.
+	inline static SafetyHookInline SpraniAddList_hook = {};
+	static int __cdecl SpraniAddList_dest(uint32_t id, int a2, int a3)
+	{
+		if (id == 0x2B0046 && *Game::sprani_num_ticks == 0)
+			return -1;
+
+		return SpraniAddList_hook.ccall<int>(id, a2, a3);
+	}
+
 	// A SumoSprite slides and stretches into place from a rate per second that
 	// update_move_tween and update_scale_tween multiply by this, the milliseconds
 	// since the last rendered frame.
@@ -611,6 +663,15 @@ public:
 			Memory::VP::Nop(Module::exe_ptr<uint8_t>(0xB960D), 7);
 			StageInfoTimer_midhook1 = safetyhook::create_mid(Module::exe_ptr(0xB9554), StageInfoTimer_dest);
 			StageInfoTimer_midhook2 = safetyhook::create_mid(Module::exe_ptr(0xB960D), StageInfoTimer_dest);
+
+			// Fix car-pass score animation speed
+			ScorePopupPos_midhook = safetyhook::create_mid(Module::exe_ptr(0xBD6BA), ScorePopupPos_dest);
+			Memory::VP::Nop(Module::exe_ptr<uint8_t>(0xBD6D0), 16);
+			ScorePopupRise_midhook = safetyhook::create_mid(Module::exe_ptr(0xBD6D0), ScorePopupRise_dest);
+			Memory::VP::Nop(Module::exe_ptr<uint8_t>(0xBD6E5), 16);
+			ScorePopupFade_midhook = safetyhook::create_mid(Module::exe_ptr(0xBD6E5), ScorePopupFade_dest);
+			ScorePopupTimer_midhook = safetyhook::create_mid(Module::exe_ptr(0xBD8D5), ScorePopupTimer_dest);
+			SpraniAddList_hook = safetyhook::create_inline(Module::exe_ptr(0x28320), SpraniAddList_dest);
 		}
 
 		// Increase reflection update rate, default is 3 (30fps)
