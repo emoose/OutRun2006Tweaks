@@ -365,6 +365,9 @@ class RestoreSkyGlow : public Hook
 	inline static SafetyHookInline ClearBuffer_hook = {};
 	static int __cdecl ClearBuffer_dest(int a1)
 	{
+		uint32_t* backColor = Module::exe_ptr<uint32_t>(BackColor_Addr);
+		const uint32_t prevColor = *backColor;
+
 		if (Game::is_in_game())
 		{
 			float exposure = 0.25f * *Module::exe_ptr<float>(GlowParam0_Addr);
@@ -375,11 +378,16 @@ class RestoreSkyGlow : public Hook
 			if (alpha > 255)
 				alpha = 255;
 
-			uint32_t* backColor = Module::exe_ptr<uint32_t>(BackColor_Addr);
-			*backColor = (*backColor & 0x00FFFFFF) | (uint32_t(alpha) << 24);
+			*backColor = (prevColor & 0x00FFFFFF) | (uint32_t(alpha) << 24);
 		}
 
-		return ClearBuffer_hook.ccall<int>(a1);
+		int result = ClearBuffer_hook.ccall<int>(a1);
+
+		// Only the clear needs the exposure in there; leaving it set changes what
+		// every later clear starts from, including the menus after a race.
+		*backColor = prevColor;
+
+		return result;
 	}
 
 public:
