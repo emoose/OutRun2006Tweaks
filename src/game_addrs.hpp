@@ -174,7 +174,7 @@ namespace Game
 	inline fn_0args EventControl = nullptr;
 	inline fn_0args GhostCarExecServer = nullptr;
 	inline fn_0args fn4666A0 = nullptr;
-	inline fn_0args FileLoad_Ctrl = nullptr;
+	inline fn_0args_int FileLoad_Ctrl = nullptr;
 
 	// Guard the loader thread takes around the two pending-read lists. Sumo's
 	// own critical section in sub_423670 sets both of these to null while it
@@ -409,7 +409,7 @@ namespace Game
 		EventControl = Module::fn_ptr<fn_0args>(0x3FAB0); // EventControl
 		GhostCarExecServer = Module::fn_ptr<fn_0args>(0x80F80); // GhostCarExecServer
 		fn4666A0 = Module::fn_ptr<fn_0args>(0x666A0);
-		FileLoad_Ctrl = Module::fn_ptr<fn_0args>(0x4FBA0);
+		FileLoad_Ctrl = Module::fn_ptr<fn_0args_int>(0x4FBA0);
 		FileLoadSemaphore2 = Module::exe_ptr<HANDLE>(0x555AAC);
 		FileLoadSemaphore3 = Module::exe_ptr<HANDLE>(0x555A90);
 

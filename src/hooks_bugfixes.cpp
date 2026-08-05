@@ -2,6 +2,7 @@
 #include <Windows.h>
 #include <shellapi.h>
 #include <atomic>
+#include <intrin.h>
 #include "hook_mgr.hpp"
 #include "plugin.hpp"
 #include "game_addrs.hpp"
@@ -498,104 +499,120 @@ HideOnlineSigninText HideOnlineSigninText::instance;
 
 class FixFileLoadRace : public Hook
 {
-	static constexpr int Sumo_FileLoadThread_Addr = 0x23940;
-	static constexpr int ListPop_Addr = 0x244F0;          // sub_4244F0
-	static constexpr int ListPush_Addr = 0x24580;         // sub_424580
+	static constexpr int ServiceRequest_Addr = 0x23670;      // Sumo_FileLoadServiceRequest
+	static constexpr int ServiceRequestMoveDone_Addr = 0x2371A;
+	static constexpr int sumo_fread_Addr = 0x23CF0;
 	static constexpr int sumo_fread_finished_Addr = 0x23E30;
 
 	// Request id meaning "nothing is in flight", answered without consulting
-	// either list, so it never reaches a guard.
+	// either list.
 	static constexpr int NoRequest = 0x80000000;
 
-	// The guarded section is a single pop followed by a single push, so a caller
-	// that has to wait is only ever waiting on those. The bound exists so a
-	// loader thread stalled by the scheduler cannot hold up the main thread
-	// indefinitely; going over it falls back to the original behaviour.
-	static constexpr int MaxYields = 10000;
-
-	inline static std::atomic<DWORD> LoaderThreadId = 0;
-
-	inline static std::atomic<uint32_t> WaitCount = 0;
-	inline static std::atomic<uint32_t> TimeoutCount = 0;
-
-	// Each of the two pending-read lists keeps its guard semaphore in its own
-	// header at +0x8, and the list helpers treat a null there as "no guard
-	// needed, mutate directly". sub_423670 takes both guards and then nulls both
-	// fields, so that its own pops and pushes skip a lock it already holds and do
-	// not deadlock on a non-recursive semaphore.
+	// The loader keeps its read requests on three doubly linked lists: free,
+	// pending (queued, not started) and active (in progress). Each list header
+	// holds its own guard semaphore at +0x8, and Sumo_ListPopFront and
+	// Sumo_ListPushBack treat a null there as "no guard needed, mutate directly".
 	//
-	// That signal is global though, so while it is set every other thread also
-	// reads "no guard needed" and mutates the same lists with no synchronisation
-	// at all, and sumo_fread_finished waits on a null handle, fails, and reports
-	// an in-flight read as finished.
+	// Sumo_FileLoadServiceRequest takes both guard semaphores, nulls both header
+	// fields, moves one request from pending to active, then puts the fields back
+	// and releases. Nulling them is how it stops its own pop and push from
+	// deadlocking on a semaphore it already holds, but the fields are global, so
+	// for the length of that move every other thread reads "no guard needed" too:
 	//
-	// Waiting for the field to come back makes those callers take the guard the
-	// way they would have outside the window.
-	static void WaitForGuard(HANDLE volatile* slot)
+	//  - sumo_fread pushes onto the pending list with no lock, against the
+	//    loader's concurrent pop, which can lose or duplicate a request.
+	//  - sumo_fread_finished waits on a null handle. The wait fails, so it skips
+	//    both list searches and answers "finished" for a read that has not
+	//    started. LoadXmtsetObject then advances its state machine over object
+	//    data that has not arrived.
+	//
+	// Holding a critical section across the move, and across the two functions
+	// the main thread reaches those lists through, gives back the exclusion the
+	// nulled fields drop. Nothing takes a guard semaphore before this lock, so
+	// the two cannot deadlock against each other. The loader releases it before
+	// the read itself, which suspends its own thread and would otherwise strand
+	// anyone waiting.
+	inline static CRITICAL_SECTION ListLock{};
+
+	inline static SafetyHookMid ServiceRequest_hook = {};
+	static void ServiceRequest_dest(SafetyHookContext& ctx)
 	{
-		if (!slot || *slot)
-			return;
-
-		// The loader thread is the one holding it, so it must never wait here.
-		if (GetCurrentThreadId() == LoaderThreadId.load(std::memory_order_relaxed))
-			return;
-
-		WaitCount++;
-
-		for (int i = 0; i < MaxYields; i++)
-		{
-			SwitchToThread();
-			if (*slot)
-				return;
-		}
-
-		if (++TimeoutCount <= 5)
-			spdlog::warn("FixFileLoadRace: file loader held list guard for longer than expected, proceeding unguarded");
+		EnterCriticalSection(&ListLock);
 	}
 
-	inline static SafetyHookMid LoaderThread_hook = {};
-	static void LoaderThread_dest(SafetyHookContext& ctx)
+	inline static SafetyHookMid ServiceRequestMoveDone_hook = {};
+	static void ServiceRequestMoveDone_dest(SafetyHookContext& ctx)
 	{
-		LoaderThreadId.store(GetCurrentThreadId(), std::memory_order_relaxed);
+		LeaveCriticalSection(&ListLock);
 	}
 
-	// Only these two lists have their guard field nulled by sub_423670. The same
-	// helpers serve other lists, and sub_424430 creates some of those with no
-	// guard at all, so a null there is normal and must not be waited on.
-	inline static uintptr_t PendingList = 0;  // dword_955AA4, reads not yet started
-	inline static uintptr_t ActiveList = 0;   // dword_955A88, reads in progress
-
-	// Both helpers take the list header in eax.
-	static void WaitForListGuard(uintptr_t list)
+	inline static SafetyHookInline sumo_fread_hook = {};
+	static uint32_t __cdecl sumo_fread_dest(void* buf, int numBytes, int a3, void* file, int* outSize)
 	{
-		if (list != PendingList && list != ActiveList)
-			return;
+		EnterCriticalSection(&ListLock);
+		uint32_t result = sumo_fread_hook.ccall<uint32_t>(buf, numBytes, a3, file, outSize);
+		LeaveCriticalSection(&ListLock);
 
-		WaitForGuard(reinterpret_cast<HANDLE volatile*>(list) + 2);
-	}
+		// A read that queues nothing still hands back an id, and sumo_fread_finished
+		// answers "finished" for it without consulting a list, so callers walk their
+		// state machine over a buffer that was never filled. Reaching this with a
+		// real read to make means the free list of request records ran dry.
+		if (result == NoRequest && numBytes > 0 && file)
+			spdlog::error("FixFileLoadRace: file loader refused a {} byte read, its data will be left unset", numBytes);
 
-	inline static SafetyHookMid ListPop_hook = {};
-	static void ListPop_dest(SafetyHookContext& ctx)
-	{
-		WaitForListGuard(ctx.eax);
-	}
-
-	inline static SafetyHookMid ListPush_hook = {};
-	static void ListPush_dest(SafetyHookContext& ctx)
-	{
-		WaitForListGuard(ctx.eax);
+		return result;
 	}
 
 	inline static SafetyHookInline sumo_fread_finished_hook = {};
-	static int __cdecl sumo_fread_finished_dest(int a1, int a2)
+	static int __cdecl sumo_fread_finished_dest(int file, int requestId)
 	{
-		if (a2 != NoRequest)
-		{
-			WaitForGuard(reinterpret_cast<HANDLE volatile*>(Game::FileLoadSemaphore2));
-			WaitForGuard(reinterpret_cast<HANDLE volatile*>(Game::FileLoadSemaphore3));
-		}
+		if (requestId == NoRequest)
+			return sumo_fread_finished_hook.ccall<int>(file, requestId);
 
-		return sumo_fread_finished_hook.ccall<int>(a1, a2);
+		EnterCriticalSection(&ListLock);
+		int result = sumo_fread_finished_hook.ccall<int>(file, requestId);
+		LeaveCriticalSection(&ListLock);
+
+		return result;
+	}
+
+	static constexpr int LoadTextures_Addr = 0x2E8D1;
+	static constexpr int XPR0Entry_Addr = 0x557BE0;    // g_Xmt_XPR0Entry
+	static constexpr int TextureIndex_Addr = 0x55B22C;
+	static constexpr int XPR0EntrySize = 20;
+
+	// LoadTextures creates one texture per call from a 20 byte XPR0 entry,
+	// walking g_Xmt_XPR0Entry through the xmtset's system memory block.
+	// ReadXmtsetTexture builds that pointer out of the block's own contents, so
+	// any read that lands late leaves it pointing outside the block and the first
+	// field read faults. Finishing the xmtset short of textures is survivable,
+	// reading unmapped memory is not.
+	inline static SafetyHookMid LoadTextures_hook = {};
+	static void LoadTextures_dest(SafetyHookContext& ctx)
+	{
+		uint8_t* xmt = reinterpret_cast<uint8_t*>(ctx.edi);
+		uint8_t* head = *reinterpret_cast<uint8_t**>(xmt);                    // XMTSET::head
+		uint8_t** objectHandle = *reinterpret_cast<uint8_t***>(xmt + 0x28);   // XMTSET::ObjectHandle
+		const uint32_t blockSize = *reinterpret_cast<uint32_t*>(xmt + 0x3C);  // XMTSET::dwSysMemDataSize
+
+		uint32_t& textureIdx = *reinterpret_cast<uint32_t*>(Module::exe_ptr(TextureIndex_Addr));
+
+		// Same test LoadTextures makes a few instructions later, repeated here so
+		// an xmtset already given up on doesn't report again on every call.
+		if (!head || textureIdx >= *reinterpret_cast<uint32_t*>(head + 8))
+			return;
+
+		uint8_t* entry = *reinterpret_cast<uint8_t**>(Module::exe_ptr(XPR0Entry_Addr));
+		uint8_t* block = objectHandle ? *objectHandle : nullptr;
+
+		if (block && entry >= block && entry + XPR0EntrySize <= block + blockSize)
+			return;
+
+		spdlog::error("FixFileLoadRace: XPR0 entry {:p} outside xmtset block {:p}+{:X}, skipping its remaining textures",
+			(void*)entry, (void*)block, blockSize);
+
+		// Raising the index to the texture count makes that test read as done.
+		textureIdx = *reinterpret_cast<uint32_t*>(head + 8);
 	}
 
 public:
@@ -611,17 +628,77 @@ public:
 
 	bool apply() override
 	{
-		PendingList = reinterpret_cast<uintptr_t>(Module::exe_ptr(0x555AA4));
-		ActiveList = reinterpret_cast<uintptr_t>(Module::exe_ptr(0x555A88));
+		// Held only across a list pop and push, so a waiter is better off spinning
+		// than paying for the trip into the kernel.
+		InitializeCriticalSectionAndSpinCount(&ListLock, 4000);
 
-		LoaderThread_hook = safetyhook::create_mid(Module::exe_ptr(Sumo_FileLoadThread_Addr), LoaderThread_dest);
-		ListPop_hook = safetyhook::create_mid(Module::exe_ptr(ListPop_Addr), ListPop_dest);
-		ListPush_hook = safetyhook::create_mid(Module::exe_ptr(ListPush_Addr), ListPush_dest);
+		ServiceRequest_hook = safetyhook::create_mid(Module::exe_ptr(ServiceRequest_Addr), ServiceRequest_dest);
+		ServiceRequestMoveDone_hook = safetyhook::create_mid(Module::exe_ptr(ServiceRequestMoveDone_Addr), ServiceRequestMoveDone_dest);
+		sumo_fread_hook = safetyhook::create_inline(Module::exe_ptr(sumo_fread_Addr), sumo_fread_dest);
 		sumo_fread_finished_hook = safetyhook::create_inline(Module::exe_ptr(sumo_fread_finished_Addr), sumo_fread_finished_dest);
+		LoadTextures_hook = safetyhook::create_mid(Module::exe_ptr(LoadTextures_Addr), LoadTextures_dest);
 
-		return LoaderThread_hook && ListPop_hook && ListPush_hook && sumo_fread_finished_hook;
+		return ServiceRequest_hook && ServiceRequestMoveDone_hook && sumo_fread_hook && sumo_fread_finished_hook && LoadTextures_hook;
 	}
 
 	static FixFileLoadRace instance;
 };
 FixFileLoadRace FixFileLoadRace::instance;
+
+// LoadXmtsetObject builds an xmtset's objects in one state and its textures in
+// the next, each by calling a worker over and over until half a millisecond of
+// the frame has gone.
+// 
+// The worker says when it has nothing left to do, but that only gets checked
+// after the loop has exited, so a state that finishes early still wastes time
+// in the loop.
+//
+// Each loop saves the time it started at and repeats while GetNowCpuTime() minus
+// that stays under 0.5. Backdating the saved time makes the next comparison read
+// as over budget, ending the loop on its own so it falls into the completion
+// check it was always going to make.
+class FileLoadSliceEndsEarly : public Hook
+{
+	// Both sites are "mov bl, al" straight after the worker returns, so al still
+	// holds its answer and the following call is the only relative operand.
+	static constexpr int ReadObjects_Addr = 0x2E399;
+	static constexpr int LoadTextures_Addr = 0x2E3F5;
+
+	// Where both loops keep the millisecond their slice began at.
+	static constexpr int SliceStart_Offset = 0x1C;
+
+	// Far enough back that the subtraction clears 0.5 by any margin a frame timer
+	// could produce.
+	static constexpr float Backdated = -1.0e9f;
+
+	inline static SafetyHookMid ReadObjects_hook = {};
+	inline static SafetyHookMid LoadTextures_hook = {};
+
+	static void EndSliceWhenDone(SafetyHookContext& ctx)
+	{
+		if (ctx.eax & 0xFF)
+			*reinterpret_cast<float*>(ctx.esp + SliceStart_Offset) = Backdated;
+	}
+
+public:
+	std::string_view description() override
+	{
+		return "FileLoadSliceEndsEarly";
+	}
+
+	bool validate() override
+	{
+		return Settings::FramerateFastLoad > 0;
+	}
+
+	bool apply() override
+	{
+		ReadObjects_hook = safetyhook::create_mid(Module::exe_ptr(ReadObjects_Addr), EndSliceWhenDone);
+		LoadTextures_hook = safetyhook::create_mid(Module::exe_ptr(LoadTextures_Addr), EndSliceWhenDone);
+
+		return ReadObjects_hook && LoadTextures_hook;
+	}
+
+	static FileLoadSliceEndsEarly instance;
+};
+FileLoadSliceEndsEarly FileLoadSliceEndsEarly::instance;

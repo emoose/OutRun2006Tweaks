@@ -248,6 +248,33 @@ class ReplaceGameUpdateLoop : public Hook
 	// coming back to it.
 	static constexpr double FramelimiterFastLoadSleepMs = 4.0;
 
+	// Longest a single FileLoad_Ctrl can take. LoadXmtsetObject spends up to half
+	// a millisecond building objects or textures before returning, and the other
+	// request servers it drives are bounded the same way.
+	static constexpr double FileLoadSliceMs = 0.5;
+
+	// FileLoad_Ctrl returns zero once every request server has run dry, so one
+	// call answers immediately when there is nothing to load and today's single
+	// call per sleep is all an idle frame pays. While a load is running though
+	// that one call advances it by a slice and then the limiter sleeps for
+	// milliseconds, leaving the loader idle for most of the wait. Keep handing it
+	// slices until it reports nothing left or the frame no longer has room for
+	// another, so the limiter still releases the frame on time.
+	static void PumpFileLoader(double deadline)
+	{
+		LARGE_INTEGER counter;
+
+		for (;;)
+		{
+			if (!Game::FileLoad_Ctrl())
+				return;
+
+			QueryPerformanceCounter(&counter);
+			if (deadline - (double(counter.QuadPart) / FramelimiterFrequency) <= FileLoadSliceMs)
+				return;
+		}
+	}
+
 	inline static SafetyHookMid dest_hook = {};
 	static void destination(safetyhook::Context& ctx)
 	{
@@ -319,7 +346,7 @@ class ReplaceGameUpdateLoop : public Hook
 			for (;;)
 			{
 				if (Settings::FramerateFastLoad == 3)
-					Game::FileLoad_Ctrl();
+					PumpFileLoader(deadline);
 
 				QueryPerformanceCounter(&counter);
 				timeCurrent = double(counter.QuadPart) / FramelimiterFrequency;
@@ -632,7 +659,26 @@ public:
 
 		// Disable FileLoad_Ctrl call, we'll handle it above ourselves
 		if (Settings::FramerateFastLoad == 3)
+		{
 			Memory::VP::Nop(Module::exe_ptr(GameLoopFileLoad_CtrlCaller), 5);
+
+			// FileLoad_Ctrl reports whether any of its five request servers still
+			// has work, which is what PumpFileLoader stops on, but the last of them
+			// answers "yes" every time:
+			//
+			//   if (file_load_progress[1] != 2) LoadADVData(load_index);
+			//   return 1;
+			//
+			// LoadADVData already returns 0 for that state, and 1 only while it has
+			// an ADV file open or waiting, so dropping the test and handing back
+			// what it says makes the whole chain honest. Without this the pump never
+			// sees an idle loader and spins out every frame.
+			constexpr int LoadADVSkipTest_Addr = 0x5AEC7;
+			constexpr int LoadADVReturnOne_Addr = 0x5AED7;
+
+			Memory::VP::Nop(Module::exe_ptr(LoadADVSkipTest_Addr), 2);
+			Memory::VP::Patch<uint8_t>(Module::exe_ptr(LoadADVReturnOne_Addr), 0xC3); // retn
+		}
 
 		if (Settings::FramerateUnlockExperimental)
 		{
