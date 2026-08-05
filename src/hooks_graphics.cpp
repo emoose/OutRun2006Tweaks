@@ -111,7 +111,8 @@ RestoreCarBaseShadow RestoreCarBaseShadow::instance;
 // * glow_param[1] * 255), so an ordinary material at intensity 0 gives 63, and
 // g_GlowParamTable sets the baseline to match.
 //
-// Four (4!) separate things had to be fixed for this to work properly:
+// Four (4!) separate things had to be fixed for this to work properly, plus two
+// more for quality:
 class RestoreSkyGlow : public Hook
 {
 	// (1) The exposure reaches pixel shader constant c7 alpha, but nothing reads
@@ -199,6 +200,111 @@ class RestoreSkyGlow : public Hook
 	static constexpr int ExtractQuad_XY[] = { 0x2236CC, 0x2236EC, 0x223704, 0x223708 };
 	static constexpr int BlurQuad_XY[] = { 0x223754, 0x22378C, 0x2237BC, 0x2237C0 };
 
+	// (5) MakeReduceBuff copies the back buffer into the glow buffer with a single
+	// StretchRect. Bilinear samples 2x2, so reducing by 4x reads only four of every
+	// sixteen pixels, and building edges alias and crawl. Two 2x steps sample all of
+	// them, bilinear being an exact box filter at exactly half, and the extra
+	// averaging adds the softness the small buffer is meant to provide. Only worth
+	// doing when the reduction is more than 2x.
+	static constexpr int MakeReduceBuff_Addr = 0x14E50;
+	static constexpr int GlowRelease_Addr = 0x14C80;
+	static constexpr int RenderCfgGlow_Addr = 0x39FCD5; // tested as (x & 3) == 2
+	static constexpr int Step1Tex_Addr = 0x4A8C14;
+	static constexpr int LatestTex_Addr = 0x4A8C08;
+	static constexpr int GlowAmount_Addr = 0x4A8C40; // glow_param.amount_28
+
+	inline static IDirect3DTexture9* ReduceHalf = nullptr;
+
+	inline static SafetyHookInline MakeReduceBuff_hook = {};
+	static void __stdcall MakeReduceBuff_dest()
+	{
+		// Checked here rather than in apply so the setting can be changed while the
+		// game runs.
+		if (!Settings::SkyGlowTwoStep || !ReduceHalf)
+		{
+			MakeReduceBuff_hook.stdcall();
+			return;
+		}
+
+		// The conditions the original reduces under.
+		if ((*Module::exe_ptr<uint8_t>(RenderCfgGlow_Addr) & 3) != 2)
+			return;
+		if (*Module::exe_ptr<int>(GlowAmount_Addr) == 0)
+			return;
+
+		IDirect3DDevice9* device = Game::D3DDevice();
+		IDirect3DTexture9* step1 = *Module::exe_ptr<IDirect3DTexture9*>(Step1Tex_Addr);
+		if (!device || !step1)
+			return;
+
+		IDirect3DSurface9* back = nullptr;
+		IDirect3DSurface9* half = nullptr;
+		IDirect3DSurface9* target = nullptr;
+
+		if (SUCCEEDED(device->GetBackBuffer(0, 0, D3DBACKBUFFER_TYPE_MONO, &back))
+			&& SUCCEEDED(ReduceHalf->GetSurfaceLevel(0, &half))
+			&& SUCCEEDED(step1->GetSurfaceLevel(0, &target)))
+		{
+			device->StretchRect(back, nullptr, half, nullptr, D3DTEXF_LINEAR);
+			device->StretchRect(half, nullptr, target, nullptr, D3DTEXF_LINEAR);
+
+			*Module::exe_ptr<IDirect3DTexture9*>(LatestTex_Addr) = step1;
+		}
+
+		if (target)
+			target->Release();
+		if (half)
+			half->Release();
+		if (back)
+			back->Release();
+	}
+
+	// The intermediate is D3DPOOL_DEFAULT, so it has to be gone before a device
+	// reset. D3D_GlowRelease_mb is where the game drops its own glow targets.
+	inline static SafetyHookInline GlowRelease_hook = {};
+	static void __stdcall GlowRelease_dest()
+	{
+		if (ReduceHalf)
+		{
+			ReduceHalf->Release();
+			ReduceHalf = nullptr;
+		}
+
+		GlowRelease_hook.stdcall();
+	}
+
+	// (6) BlurGlowImage offsets its taps by `glow_param[11] / screen width` in texture
+	// coordinates, growing by glow_param[12] each pass. Dividing by the live width
+	// pins the blur to a fixed count of screen pixels, which covered most of the
+	// picture at 640 across and is almost nothing at 3840: the offset stays 0.1
+	// buffer texels either way, but the buffer is six times wider so the blur spans
+	// six times less of the image, and four taps inside one texel leave bilinear
+	// nothing to average.
+	// Scaling both by width / 640 holds the texture coordinate offset constant, the 
+	// proportion the console blurred at.
+	static constexpr int BlurGlowImage_Addr = 0x15630;
+	static constexpr int BlurOffset_Addr = 0x4A8C44;     // glow_param[11]
+	static constexpr int BlurOffsetStep_Addr = 0x4A8C48; // glow_param[12]
+
+	inline static SafetyHookInline BlurGlowImage_hook = {};
+	static void __stdcall BlurGlowImage_dest()
+	{
+		float* offset = Module::exe_ptr<float>(BlurOffset_Addr);
+		float* step = Module::exe_ptr<float>(BlurOffsetStep_Addr);
+
+		const float scale = Game::screen_resolution->x / Game::original_resolution.x;
+		const float prevOffset = *offset;
+		const float prevStep = *step;
+
+		*offset = prevOffset * scale;
+		*step = prevStep * scale;
+
+		BlurGlowImage_hook.stdcall();
+
+		*offset = prevOffset;
+		*step = prevStep;
+	}
+
 	inline static SafetyHookInline GlowInit_hook = {};
 	static void __stdcall GlowInit_dest()
 	{
@@ -230,6 +336,30 @@ class RestoreSkyGlow : public Hook
 		spdlog::info("RestoreSkyGlow: glow buffers sized {}x{}", w, h);
 
 		GlowInit_hook.stdcall();
+
+		// Halfway stage for the reduce, so neither StretchRect does more than a 2x.
+		// This runs again after a device reset, so drop any previous one first.
+		if (ReduceHalf)
+		{
+			ReduceHalf->Release();
+			ReduceHalf = nullptr;
+		}
+
+		if (Settings::SkyGlowFactor > 2)
+		{
+			if (IDirect3DDevice9* device = Game::D3DDevice())
+			{
+				uint32_t halfW = uint32_t(Game::screen_resolution->x) / 2;
+				uint32_t halfH = uint32_t(Game::screen_resolution->y) / 2;
+
+				if (FAILED(device->CreateTexture(halfW, halfH, 1, D3DUSAGE_RENDERTARGET,
+					D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, &ReduceHalf, nullptr)))
+				{
+					ReduceHalf = nullptr;
+					spdlog::warn("RestoreSkyGlow: reduce intermediate failed, glow will alias at edges");
+				}
+			}
+		}
 	}
 
 	inline static SafetyHookInline ClearBuffer_hook = {};
@@ -275,8 +405,12 @@ public:
 
 		GlowInit_hook = safetyhook::create_inline(Module::exe_ptr(GlowInit_Addr), GlowInit_dest);
 		ClearBuffer_hook = safetyhook::create_inline(Module::exe_ptr(ClearBuffer_Addr), ClearBuffer_dest);
+		MakeReduceBuff_hook = safetyhook::create_inline(Module::exe_ptr(MakeReduceBuff_Addr), MakeReduceBuff_dest);
+		GlowRelease_hook = safetyhook::create_inline(Module::exe_ptr(GlowRelease_Addr), GlowRelease_dest);
+		BlurGlowImage_hook = safetyhook::create_inline(Module::exe_ptr(BlurGlowImage_Addr), BlurGlowImage_dest);
 
-		return !!GlowInit_hook && !!ClearBuffer_hook;
+		return !!GlowInit_hook && !!ClearBuffer_hook && !!MakeReduceBuff_hook
+			&& !!GlowRelease_hook && !!BlurGlowImage_hook;
 	}
 
 	static RestoreSkyGlow instance;

@@ -93,6 +93,7 @@ namespace Settings
 		spdlog::info(" - UIScalingMode: {}", UIScalingMode);
 		spdlog::info(" - UILetterboxing: {}", UILetterboxing);
 		spdlog::info(" - SkyGlowFactor: {}", SkyGlowFactor);
+		spdlog::info(" - SkyGlowTwoStep: {}", SkyGlowTwoStep);
 		spdlog::info(" - AnisotropicFiltering: {}", AnisotropicFiltering);
 		spdlog::info(" - ReflectionResolution: {}", ReflectionResolution);
 		spdlog::info(" - UseHiDefCharacters: {}", UseHiDefCharacters);
@@ -202,6 +203,7 @@ namespace Settings
 		UILetterboxing = std::clamp(UILetterboxing, 0, 2);
 
 		SkyGlowFactor = ini.Get("Graphics", "SkyGlowFactor", SkyGlowFactor);
+		SkyGlowTwoStep = ini.Get("Graphics", "SkyGlowTwoStep", SkyGlowTwoStep);
 		AnisotropicFiltering = ini.Get("Graphics", "AnisotropicFiltering", AnisotropicFiltering);
 		AnisotropicFiltering = std::clamp(AnisotropicFiltering, 0, 16);
 		ReflectionResolution = ini.Get("Graphics", "ReflectionResolution", ReflectionResolution);
