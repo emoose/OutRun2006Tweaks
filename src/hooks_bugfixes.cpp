@@ -702,3 +702,113 @@ public:
 	static FileLoadSliceEndsEarly instance;
 };
 FileLoadSliceEndsEarly FileLoadSliceEndsEarly::instance;
+
+// Sumo UI wraparound fix
+// For some reason UIs with options layed out vertically (pause menu) allow wraparound
+// from top/bottom ends, but the UIs that are horizontal (main menu) don't.
+// 
+// Added hooks to allow these horizontal menus to wrap-around too, makes it a
+// little quicker to get to the ends of the lists now.
+class MenuSelectionWrap : public Hook
+{
+	static constexpr int Increment_Addr = 0x11BB10;
+	static constexpr int Decrement_Addr = 0x11BBA0;
+
+	static constexpr int MaxIndex_Offset = 0xAC;
+	static constexpr int PrevIndex_Offset = 0xB0;
+	static constexpr int CurIndex_Offset = 0xB4;
+
+	// Some menus have their own selected-index tests which skip calling Increment/Decrement
+	// if the tests fail, not really sure why since Inc/Dec also tested index too.
+	// Just nop these out so they call into our hooks.
+	struct Guard { int addr; int size; };
+	static constexpr Guard Guards[] = {
+		{ 0xD35BF, 6 }, // stage select, left (right side guard checks for higher value than list actually contains, dev mistake?)
+		{ 0xCBDB6, 6 }, // game mode select, left
+		{ 0xCBE66, 6 }, // game mode select, right
+		{ 0xCF51B, 6 }, // sub_4CEF30, left
+		{ 0xCF5E8, 6 }, // sub_4CEF30, right
+		{ 0xD91E8, 2 }, // sub_4D90A0, left
+		{ 0xD91FE, 2 }, // sub_4D90A0, right
+	};
+
+	static int& field(void* thisptr, int offset)
+	{
+		return *reinterpret_cast<int*>(reinterpret_cast<uint8_t*>(thisptr) + offset);
+	}
+
+	// Neither function's index arithmetic can land on an odd entry, so the resting
+	// one for the target is handed over as entry 0, where an index of -1 sends the
+	// increment half. init_465860 copies the three dwords out during the call, so
+	// the stand-in only has to outlive that.
+	static int wrapTo(void* thisptr, int target)
+	{
+		uint32_t** table = reinterpret_cast<uint32_t**>(thisptr);
+		uint32_t* entries = *table;
+
+		const int resting = 3 * (2 * target + 1);
+		uint32_t wrapEntry[3] = { entries[resting], entries[resting + 1], entries[resting + 2] };
+
+		*table = wrapEntry;
+		field(thisptr, CurIndex_Offset) = -1;
+		int result = Increment_hook.thiscall<int>(thisptr);
+		*table = entries;
+
+		const int landedOn = field(thisptr, CurIndex_Offset);
+
+		field(thisptr, CurIndex_Offset) = target;
+		field(thisptr, PrevIndex_Offset) = target;
+
+		return result;
+	}
+
+	inline static SafetyHookInline Increment_hook = {};
+	static int __fastcall Increment_dest(void* thisptr, int unused)
+	{
+		int& current = field(thisptr, CurIndex_Offset);
+		const int maxIndex = field(thisptr, MaxIndex_Offset);
+
+		if (current < maxIndex)
+			return Increment_hook.thiscall<int>(thisptr);
+
+		return wrapTo(thisptr, 0);
+	}
+
+	inline static SafetyHookInline Decrement_hook = {};
+	static int __fastcall Decrement_dest(void* thisptr, int unused)
+	{
+		int& current = field(thisptr, CurIndex_Offset);
+		const int maxIndex = field(thisptr, MaxIndex_Offset);
+
+		// A single option has nowhere to wrap to.
+		if (current > 0 || maxIndex <= 0)
+			return Decrement_hook.thiscall<int>(thisptr);
+
+		return wrapTo(thisptr, maxIndex);
+	}
+
+public:
+	std::string_view description() override
+	{
+		return "MenuSelectionWrap";
+	}
+
+	bool validate() override
+	{
+		return true;
+	}
+
+	bool apply() override
+	{
+		Increment_hook = safetyhook::create_inline(Module::exe_ptr(Increment_Addr), Increment_dest);
+		Decrement_hook = safetyhook::create_inline(Module::exe_ptr(Decrement_Addr), Decrement_dest);
+
+		for (const Guard& guard : Guards)
+			Memory::VP::Nop(Module::exe_ptr<uint8_t>(guard.addr), guard.size);
+
+		return !!Increment_hook && !!Decrement_hook;
+	}
+
+	static MenuSelectionWrap instance;
+};
+MenuSelectionWrap MenuSelectionWrap::instance;
