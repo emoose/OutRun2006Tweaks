@@ -396,14 +396,10 @@ public:
 		return "RestoreSkyGlow";
 	}
 
-	bool validate() override
-	{
-		return Settings::SkyGlowFactor > 0;
-	}
-
 	bool apply() override
 	{
-		Memory::VP::Patch(Module::exe_ptr<uint8_t>(GlowEnabled_Addr), uint8_t(1));
+		// Note: hooks/patches are always applied regardless of INI settings, so they can be changed at runtime
+		Memory::VP::Patch(Module::exe_ptr<uint8_t>(GlowEnabled_Addr), uint8_t(Settings::SkyGlowFactor > 0 ? 1 : 0));
 
 		Memory::VP::Patch(Module::exe_ptr(AlphaOpTable_ps11_Entry0Snippet), uintptr_t(Snippet_ps11));
 		Memory::VP::Patch(Module::exe_ptr(AlphaOpTable_ps14_Entry0Snippet), uintptr_t(Snippet_ps14));
@@ -419,6 +415,16 @@ public:
 
 		return !!GlowInit_hook && !!ClearBuffer_hook && !!MakeReduceBuff_hook
 			&& !!GlowRelease_hook && !!BlurGlowImage_hook;
+	}
+
+	bool settings_changed() override
+	{
+		// Call release before patching glow enabled byte, for it to release resources if needed
+		GlowRelease_dest();
+		Memory::VP::Patch(Module::exe_ptr<uint8_t>(GlowEnabled_Addr), uint8_t(Settings::SkyGlowFactor > 0 ? 1 : 0));
+		GlowInit_dest();
+
+		return false;
 	}
 
 	static RestoreSkyGlow instance;

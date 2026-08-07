@@ -63,27 +63,36 @@ public:
 				Overlay::IsBindingDialogActive = true;
 #endif
 
+			bool settingsChanged = false;
+
 			ImGui::Separator();
 			ImGui::Text("Gameplay");
 
-			ImGui::Checkbox("Countdown timer enabled", Game::Sumo_CountdownTimerEnable);
-			ImGui::Checkbox("Pause menu enabled", &EnablePauseMenu);
-			ImGui::Checkbox("HUD enabled", (bool*)Game::navipub_disp_flg);
+			settingsChanged |= ImGui::Checkbox("Countdown timer enabled", Game::Sumo_CountdownTimerEnable);
+			settingsChanged |= ImGui::Checkbox("Pause menu enabled", &EnablePauseMenu);
+			settingsChanged |= ImGui::Checkbox("HUD enabled", (bool*)Game::navipub_disp_flg);
 
 			ImGui::Separator();
 			ImGui::Text("Controls");
 
-			ImGui::SliderFloat("SteeringDeadZone", &Settings::SteeringDeadZone, 0.01, 1.0f);
-			ImGui::SliderInt("VibrationStrength", &Settings::VibrationStrength, 0, 10);
-			ImGui::SliderFloat("ImpulseVibrationLeftMultiplier", &Settings::ImpulseVibrationLeftMultiplier, 0.1, 1);
-			ImGui::SliderFloat("ImpulseVibrationRightMultiplier", &Settings::ImpulseVibrationRightMultiplier, 0.1, 1);
+			settingsChanged |= ImGui::SliderFloat("SteeringDeadZone", &Settings::SteeringDeadZone, 0.01, 1.0f);
+			settingsChanged |= ImGui::SliderInt("VibrationStrength", &Settings::VibrationStrength, 0, 10);
+			settingsChanged |= ImGui::SliderFloat("ImpulseVibrationLeftMultiplier", &Settings::ImpulseVibrationLeftMultiplier, 0.1, 1);
+			settingsChanged |= ImGui::SliderFloat("ImpulseVibrationRightMultiplier", &Settings::ImpulseVibrationRightMultiplier, 0.1, 1);
 
 			ImGui::Separator();
 			ImGui::Text("Graphics");
 
-			ImGui::SliderInt("FramerateLimit", &Settings::FramerateLimit, 30, 300);
-			ImGui::SliderInt("DrawDistanceIncrease", &Settings::DrawDistanceIncrease, 0, 4096);
-			ImGui::SliderInt("DrawDistanceBehind", &Settings::DrawDistanceBehind, 0, 4096);
+			settingsChanged |= ImGui::SliderInt("FramerateLimit", &Settings::FramerateLimit, 30, 300);
+			settingsChanged |= ImGui::SliderInt("DrawDistanceIncrease", &Settings::DrawDistanceIncrease, 0, 4096);
+			settingsChanged |= ImGui::SliderInt("DrawDistanceBehind", &Settings::DrawDistanceBehind, 0, 4096);
+			settingsChanged |= ImGui::SliderInt("SkyGlowFactor", &Settings::SkyGlowFactor, 0, 10);
+			settingsChanged |= ImGui::Checkbox("SkyGlowTwoStep", &Settings::SkyGlowTwoStep);
+
+			if (settingsChanged)
+			{
+				HookManager::SettingsChanged();
+			}
 		}
 
 		ImGui::End();

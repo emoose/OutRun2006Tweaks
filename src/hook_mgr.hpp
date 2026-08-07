@@ -24,13 +24,17 @@ public:
     virtual ~Hook() = default;
 
     // name/description of hook, for debug logging/tracing
-    virtual std::string_view description() = 0;
+    virtual std::string_view description() { return ""; }
 
     // check if user has enabled this hook, and any prerequisites are satisfied
-    virtual bool validate() = 0;
+    virtual bool validate() { return true; }
 
     // applies the hook/patch
     virtual bool apply() = 0;
+
+    // called when settings have been changed
+    // returns true if settings are applied, false if a game restart is required
+    virtual bool settings_changed() { return true; }
 
     bool active()
     {
@@ -57,6 +61,17 @@ public:
     static void RegisterHook(Hook* hook)
 	{
         s_hooks.emplace_back(hook);
+    }
+
+    static bool SettingsChanged()
+    {
+        bool restartNeeded = false;
+
+        for (Hook* hook : s_hooks)
+            if (hook)
+                restartNeeded |= !hook->settings_changed();
+
+        return restartNeeded;
     }
 
     static void ApplyHooks();

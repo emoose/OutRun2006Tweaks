@@ -431,6 +431,8 @@ public:
 					float startY = (windowHeight - columnHeight) * 0.5f;
 					ImGui::SetCursorPosY(startY);
 
+					ImGui::Dummy(ImVec2(0, 0));
+
 					// if player is already past this track (or playing it), disable dropdowns
 					bool col_disabled = (curPlayingIndex >= num) && !editor_disabled && Game::is_in_game();
 
@@ -458,7 +460,11 @@ public:
 
 						// Add vertical spacing between comboboxes
 						if (row <= col)
+						{
 							ImGui::SetCursorPosY(ImGui::GetCursorPosY() + verticalSpacing);
+
+							ImGui::Dummy(ImVec2(0, 0));
+						}
 
 						ImGui::PopID();
 
