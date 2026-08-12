@@ -55,19 +55,25 @@ private:
 class HookManager
 {
 private:
-    inline static std::vector<Hook*> s_hooks;
-	
+    // Keep hooks vector inside function-local static, to ensure vector actually exists
+    // before Hooks try to register themselves.
+    static std::vector<Hook*>& hooks()
+    {
+        static std::vector<Hook*> s_hooks;
+        return s_hooks;
+    }
+
 public:
     static void RegisterHook(Hook* hook)
 	{
-        s_hooks.emplace_back(hook);
+        hooks().emplace_back(hook);
     }
 
     static bool SettingsChanged()
     {
         bool restartNeeded = false;
 
-        for (Hook* hook : s_hooks)
+        for (Hook* hook : hooks())
             if (hook)
                 restartNeeded |= !hook->settings_changed();
 

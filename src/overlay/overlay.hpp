@@ -50,7 +50,14 @@ public:
 	inline static bool RequestMouseHide = false;
 
 private:
-	inline static std::vector<OverlayWindow*> s_windows;
+	// Keep windows vector inside function-local static, to ensure vector actually exists
+	// before OverlayWindows try to register themselves.
+	static std::vector<OverlayWindow*>& windows()
+	{
+		static std::vector<OverlayWindow*> s_windows;
+		return s_windows;
+	}
+
 	inline static bool s_hasInited = false;
 
 public:
@@ -62,7 +69,7 @@ public:
 
 	static void add_window(OverlayWindow* window)
 	{
-		s_windows.emplace_back(window);
+		windows().emplace_back(window);
 	}
 
 	static bool render();

@@ -7,7 +7,7 @@ Hook::Hook()
 
 void HookManager::ApplyHooks()
 {
-    for (const auto& hook : s_hooks)
+    for (const auto& hook : hooks())
     {
         hook->is_active_ = false;
         if (hook->validate())

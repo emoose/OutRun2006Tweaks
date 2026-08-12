@@ -289,7 +289,7 @@ bool Overlay::render()
 
 	if (!s_hasInited)
 	{
-		for (const auto& wnd : s_windows)
+		for (const auto& wnd : windows())
 			wnd->init();
 		s_hasInited = true;
 	}
@@ -313,7 +313,7 @@ bool Overlay::render()
 		Overlay::RequestBindingDialog = false;
 	}
 
-	for (const auto& wnd : s_windows)
+	for (const auto& wnd : windows())
 		wnd->render(overlay_visible);
 
 	if (Overlay::RequestMouseHide)
