@@ -10,11 +10,26 @@ Latest builds can be found under the releases section: https://github.com/emoose
 Online games are regularly setup on the OutRun2006Tweaks discord: https://discord.gg/GFjKAMg83t
 
 ### Features
+
+**Bugfixes:**
+- Game is now fixed to 60Hz tickrate, running at higher framerates now interpolates to that framerate instead of speeding up gameplay
+- Prevents save corruption bug when remapping controls with many input devices connected
+- Pegasus animation's clopping sound effect will now end correctly
+- Fixed C2C ranking scoreboards not updating on Steam and other releases due to faulty anti-piracy checks
+- Text related to the online service can optionally be hidden
+- Automatically disables DPI scaling on the game window to fix scaling issues
+- Fixes issues with shading on certain character/stage models (eg. the ending cutscene models)
+- Allows particles like grass/gravel to be drawn correctly, like in the console versions
+- Game can be forced to run on a single core, to help with freezing issues on some modern systems
+- Bink movie files larger than 1024 pixels will now play without crashes
+- Game crashes will now write a crash report into CrashDumps folder (please feel free to post any crash reports to the issues page!)
+
 **Graphics:**
 - UI can now scale to different aspect ratios without stretching
 - Game scene & UI textures can be extracted from game, and replaced with higher-resolution versions
 - Allows disabling vehicle LODs, reducing the ugly pop-in as they get closer
 - Fixed Z-buffer precision issues that caused heavy Z-fighting and distant object pop-in
+- Bloom/glow effect from the console & arcade versions has been re-added
 - Lens flare effect now loads from correct path without needing to change game files
 - Stage objects such as traffic cones now only disappear once they're actually off-screen
 - Fixes certain effects like engine backfiring which failed to appear when using controllers
@@ -34,19 +49,6 @@ Online games are regularly setup on the OutRun2006Tweaks discord: https://discor
 - Manual Transmission (MT) can be set as the default for C2C menus
 - Passing all the C2C missions might unlock something new 🐱
 
-**Bugfixes:**
-- Built-in framelimiter to prevent speedups, framerate can be partially unlocked with game running at 60FPS internally
-- Prevents save corruption bug when remapping controls with many input devices connected
-- Fixed C2C ranking scoreboards not updating on Steam and other releases due to faulty anti-piracy checks
-- Pegasus animation's clopping sound effect will now end correctly
-- Text related to the online service can optionally be hidden
-- Automatically disables DPI scaling on the game window to fix scaling issues
-- Fixes issues with shading on certain character/stage models (eg. the ending cutscene models)
-- Allows particles like grass/gravel to be drawn correctly, like in the console versions
-- Game can be forced to run on a single core, to help with freezing issues on some modern systems
-- Bink movie files larger than 1024 pixels will now play without crashes
-- Game crashes will now write a crash report into CrashDumps folder (please feel free to post any crash reports to the issues page!)
-
 **Enhancements:**
 - Game can now run in borderless windowed mode; mouse cursor will now be hidden while game is active
 - Will use desktop resolution for the game if outrun2006.ini isn't present
@@ -57,10 +59,6 @@ Online games are regularly setup on the OutRun2006Tweaks discord: https://discor
 - Music track can be changed mid-race via Z and X buttons, or Back/RS+Back on controller (`CDSwitcher` must be enabled in INI first)
 
 All the above can be customized via the OutRun2006Tweaks.ini file.
-
-The partial FPS unlock allows game to render out at higher FPS, **but will still run at 60FPS internally**.  
-This won't give as much benefit as a true framerate unlock since frames will be repeated, but it can help reduce load times & improve some effects like the reflections update rate.  
-(high refresh rate monitors that have poor 60Hz response times may also benefit from this too)
 
 ### Setup
 Since Steam/DVD releases are packed with ancient DRM that doesn't play well with DLL wrappers, this pack includes a replacement game EXE to run the game with.
