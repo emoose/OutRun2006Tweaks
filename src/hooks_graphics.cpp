@@ -4,6 +4,52 @@
 #include <iostream>
 #include <array>
 
+namespace Settings
+{
+	Setting<int> SkyGlowFactor{ "Graphics", "SkyGlowFactor", 4,
+		"If set above 0, restores the glowing sky/track effect from the console versions. Resolution of the glow effect is "
+		"divided by the factor value: use 1 for full resolution, or 4 for quarter-res (same factor as console)." };
+	Setting<bool> SkyGlowTwoStep{ "Graphics", "SkyGlowTwoStep", true,
+		"Reduces aliasing in the sky glow effect by handling the SkyGlowFactor in two steps. "
+		"Likely not console-accurate, but can help reduce the aliasing with Factor = 4 or higher." };
+	Setting<bool> UseHiDefCharacters{ "Graphics", "UseHiDefCharacters", true,
+		"Forces hi-def versions of Alberto/Jennifer/Clarissa during gameplay." };
+
+	Setting<int> AnisotropicFiltering{ "Graphics", "AnisotropicFiltering", 16,
+		"1 - 16, 0 to leave it at games default.", Range<int>{ 0, 16 } };
+	Setting<int> ReflectionResolution{ "Graphics", "ReflectionResolution", 2048,
+		"Resolution used for car reflections, games default is 128x128, 2048x2048 seems a reasonable improvement.",
+		Range<int>{ 0, 8192 } };
+	Setting<bool> TransparencySupersampling{ "Graphics", "TransparencySupersampling", true,
+		"Allows game to enable 4x transparency supersampling, heavily reducing aliasing on things like barriers or cloth "
+		"around the track edge. For best results use this with \"DX/ANTIALIASING = 2\" inside outrun2006.ini." };
+	Setting<bool> ScreenEdgeCullFix{ "Graphics", "ScreenEdgeCullFix", true,
+		"Fixes certain stage objects disappearing before they reach edge of screen, when playing at non-4:3 aspect ratio." };
+	Setting<bool> DisableVehicleLODs{ "Graphics", "DisableVehicleLODs", true,
+		"Disables LODs on vehicles, reducing the ugly pop-in they have." };
+	Setting<bool> DisableStageCulling{ "Graphics", "DisableStageCulling", true,
+		"Disables culling of certain stage objects, so most distant objects won't obviously pop in to view." };
+	Setting<bool> FixZBufferPrecision{ "Graphics", "FixZBufferPrecision", true,
+		"Fixes Z-Buffer precision issues, greatly reducing z-fighting and distant object drawing issues "
+		"(eg. signs/buildings will have much less pop-in)." };
+	Setting<float> CarBaseShadowOpacity{ "Graphics", "CarBaseShadowOpacity", 1.0f,
+		"Restores the player car base shadow that was included in other C2C ports. Opacity = 1.0 can help mask some issues "
+		"with the stencil shadowing; Xbox C2C uses 0.5, but that makes it very transparent on PC." };
+
+	Setting<int> VSync{ "Performance", "VSync", 1,
+		"Set to 0 to disable VSync, 1 for normal VSync, or 2 for half-refresh-rate VSync.",
+		{ "Disabled", "Normal VSync", "Half-refresh-rate VSync" } };
+
+	Setting<bool> WindowedBorderless{ "Window", "WindowedBorderless", true,
+		"Forces windowed mode to become borderless. (requires \"DX/WINDOWED = 1\" inside outrun2006.ini)" };
+	Setting<int> WindowPositionX{ "Window", "WindowPositionX", 0,
+		"Only applied if WindowedBorderless is set to true." };
+	Setting<int> WindowPositionY{ "Window", "WindowPositionY", 0,
+		"Only applied if WindowedBorderless is set to true." };
+	Setting<bool> DisableDPIScaling{ "Window", "DisableDPIScaling", true,
+		"Disables DPI scaling on game window, can help fix issues when screen DPI is set above 100%." };
+}
+
 class UseHiDefCharacters : public Hook
 {
 	inline static const char ChrDrGh00_path[] = "Media\\CHR_DR_GH00.bin";
@@ -460,7 +506,7 @@ public:
 	{
 		for (const int& addr : ReflectionResolution_Addrs)
 		{
-			Memory::VP::Patch(Module::exe_ptr<int>(addr), Settings::ReflectionResolution);
+			Memory::VP::Patch(Module::exe_ptr<int>(addr), Settings::ReflectionResolution.get());
 		}
 		return true;
 	}

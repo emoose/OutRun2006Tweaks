@@ -75,19 +75,19 @@ public:
 			ImGui::Separator();
 			ImGui::Text("Controls");
 
-			settingsChanged |= ImGui::SliderFloat("SteeringDeadZone", &Settings::SteeringDeadZone, 0.01, 1.0f);
-			settingsChanged |= ImGui::SliderInt("VibrationStrength", &Settings::VibrationStrength, 0, 10);
-			settingsChanged |= ImGui::SliderFloat("ImpulseVibrationLeftMultiplier", &Settings::ImpulseVibrationLeftMultiplier, 0.1, 1);
-			settingsChanged |= ImGui::SliderFloat("ImpulseVibrationRightMultiplier", &Settings::ImpulseVibrationRightMultiplier, 0.1, 1);
+			settingsChanged |= ImGui::SliderFloat("SteeringDeadZone", Settings::SteeringDeadZone.ptr(), 0.01, 1.0f);
+			settingsChanged |= ImGui::SliderInt("VibrationStrength", Settings::VibrationStrength.ptr(), 0, 10);
+			settingsChanged |= ImGui::SliderFloat("ImpulseVibrationLeftMultiplier", Settings::ImpulseVibrationLeftMultiplier.ptr(), 0.1, 1);
+			settingsChanged |= ImGui::SliderFloat("ImpulseVibrationRightMultiplier", Settings::ImpulseVibrationRightMultiplier.ptr(), 0.1, 1);
 
 			ImGui::Separator();
 			ImGui::Text("Graphics");
 
-			settingsChanged |= ImGui::SliderInt("FramerateLimit", &Settings::FramerateLimit, 30, 300);
-			settingsChanged |= ImGui::SliderInt("DrawDistanceIncrease", &Settings::DrawDistanceIncrease, 0, 4096);
-			settingsChanged |= ImGui::SliderInt("DrawDistanceBehind", &Settings::DrawDistanceBehind, 0, 4096);
-			settingsChanged |= ImGui::SliderInt("SkyGlowFactor", &Settings::SkyGlowFactor, 0, 10);
-			settingsChanged |= ImGui::Checkbox("SkyGlowTwoStep", &Settings::SkyGlowTwoStep);
+			settingsChanged |= ImGui::SliderInt("FramerateLimit", Settings::FramerateLimit.ptr(), 30, 300);
+			settingsChanged |= ImGui::SliderInt("DrawDistanceIncrease", Settings::DrawDistanceIncrease.ptr(), 0, 4096);
+			settingsChanged |= ImGui::SliderInt("DrawDistanceBehind", Settings::DrawDistanceBehind.ptr(), 0, 4096);
+			settingsChanged |= ImGui::SliderInt("SkyGlowFactor", Settings::SkyGlowFactor.ptr(), 0, 10);
+			settingsChanged |= ImGui::Checkbox("SkyGlowTwoStep", Settings::SkyGlowTwoStep.ptr());
 
 			if (settingsChanged)
 			{

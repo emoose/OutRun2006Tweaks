@@ -8,6 +8,30 @@
 #include <unordered_set>
 #include <array>
 
+namespace Settings
+{
+	Setting<std::string> TextureBaseFolder{ "Graphics", "TextureBaseFolder", "textures",
+		"The base folder for texture replacements. Replacements are loaded from [TextureBaseFolder]/load/, and vanilla "
+		"textures are extracted to [TextureBaseFolder]/dump/." };
+	Setting<bool> SceneTextureReplacement{ "Graphics", "SceneTextureReplacement", true,
+		"Allows stage textures to be replaced if a matching texture exists inside [TextureBaseFolder]/load/ folder. "
+		"Textures must be named as [hash]_[width]x[height].dds, taken from the original texture to be replaced." };
+	Setting<bool> SceneTextureExtract{ "Graphics", "SceneTextureExtract", false,
+		"Extracts the vanilla stage textures from the game into [TextureBaseFolder]/dump/ when the game loads them in. "
+		"Only useful if you want to work on your own improvements." };
+	Setting<bool> UITextureReplacement{ "Graphics", "UITextureReplacement", true,
+		"Allows UI textures to be replaced if a matching texture exists inside [TextureBaseFolder]/load/ folder. "
+		"Textures must be named as [hash]_[width]x[height].dds, taken from the original texture to be replaced." };
+	Setting<bool> UITextureExtract{ "Graphics", "UITextureExtract", false,
+		"Extracts the vanilla UI textures from the game into [TextureBaseFolder]/dump/ when the game loads them in. "
+		"Only useful if you want to work on your own improvements." };
+	Setting<bool> EnableTextureCache{ "Graphics", "EnableTextureCache", true,
+		"Caches stage texture replacements in a seperate thread when game loads in stage model, which may help reduce "
+		"stutter when using large stage texture replacements." };
+	Setting<bool> UseNewTextureAllocator{ "Graphics", "UseNewTextureAllocator", true,
+		"Replaces games texture allocator with a faster simplified version, greatly reducing stutter & load times." };
+}
+
 #define MAX_TEXTURE_CACHE_SIZE_MB (1024 + 256)
 
 #define DDS_MAGIC 0x20534444  // "DDS "
@@ -857,8 +881,8 @@ public:
 		const static int LoadXmtsetObject_Step3_HookAddr = 0x2E304;
 
 		std::filesystem::path textureBaseDir = "textures";
-		if (!Settings::TextureBaseFolder.empty())
-			textureBaseDir = Settings::TextureBaseFolder;
+		if (!Settings::TextureBaseFolder.get().empty())
+			textureBaseDir = Settings::TextureBaseFolder.get();
 		
 		XmtDumpPath = textureBaseDir / "dump";
 		XmtLoadPath = textureBaseDir / "load";

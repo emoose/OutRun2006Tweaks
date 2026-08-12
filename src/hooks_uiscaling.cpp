@@ -2,6 +2,19 @@
 #include "plugin.hpp"
 #include "game_addrs.hpp"
 
+namespace Settings
+{
+	Setting<int> UIScalingMode{ "Graphics", "UIScalingMode", 1,
+		"Adjusts the UI scaling applied by the game.",
+		{ "Game default, stretches to screen ratio", "Fixed UI scaling without stretching, based on Outrun Online Arcade",
+		  "4:3 UI centered to middle of screen" } };
+	Setting<int> UILetterboxing{ "Graphics", "UILetterboxing", 1,
+		"Adds 4:3 letterboxing to game menus, to address some graphical issues outside of the menus 4:3 display. "
+		"Only used when UIScalingMode is set to 1 or above.",
+		{ "Disable all letterboxing", "Letterbox menus only, disabled when in-game",
+		  "Always letterbox (only recommended with UIScalingMode = 2)" } };
+}
+
 enum class ScalingMode
 {
 	Vanilla,
@@ -51,7 +64,7 @@ class UIScaling : public Hook
 	static int __stdcall D3DXMatrixTransformation2D_dest(D3DMATRIX* pOut, D3DXVECTOR2* pScalingCenter, float pScalingRotation,
 		D3DXVECTOR2* pScaling, D3DXVECTOR2* pRotationCenter, float Rotation, D3DXVECTOR2* pTranslation)
 	{
-		ScalingMode mode = ScalingMode(Settings::UIScalingMode);
+		ScalingMode mode = ScalingMode(Settings::UIScalingMode.get());
 
 		if (mode == ScalingMode::KeepCentered || mode == ScalingMode::OnlineArcade)
 		{
@@ -75,7 +88,7 @@ class UIScaling : public Hook
 	static inline SafetyHookMid draw_sprite_custom_matrix_hk = {};
 	static void __cdecl draw_sprite_custom_matrix_mid(safetyhook::Context& ctx)
 	{
-		ScalingMode mode = ScalingMode(Settings::UIScalingMode);
+		ScalingMode mode = ScalingMode(Settings::UIScalingMode.get());
 
 		float* g_spriteVertexStream = Module::exe_ptr<float>(0x58B868);
 		SPRARGS2* a1 = (SPRARGS2*)ctx.ebx;
@@ -191,7 +204,7 @@ class UIScaling : public Hook
 
 		// TODO: OnlineArcade mode needs to add position here
 
-		ScalingMode mode = ScalingMode(Settings::UIScalingMode);
+		ScalingMode mode = ScalingMode(Settings::UIScalingMode.get());
 
 		if (mode == ScalingMode::KeepCentered || mode == ScalingMode::OnlineArcade)
 			out->x = (out->x / Game::screen_scale->y) * Game::screen_scale->x;
@@ -262,7 +275,7 @@ class UIScaling : public Hook
 	static inline SafetyHookMid drawFootage{};
 	static void drawFootage_dest(safetyhook::Context& ctx)
 	{
-		ScalingMode mode = ScalingMode(Settings::UIScalingMode);
+		ScalingMode mode = ScalingMode(Settings::UIScalingMode.get());
 		if (mode == ScalingMode::OnlineArcade && ScalingType != SpriteScaleType::Disabled)
 		{
 			float spacing = -((Game::screen_scale->y * Game::original_resolution.x) - Game::screen_resolution->x) / 2;
@@ -283,7 +296,7 @@ class UIScaling : public Hook
 	static inline SafetyHookMid draw_sprite_custom_matrix_multi_CenterSprite_hk{};
 	static void draw_sprite_custom_matrix_multi_CenterSprite(safetyhook::Context& ctx)
 	{
-		ScalingMode mode = ScalingMode(Settings::UIScalingMode);
+		ScalingMode mode = ScalingMode(Settings::UIScalingMode.get());
 		if (mode != ScalingMode::KeepCentered && mode != ScalingMode::OnlineArcade)
 			return;
 
@@ -306,7 +319,7 @@ class UIScaling : public Hook
 	static inline SafetyHookMid draw_sprite_custom_matrix_multi_CenterSprite2_hk{};
 	static void draw_sprite_custom_matrix_multi_CenterSprite2(safetyhook::Context& ctx)
 	{
-		ScalingMode mode = ScalingMode(Settings::UIScalingMode);
+		ScalingMode mode = ScalingMode(Settings::UIScalingMode.get());
 		if (mode != ScalingMode::KeepCentered && mode != ScalingMode::OnlineArcade)
 			return;
 
@@ -329,7 +342,7 @@ class UIScaling : public Hook
 	static inline SafetyHookMid draw_sprite_custom_matrix_multi_CenterSprite3_hk{};
 	static void draw_sprite_custom_matrix_multi_CenterSprite3(safetyhook::Context& ctx)
 	{
-		ScalingMode mode = ScalingMode(Settings::UIScalingMode);
+		ScalingMode mode = ScalingMode(Settings::UIScalingMode.get());
 		if (mode != ScalingMode::KeepCentered && mode != ScalingMode::OnlineArcade)
 			return;
 
@@ -415,7 +428,7 @@ class UIScaling : public Hook
 	template <typename T>
 	static void AddSpriteSpacing(T* value, bool left)
 	{
-		ScalingMode mode = ScalingMode(Settings::UIScalingMode);
+		ScalingMode mode = ScalingMode(Settings::UIScalingMode.get());
 		if (mode != ScalingMode::OnlineArcade)
 			return;
 

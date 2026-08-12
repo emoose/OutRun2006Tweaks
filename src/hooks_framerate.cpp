@@ -16,6 +16,24 @@ typedef struct timecaps_tag {
 #include <cstring>
 #include <cmath>
 
+namespace Settings
+{
+	Setting<int> FramerateLimit{ "Performance", "FramerateLimit", 0,
+		"0 will disable framelimiter and rely on vsync to match your monitor refresh rate instead (or an external limiter). "
+		"Framerates above 60 will duplicate frames, unless FramerateInterpolation is also enabled." };
+	Setting<int> FramerateFastLoad{ "Performance", "FramerateFastLoad", 3,
+		"Unlimits framerate during load screens to help reduce load times.",
+		{ "Disable", "Unlimit framerate during load screens", "Unlimit framerate & disable vsync (may cause screen flash)",
+		  "(fastest) Process files during framelimit period" } };
+	Setting<bool> FramerateInterpolation{ "Performance", "FramerateInterpolation", true,
+		"Smooths car & camera movement when running above 60FPS, by interpolating positions between game ticks. "
+		"Requires FramerateLimit to be set above 60 (or set to 0). EXPERIMENTAL: may cause visual glitches, disable if you notice any." };
+	Setting<bool> FramerateLimitMode{ "Performance", "FramerateLimitMode", false,
+		"Off is efficient mode, on is accurate mode. Efficient should work fine for most people, but if you have issues it might be worth trying accurate mode." };
+	Setting<bool> FramerateUnlockExperimental{ "Performance", "FramerateUnlockExperimental", true,
+		"Allows the game to render more than one frame per 60Hz game tick, which everything above 60FPS depends on." };
+}
+
 class Snooze
 {
 	// Based on https://github.com/blat-blatnik/Snippets/blob/main/precise_sleep.c
@@ -756,7 +774,7 @@ public:
 	bool apply() override
 	{
 		constexpr int PatchAddr = 0xE9B9;
-		Memory::VP::Patch(Module::exe_ptr<uint8_t>(PatchAddr), Settings::FramerateLimit);
+		Memory::VP::Patch(Module::exe_ptr<uint8_t>(PatchAddr), Settings::FramerateLimit.get());
 
 		return true;
 	}

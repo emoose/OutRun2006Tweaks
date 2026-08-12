@@ -6,6 +6,13 @@
 #include <fstream>
 #include <FLAC/stream_decoder.h>
 
+namespace Settings
+{
+	Setting<bool> AllowFLAC{ "Audio", "AllowFLAC", true,
+		"Adds support for FLAC to the games BGM loader. FLACs should use the same filename as the original OGG, "
+		"eg. \"Sound\\14_Rush_a_Difficulty_1989.flac\"." };
+}
+
 // CWaveFile class used in C2C, seems based on DirectX DXUTsound.cpp code
 class CWaveFile
 {

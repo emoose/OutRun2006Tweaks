@@ -1,5 +1,12 @@
 #include "input_manager.hpp"
 
+namespace Settings
+{
+	Setting<bool> UseNewInput{ "Controls", "UseNewInput", true,
+		"Enables new SDL-based input system, allowing game to see full trigger range without any shared trigger axes issues "
+		"(experimental, not every menu/gamemode has been tested with it yet)." };
+}
+
 InputManager InputManager::instance;
 
 void InputManager_Update()

@@ -6,6 +6,40 @@
 #include <algorithm>
 #include <random>
 
+namespace Settings
+{
+	Setting<bool> AllowHorn{ "Audio", "AllowHorn", true,
+		"Allows using horn outside of the \"beep the horn!\" girlfriend missions." };
+	Setting<bool> AllowWAV{ "Audio", "AllowWAV", true,
+		"Adds support for WAV to the games BGM loader. WAVs should use the same filename as the original OGG, "
+		"eg. \"Sound\\14_Rush_a_Difficulty_1989.wav\"." };
+
+	Setting<bool> CDSwitcherEnable{ "CDSwitcher", "SwitcherEnable", false,
+		"Installs an aftermarket CD switcher onto each of your cars, which can be used to change music tracks during a race. "
+		"Tracks are changed with the Z and X keys, or the gamepad buttons bound below." };
+	Setting<bool> CDSwitcherDisplayTitle{ "CDSwitcher", "SwitcherDisplayTitle", true,
+		"Whether to display track title after switching." };
+	Setting<int> CDSwitcherTitleFont{ "CDSwitcher", "SwitcherTitleFont", 2,
+		"Allows customizing the track title font (certain fonts may be missing glyphs such as square brackets).",
+		Range<int>{ 0, 9 } };
+	Setting<float> CDSwitcherTitleFontSizeX{ "CDSwitcher", "SwitcherTitleFontSizeX", 0.3f,
+		"Size the track title is drawn at." };
+	Setting<float> CDSwitcherTitleFontSizeY{ "CDSwitcher", "SwitcherTitleFontSizeY", 0.5f,
+		"Size the track title is drawn at." };
+	Setting<int> CDSwitcherTitlePositionX{ "CDSwitcher", "SwitcherTitlePositionX", 375,
+		"Where the track title is drawn on screen, based on games original 640x480 screen dimensions." };
+	Setting<int> CDSwitcherTitlePositionY{ "CDSwitcher", "SwitcherTitlePositionY", 450,
+		"Where the track title is drawn on screen, based on games original 640x480 screen dimensions." };
+	Setting<bool> CDSwitcherShuffleTracks{ "CDSwitcher", "SwitcherShuffleTracks", false,
+		"Shuffles the tracks defined in CDTracks section on game launch." };
+	Setting<std::string> CDSwitcherTrackNext{ "CDSwitcher", "TrackNext", "Back",
+		"Gamepad button combination to move to the next track, eg. LB+Back to require both. Buttons: A, B, X, Y, LB, RB, "
+		"LS, RS, LT, RT, Start, Back. Sticks: LS-Up, LS-Down, LS-Left, LS-Right, RS-Up, RS-Down, RS-Left, RS-Right. "
+		"Dpad: Up, Down, Left, Right." };
+	Setting<std::string> CDSwitcherTrackPrevious{ "CDSwitcher", "TrackPrevious", "RS+Back",
+		"Gamepad button combination to move to the previous track, using the same button names as TrackNext." };
+}
+
 std::string BGMOverridePath;
 
 class BGMLoaderHook : public Hook
@@ -247,8 +281,8 @@ public:
 		constexpr int PettyAutosceneCmdTblAnalysis_adxPlay_CallAddr1 = 0x8687F;
 		constexpr int PettyAutosceneCmdTblAnalysis_adxPlay_CallAddr2 = 0x868D3;
 
-		PadButtonCombo_Next = ParseButtonCombination(Settings::CDSwitcherTrackNext);
-		PadButtonCombo_Prev = ParseButtonCombination(Settings::CDSwitcherTrackPrevious);
+		PadButtonCombo_Next = ParseButtonCombination(Settings::CDSwitcherTrackNext.get());
+		PadButtonCombo_Prev = ParseButtonCombination(Settings::CDSwitcherTrackPrevious.get());
 		PadButtonCombo_Next_BitCount = Util::BitCount(PadButtonCombo_Next);
 		PadButtonCombo_Prev_BitCount = Util::BitCount(PadButtonCombo_Prev);
 

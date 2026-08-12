@@ -7,6 +7,16 @@
 #include <ini.h>
 #include "overlay/overlay.hpp"
 
+namespace Settings
+{
+	Setting<int> DrawDistanceIncrease{ "Graphics", "DrawDistanceIncrease", 0,
+		"Increases the distance that stage models will begin drawing at, helping a lot with pop-in. The higher this is tweaked "
+		"the higher the chance that LOD models appear earlier than they should; 4-8 fixes the worst pop-in without LOD issues." };
+	Setting<int> DrawDistanceBehind{ "Graphics", "DrawDistanceBehind", 0,
+		"Increases the distance models will draw behind the car, rather than them being culled out almost immediately. "
+		"A lot of models have backface culling issues, so only recommended if using freecam or other camera mods!" };
+}
+
 std::array<std::vector<uint16_t>, 256> ObjectNodes;
 std::array<std::array<std::bitset<16384>, 256>, 128> ObjectExclusionsPerStage;
 std::bitset<128> SkipQuickSortHackStages;
@@ -71,7 +81,7 @@ public:
 		auto& objectExclusions = ObjectExclusionsPerStage[cur_stage_num];
 
 		ImGui::Text("Stage: %d (%s / %s)", cur_stage_num, cur_stage_name, Game::GetStageUniqueName(cur_stage_num));
-		ImGui::SliderInt("Draw Distance", &Settings::DrawDistanceIncrease, 0, 1024);
+		ImGui::SliderInt("Draw Distance", Settings::DrawDistanceIncrease.ptr(), 0, 1024);
 
 		if (ImGui::Button("<<<"))
 			Settings::DrawDistanceIncrease -= 10;
@@ -91,7 +101,7 @@ public:
 		if (ImGui::Button(">>>"))
 			Settings::DrawDistanceIncrease += 10;
 
-		ImGui::Text("Nodes at distance +%d (track section #%d):", Settings::DrawDistanceIncrease, (CsLengthNum + Settings::DrawDistanceIncrease));
+		ImGui::Text("Nodes at distance +%d (track section #%d):", Settings::DrawDistanceIncrease.get(), (CsLengthNum + Settings::DrawDistanceIncrease));
 
 		if (num_columns > 0)
 		{

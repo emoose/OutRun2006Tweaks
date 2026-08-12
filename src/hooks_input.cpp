@@ -10,6 +10,29 @@
 #include "plugin.hpp"
 #include "game_addrs.hpp"
 
+namespace Settings
+{
+	Setting<float> SteeringDeadZone{ "Controls", "SteeringDeadZone", 0.2f,
+		"Allows overriding the steering deadzone. Game default is 0.2 / 20%.", Range<float>{ 0.f, 1.f } };
+	Setting<bool> ControllerHotPlug{ "Controls", "ControllerHotPlug", false,
+		"Allows game to detect newly plugged in devices, rather than needing a restart. May have issues with some "
+		"controllers/wheels, and is ignored when using UseNewInput as hot-plug is supported by it by default." };
+	Setting<std::string> HudToggleKey{ "Controls", "HudToggleKey", "",
+		"Allows assigning a keyboard key to toggle the game HUD. Which keys can be assigned depends on your keyboard "
+		"layout, but binding to a function key such as F10 should work fine on all layouts." };
+
+	Setting<int> ImpulseVibrationMode{ "Controls", "ImpulseVibrationMode", 2,
+		"Enable/disable Xbox Series impulse trigger vibration, or customise it. VibrationMode must be enabled for this to work.",
+		{ "Disable", "Enable impulse triggers", "L/R motors swapped (recommended for impulse triggers)",
+		  "L/R motors merged together" } };
+	Setting<float> ImpulseVibrationLeftMultiplier{ "Controls", "ImpulseVibrationLeftMultiplier", 0.20f,
+		"Multiplier of the trigger vibration, the normal controller motor vibration is multiplied by this to set trigger value.",
+		Range<float>{ 0.f, 1.f } };
+	Setting<float> ImpulseVibrationRightMultiplier{ "Controls", "ImpulseVibrationRightMultiplier", 0.20f,
+		"Multiplier of the trigger vibration, the normal controller motor vibration is multiplied by this to set trigger value.",
+		Range<float>{ 0.f, 1.f } };
+}
+
 namespace Input
 {
     static int HudToggleVKey = 0;
@@ -117,7 +140,7 @@ namespace Input
         static bool inited = false;
         if (!inited)
         {
-            HudToggleVKey = StringToVK(Settings::HudToggleKey);
+            HudToggleVKey = StringToVK(Settings::HudToggleKey.get());
             inited = true;
         }
 
@@ -348,7 +371,7 @@ public:
         Memory::VP::Nop(Module::exe_ptr(ReadVolume_UnkCheck_Addr), 2);
 
         // Patch game code with Settings::SteeringDeadZone pointer
-        Memory::VP::Patch(Module::exe_ptr(ReadVolume_LoadDeadZone_Addr), &Settings::SteeringDeadZone);
+        Memory::VP::Patch(Module::exe_ptr(ReadVolume_LoadDeadZone_Addr), Settings::SteeringDeadZone.ptr());
 
         return true;
     }

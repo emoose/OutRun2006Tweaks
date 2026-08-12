@@ -9,6 +9,14 @@
 #include <backends/imgui_impl_dx9.h>
 #include "overlay.hpp"
 
+namespace Settings
+{
+	Setting<bool> OverlayEnabled{ "Overlay", "Enabled", true,
+		"Enables the OutRun2006Tweaks overlay, accessible via F11 key (more settings for Overlay are available in the overlay itself)." };
+	Setting<bool> WindowedHideMouseCursor{ "Window", "WindowedHideMouseCursor", true,
+		"Hides mouse cursor while game window is active." };
+}
+
 bool overlayInited = false;
 bool overlayActive = false;
 

@@ -9,6 +9,14 @@
 #include <cstring>
 #include <cmath>
 
+namespace Settings
+{
+	Setting<float> FramerateInterpolationDebugAlpha{ "Performance", "FramerateInterpolationDebugAlpha", -1.0f,
+		"Pins the interpolation alpha to a fixed value instead of working it out from frame timing. Negative uses the real one." };
+	Setting<bool> FramerateInterpolationDebugLog{ "Performance", "FramerateInterpolationDebugLog", false,
+		"Logs the first few interpolated values of each run." };
+}
+
 //
 // Frame interpolation: draws cars, camera and effects at positions between two
 // game ticks, so the picture stays smooth above the fixed 60Hz update rate.
@@ -630,7 +638,7 @@ void AfterTicks(double qpcFreqMs)
 	// artifact that survives it is caused by the extra CalcDispMatrix call
 	// rather than by the interpolated value.
 	if (Settings::FramerateInterpolationDebugAlpha >= 0.0f)
-		alpha = std::clamp(Settings::FramerateInterpolationDebugAlpha, 0.0f, 1.0f);
+		alpha = std::clamp(Settings::FramerateInterpolationDebugAlpha.get(), 0.0f, 1.0f);
 
 	// An empty car list means the game has stopped drawing cars (which the pause
 	// menu does), so nothing is advancing and the last replay is still what is on

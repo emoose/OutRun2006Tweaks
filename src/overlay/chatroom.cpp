@@ -55,8 +55,8 @@ private:
 		if (webSocket.getReadyState() == ix::ReadyState::Open)
 			return;
 
-		std::string url = "ws://" + Settings::DemonwareServerOverride + "/ws";
-		if (Settings::DemonwareServerOverride == "localhost")
+		std::string url = "ws://" + Settings::DemonwareServerOverride.get() + "/ws";
+		if (Settings::DemonwareServerOverride.get() == "localhost")
 			url = "ws://localhost:4444/ws";
 		webSocket.setUrl(url);
 

@@ -45,7 +45,7 @@ private:
 
 			try
 			{
-				std::string jsonContent = Util::HttpGetRequest(Settings::DemonwareServerOverride, L"/servers.json", Settings::DemonwareServerOverride == "localhost" ? 4444 : 80);
+				std::string jsonContent = Util::HttpGetRequest(Settings::DemonwareServerOverride.get(), L"/servers.json", Settings::DemonwareServerOverride.get() == "localhost" ? 4444 : 80);
 				if (!jsonContent.empty())
 				{
 					Json::Value currentServerList = parseJson(jsonContent);

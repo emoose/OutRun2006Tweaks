@@ -11,6 +11,42 @@
 #include <fstream>
 #include <wincrypt.h>
 
+namespace Settings
+{
+	Setting<bool> RestoreJPClarissa{ "Misc", "RestoreJPClarissa", false,
+		"Clarissa in O2SP arcade mode uses a different model in non-JP versions, this allows restoring the original JP model." };
+	Setting<std::string> DemonwareServerOverride{ "Misc", "DemonwareServerOverride", "clarissa.port0.org",
+		"Allows redirecting the Demonware master server to a custom server instead. This host should be hosting lobby/auth/STUN." };
+
+	Setting<int> EnableHollyCourse2{ "Misc", "EnableHollyCourse2", 3,
+		"Enables the second set of Holly missions (\"MIX 2 COURSE\") from the PSP version.",
+		{ "Disable", "Unlocked with Holly 1 missions", "Unlocked after reaching rank A on Holly 1",
+		  "Hidden until reaching rank A on Holly 1 (completion bonus!)" } };
+	Setting<bool> SkipIntroLogos{ "Misc", "SkipIntroLogos", false,
+		"Skips the beginning intro logos, saving a couple seconds from startup time. Can also be enabled via -SkipIntros launch parameter." };
+	Setting<bool> DisableCountdownTimer{ "Misc", "DisableCountdownTimer", false,
+		"Disables the countdown timer, may be useful for modders, or those who just want to take a leisurely drive. "
+		"Can also be enabled via -OuttaTime launch parameter." };
+	Setting<bool> EnableLevelSelect{ "Misc", "EnableLevelSelect", false,
+		"Replaces the main menu with a debug level select, can be useful for quickly testing levels. "
+		"Can also be enabled via -LevelSelect launch parameter." };
+	Setting<bool> ShowOutRunMilesOnMenu{ "Misc", "ShowOutRunMilesOnMenu", true,
+		"Changes the \"Not Signed In\" text to also display number of OutRun miles." };
+	Setting<bool> AllowCharacterSelection{ "Misc", "AllowCharacterSelection", false,
+		"Allows character model to be changed on the Edit License screen. Alternate models have issues: girls will likely "
+		"crash the game when going in-game, and guys besides Alberto may have modelling issues." };
+	Setting<bool> RandomHighwayAnimSets{ "Misc", "RandomHighwayAnimSets", false,
+		"Allows game to pick highway animations from other game modes at random, instead of just the one being played." };
+	Setting<bool> ProtectLoginData{ "Misc", "ProtectLoginData", true,
+		"Protects online login data by removing it from savegame files & encrypting against your Windows user account, making "
+		"sure your login details won't be exposed if you share savegame files." };
+	Setting<bool> DefaultManualTransmission{ "Controls", "DefaultManualTransmission", false,
+		"Makes Manual Transmission the default selection in C2C menus." };
+
+	Setting<bool> AutoDetectResolution{ "Window", "AutoDetectResolution", true,
+		"If the outrun2006.ini file doesn't exist, changes games default 640x480 resolution to primary display resolution instead." };
+}
+
 class ProtectLoginData : public Hook
 {
 	// C2C saves plaintext online login details into SaveGame/Common.dat by default
@@ -561,8 +597,8 @@ class DemonwareServerOverride : public Hook
 	inline static SafetyHookInline bdPlatformSocket__getHostByName_hook = {};
 	static uint32_t __cdecl destination(const char* name, void* a2, int a3)
 	{
-		spdlog::debug("getHostByName: overriding host {} to {}", name, Settings::DemonwareServerOverride);
-		auto ret = bdPlatformSocket__getHostByName_hook.ccall<uint32_t>(Settings::DemonwareServerOverride.c_str(), a2, a3);
+		spdlog::debug("getHostByName: overriding host {} to {}", name, Settings::DemonwareServerOverride.get());
+		auto ret = bdPlatformSocket__getHostByName_hook.ccall<uint32_t>(Settings::DemonwareServerOverride.get().c_str(), a2, a3);
 		return ret;
 	}
 
@@ -628,7 +664,7 @@ public:
 
 	bool validate() override
 	{
-		return !Settings::DemonwareServerOverride.empty();
+		return !Settings::DemonwareServerOverride.get().empty();
 	}
 
 	bool apply() override
@@ -646,7 +682,7 @@ public:
 			constexpr int bdPlatformSocket__getHostByName_isalpha_Addr = 0x1349C7;
 
 			bool isIPAddr = true;
-			for (auto c : Settings::DemonwareServerOverride)
+			for (auto c : Settings::DemonwareServerOverride.get())
 				if (isalpha(c))
 				{
 					isIPAddr = false;

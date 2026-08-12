@@ -7,6 +7,31 @@
 #include "plugin.hpp"
 #include "game_addrs.hpp"
 
+namespace Settings
+{
+	Setting<bool> FixFullPedalChecks{ "Bugfixes", "FixFullPedalChecks", true,
+		"Fixes certain effects in the game like backfiring which tried to check if pedal/trigger is being fully pressed "
+		"(vanilla DirectInput wouldn't return a high enough value to register, this just nudges it toward the value being checked)." };
+
+	Setting<bool> FixPegasusClopping{ "Bugfixes", "FixPegasusClopping", true,
+		"Fixes looping clop sound effect remaining active through the session." };
+	Setting<bool> FixC2CRankings{ "Bugfixes", "FixC2CRankings", true,
+		"Fixes C2C scoreboard rankings not updating due to incomplete anti-piracy checks." };
+	Setting<bool> PreventDESTSaveCorruption{ "Bugfixes", "PreventDESTSaveCorruption", true,
+		"Prevents the \"DEST\" save corruption caused by remapping controls with many devices connected." };
+	Setting<bool> FixLensFlarePath{ "Bugfixes", "FixLensFlarePath", true,
+		"Game tries to load in lens flare data from common/, but the game files have it inside media/, causing lens flare "
+		"not to be drawn. If lens flare is still present inside media/ then this will just patch game to load it from there instead." };
+	Setting<bool> FixIncorrectShading{ "Bugfixes", "FixIncorrectShading", true,
+		"Fixes incorrect shading on cutscene characters & certain stage models." };
+	Setting<bool> FixParticleRendering{ "Bugfixes", "FixParticleRendering", true,
+		"Fixes rendering of grass & gravel particles to match up with the console versions, and fixes issue with fireworks on Metropolis." };
+	Setting<bool> HideOnlineSigninText{ "Bugfixes", "HideOnlineSigninText", false,
+		"Hides text related to the formerly-defunct online service." };
+	Setting<bool> FixRightSideBunkiAnimations{ "Bugfixes", "FixRightSideBunkiAnimations", true,
+		"Fixes animation models being inverted when taking right side of bunki/highway." };
+}
+
 class FixRightSideBunkiAnimations : public Hook
 {
 	// When heading through bunki on right side certain animations become inverted, with backside vertices appearing in front
@@ -24,7 +49,7 @@ public:
 
 	bool validate() override
 	{
-		return true;
+		return Settings::FixRightSideBunkiAnimations;
 	}
 
 	bool apply() override

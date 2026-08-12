@@ -7,6 +7,19 @@
 
 #include "Xinput.h"
 
+namespace Settings
+{
+	Setting<int> VibrationMode{ "Controls", "VibrationMode", 0,
+		"Enable/disable the xbox vibration code, or customise it.",
+		{ "Disable", "Enable xbox vibration code", "L/R motors swapped", "L/R motors merged together" } };
+	Setting<int> VibrationStrength{ "Controls", "VibrationStrength", 7,
+		"VibrationStrength range is 0 to 10.", Range<int>{ 0, 10 } };
+	Setting<int> VibrationControllerId{ "Controls", "VibrationControllerId", 0,
+		"XInput device to send vibration to, default should work fine in most cases, but if you don't notice any vibration "
+		"you can try increasing this. Ignored when using UseNewInput, vibration will be sent to the active controller.",
+		Range<int>{ 0, 4 } };
+}
+
 int VibrationUserId = 0;
 int VibrationStrength = 10;
 float VibrationLeftMotor = 0.f;
