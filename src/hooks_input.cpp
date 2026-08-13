@@ -314,6 +314,11 @@ public:
         return Settings::ControllerHotPlug;
     }
 
+    void declare_settings() override
+    {
+        Settings::ControllerHotPlug.needs_restart();
+    }
+
     bool apply() override
     {
         // Patch games controller init code to go through our DInput_EnumJoysticksCallback func, so we can learn GUID of any already connected pads

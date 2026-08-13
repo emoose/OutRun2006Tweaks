@@ -111,6 +111,11 @@ public:
 		return Settings::UseNewInput;
 	}
 
+	void declare_settings() override
+	{
+		Settings::UseNewInput.needs_restart();
+	}
+
 	bool apply() override
 	{
 		SwitchOn_hook = safetyhook::create_inline(Module::exe_ptr(0x536F0), SwitchOn_dest);

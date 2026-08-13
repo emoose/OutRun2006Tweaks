@@ -32,6 +32,40 @@ namespace Settings
 		registry().emplace_back(this);
 	}
 
+	void SettingBase::watch(std::function<void()> onChanged)
+	{
+		handlers_.emplace_back(std::move(onChanged));
+	}
+
+	void SettingBase::needs_restart()
+	{
+		needsRestart_ = true;
+	}
+
+	void SettingBase::needs_restart(std::function<bool()> predicate)
+	{
+		restartPredicate_ = std::move(predicate);
+	}
+
+	bool SettingBase::restart_required() const
+	{
+		if (restartPredicate_)
+			return restartPredicate_();
+		return needsRestart_;
+	}
+
+	void SettingBase::notify() const
+	{
+		for (const auto& handler : handlers_)
+			handler();
+	}
+
+	void mark_startup_values()
+	{
+		for (SettingBase* setting : SettingBase::registry())
+			setting->mark_startup_value();
+	}
+
 	template <typename T>
 	std::string Setting<T>::to_string() const
 	{

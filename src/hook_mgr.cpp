@@ -9,6 +9,8 @@ void HookManager::ApplyHooks()
 {
     for (const auto& hook : hooks())
     {
+        hook->declare_settings();
+
         hook->is_active_ = false;
         if (hook->validate())
         {

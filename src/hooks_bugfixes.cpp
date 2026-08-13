@@ -52,6 +52,11 @@ public:
 		return Settings::FixRightSideBunkiAnimations;
 	}
 
+	void declare_settings() override
+	{
+		Settings::FixRightSideBunkiAnimations.needs_restart();
+	}
+
 	bool apply() override
 	{
 		constexpr int LoadBranchRenditionObject_SetsCCWFlag_PatchAddr = 0x4F6DC;
@@ -122,6 +127,11 @@ public:
 		return Settings::FixParticleRendering;
 	}
 
+	void declare_settings() override
+	{
+		Settings::FixParticleRendering.needs_restart();
+	}
+
 	bool apply() override
 	{
 		constexpr int particle_draw_rect2_HookAddr = 0x19009;
@@ -148,6 +158,11 @@ public:
 	bool validate() override
 	{
 		return Settings::FixIncorrectShading;
+	}
+
+	void declare_settings() override
+	{
+		Settings::FixIncorrectShading.needs_restart();
 	}
 
 	bool apply() override
@@ -265,6 +280,11 @@ public:
 		return Settings::FixPegasusClopping;
 	}
 
+	void declare_settings() override
+	{
+		Settings::FixPegasusClopping.needs_restart();
+	}
+
 	bool apply() override
 	{
 		SndOff_PEGA = safetyhook::create_inline(Module::exe_ptr(SndOff_PEGA_Addr), destination);
@@ -294,6 +314,11 @@ public:
 	bool validate() override
 	{
 		return Settings::FixC2CRankings;
+	}
+
+	void declare_settings() override
+	{
+		Settings::FixC2CRankings.needs_restart();
 	}
 
 	bool apply() override
@@ -340,6 +365,11 @@ public:
 		return Settings::PreventDESTSaveCorruption;
 	}
 
+	void declare_settings() override
+	{
+		Settings::PreventDESTSaveCorruption.needs_restart();
+	}
+
 	bool apply() override
 	{
 		dest_hook = safetyhook::create_mid(Module::exe_ptr(SumoInputDeviceLoop_Addr), destination);
@@ -367,6 +397,11 @@ public:
 	bool validate() override
 	{
 		return Settings::FixLensFlarePath;
+	}
+
+	void declare_settings() override
+	{
+		Settings::FixLensFlarePath.needs_restart();
 	}
 
 	bool apply() override
@@ -494,6 +529,11 @@ public:
 	bool validate() override
 	{
 		return Settings::HideOnlineSigninText;
+	}
+
+	void declare_settings() override
+	{
+		Settings::HideOnlineSigninText.needs_restart();
 	}
 
 	bool apply() override

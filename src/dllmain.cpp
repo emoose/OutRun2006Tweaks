@@ -120,6 +120,10 @@ void Plugin_Init()
 	InitExceptionHandler();
 
 	HookManager::ApplyHooks();
+
+	// Hooks declare which settings they read as they apply, so the snapshot and
+	// the no-consumer check both have to wait until they've all run.
+	Settings::mark_startup_values();
 }
 
 #include "Proxy.hpp"

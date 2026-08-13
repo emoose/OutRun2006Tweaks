@@ -194,6 +194,11 @@ public:
 		return Settings::ProtectLoginData;
 	}
 
+	void declare_settings() override
+	{
+		Settings::ProtectLoginData.needs_restart();
+	}
+
 	bool apply() override
 	{
 		constexpr int Sumo_CommonDat_Read_Addr = 0x16380;
@@ -303,6 +308,11 @@ public:
 		return Settings::AllowCharacterSelection;
 	}
 
+	void declare_settings() override
+	{
+		Settings::AllowCharacterSelection.needs_restart();
+	}
+
 	bool apply() override
 	{
 		Sumo_LicenseScreenChangeSelection = Module::fn_ptr<fn_1args_class>(0xDD990);
@@ -345,6 +355,11 @@ public:
 	bool validate() override
 	{
 		return Settings::DefaultManualTransmission;
+	}
+
+	void declare_settings() override
+	{
+		Settings::DefaultManualTransmission.needs_restart();
 	}
 
 	bool apply() override
@@ -489,6 +504,11 @@ public:
 		return Settings::EnableHollyCourse2 != 0;
 	}
 
+	void declare_settings() override
+	{
+		Settings::EnableHollyCourse2.needs_restart();
+	}
+
 	bool apply() override
 	{
 		// Increase Sumo_RacerMenu alloc size to fit extra sprite
@@ -576,6 +596,11 @@ public:
 	bool validate() override
 	{
 		return Settings::ShowOutRunMilesOnMenu;
+	}
+
+	void declare_settings() override
+	{
+		Settings::ShowOutRunMilesOnMenu.needs_restart();
 	}
 
 	bool apply() override
@@ -667,6 +692,11 @@ public:
 		return !Settings::DemonwareServerOverride.get().empty();
 	}
 
+	void declare_settings() override
+	{
+		Settings::DemonwareServerOverride.needs_restart();
+	}
+
 	bool apply() override
 	{
 		constexpr int InitNetwork_Addr = 0x5ACB0;
@@ -727,6 +757,11 @@ public:
 		return Settings::RandomHighwayAnimSets;
 	}
 
+	void declare_settings() override
+	{
+		Settings::RandomHighwayAnimSets.needs_restart();
+	}
+
 	bool apply() override
 	{
 		constexpr int GetBranchRenditionType_HookAddr = 0x4D429;
@@ -761,6 +796,11 @@ public:
 	bool validate() override
 	{
 		return Settings::RestoreJPClarissa;
+	}
+
+	void declare_settings() override
+	{
+		Settings::RestoreJPClarissa.needs_restart();
 	}
 
 	bool apply() override
@@ -903,6 +943,13 @@ public:
 		return true;
 	}
 
+	void declare_settings() override
+	{
+		Settings::AutoDetectResolution.needs_restart();
+		Settings::SkipIntroLogos.needs_restart();
+		Settings::DisableCountdownTimer.needs_restart();
+	}
+
 	bool apply() override
 	{
 		// Override the default settings used when game INI doesn't exist/is empty
@@ -963,6 +1010,11 @@ public:
 	bool validate() override
 	{
 		return Settings::EnableLevelSelect;
+	}
+
+	void declare_settings() override
+	{
+		Settings::EnableLevelSelect.needs_restart();
 	}
 
 	bool apply() override

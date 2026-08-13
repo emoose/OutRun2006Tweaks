@@ -33,6 +33,7 @@ class SettingsWindow : public OverlayWindow
 	// hundreds of times, so the write waits until nothing is being dragged.
 	bool settingsDirty = false;
 	bool overlaySettingsDirty = false;
+	std::vector<Settings::SettingBase*> pendingNotify;
 
 	// Case-insensitive substring match, so "vib" finds VibrationStrength. An
 	// empty search matches everything.
@@ -242,6 +243,34 @@ public:
 		}
 	}
 
+	// Names the settings that have moved since launch and can't be picked up
+	// while the game runs. Computed rather than latched, so reverting one clears
+	// it again.
+	void draw_restart_notice()
+	{
+		std::string pending;
+		for (const Settings::SettingBase* setting : Settings::SettingBase::registry())
+		{
+			if (!setting->changed_since_startup() || !setting->restart_required())
+				continue;
+
+			if (!pending.empty())
+				pending += ", ";
+			pending += setting->key();
+		}
+
+		if (pending.empty())
+		{
+			// Kept on its own line either way, so the panes above don't resize
+			// as the notice comes and goes.
+			ImGui::TextDisabled(" ");
+			return;
+		}
+
+		ImGui::TextColored(ImGui::GetStyle().Colors[ImGuiCol_CheckMark],
+			"Restart to apply: %s", pending.c_str());
+	}
+
 	void render(bool overlayEnabled) override
 	{
 		if (showStyleEditor)
@@ -273,7 +302,10 @@ public:
 		if (std::find(visibleSections.begin(), visibleSections.end(), currentSection) == visibleSections.end())
 			currentSection = visibleSections.front();
 
-		if (ImGui::BeginChild("##categories", ImVec2(ImGui::GetFontSize() * 9.0f, 0), ImGuiChildFlags_Borders))
+		// One line kept clear at the bottom for the restart notice.
+		const float footerHeight = ImGui::GetTextLineHeightWithSpacing();
+
+		if (ImGui::BeginChild("##categories", ImVec2(ImGui::GetFontSize() * 9.0f, -footerHeight), ImGuiChildFlags_Borders))
 		{
 			for (int i : visibleSections)
 				if (ImGui::Selectable(sections[i].c_str(), currentSection == i))
@@ -283,7 +315,7 @@ public:
 
 		ImGui::SameLine();
 
-		if (ImGui::BeginChild("##settings", ImVec2(0, 0)))
+		if (ImGui::BeginChild("##settings", ImVec2(0, -footerHeight)))
 		{
 			const std::string& section = sections[currentSection];
 
@@ -299,8 +331,21 @@ public:
 					continue;
 
 				const std::string label(setting->key());
-				settingsDirty |= draw_control(setting, label);
+
+				if (draw_control(setting, label))
+				{
+					settingsDirty = true;
+					if (std::find(pendingNotify.begin(), pendingNotify.end(), setting) == pendingNotify.end())
+						pendingNotify.emplace_back(setting);
+				}
+
 				draw_description(setting);
+
+				if (setting->restart_required())
+				{
+					ImGui::SameLine();
+					ImGui::TextDisabled("(restart)");
+				}
 			}
 
 			// Overlay preferences live in their own INI, so they're appended to
@@ -311,13 +356,18 @@ public:
 		}
 		ImGui::EndChild();
 
+		draw_restart_notice();
+
 		// Both writes wait for the control being dragged to be released.
 		if (ImGui::IsAnyItemActive())
 			return;
 
 		if (settingsDirty)
 		{
-			HookManager::SettingsChanged();
+			for (Settings::SettingBase* setting : pendingNotify)
+				setting->notify();
+			pendingNotify.clear();
+
 			Settings::write(Module::UserIniPath);
 			settingsDirty = false;
 		}

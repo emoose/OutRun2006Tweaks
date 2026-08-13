@@ -189,6 +189,11 @@ public:
 		return true;
 	}
 
+	void declare_settings() override
+	{
+		Settings::OverlayEnabled.needs_restart();
+	}
+
 	bool apply() override
 	{
 		constexpr int InitDirectX_CallerResult_Addr = 0x1775E;

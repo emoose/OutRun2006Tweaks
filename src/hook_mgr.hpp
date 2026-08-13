@@ -29,12 +29,15 @@ public:
     // check if user has enabled this hook, and any prerequisites are satisfied
     virtual bool validate() { return true; }
 
+    // Declares which settings this hook's behaviour depends on, with
+    // Setting::watch for a value it baked in and has to re-do, or
+    // Setting::needs_restart for one it can't pick up while the game runs.
+    //
+    // Called for every hook regardless of validate().
+    virtual void declare_settings() {}
+
     // applies the hook/patch
     virtual bool apply() = 0;
-
-    // called when settings have been changed
-    // returns true if settings are applied, false if a game restart is required
-    virtual bool settings_changed() { return true; }
 
     bool active()
     {
@@ -66,17 +69,6 @@ public:
     static void RegisterHook(Hook* hook)
 	{
         hooks().emplace_back(hook);
-    }
-
-    static bool SettingsChanged()
-    {
-        bool restartNeeded = false;
-
-        for (Hook* hook : hooks())
-            if (hook)
-                restartNeeded |= !hook->settings_changed();
-
-        return restartNeeded;
     }
 
     static void ApplyHooks();

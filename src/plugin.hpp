@@ -83,6 +83,10 @@ namespace Settings
 	extern Setting<int> FramerateFastLoad;                 // hooks_framerate.cpp
 	extern Setting<bool> FramerateInterpolation;           // hooks_framerate.cpp
 
+	extern Setting<float> FramerateInterpolationDebugAlpha; // interpolation.cpp
+	extern Setting<bool> FramerateInterpolationDebugLog;    // interpolation.cpp
+	extern Setting<std::string> HudToggleKey;               // hooks_input.cpp
+
 	extern Setting<int> UIScalingMode;                     // hooks_uiscaling.cpp
 	extern Setting<int> UILetterboxing;                    // hooks_uiscaling.cpp
 	extern Setting<int> SkyGlowFactor;                     // hooks_graphics.cpp

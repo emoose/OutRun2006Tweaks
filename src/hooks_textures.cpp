@@ -865,6 +865,13 @@ public:
 		return (Settings::SceneTextureReplacement || Settings::SceneTextureExtract) || (Settings::UITextureReplacement || Settings::UITextureExtract);
 	}
 
+	void declare_settings() override
+	{
+		Settings::TextureBaseFolder.needs_restart();
+		Settings::EnableTextureCache.needs_restart();
+		Settings::UseNewTextureAllocator.needs_restart();
+	}
+
 	bool apply() override
 	{
 		const static int D3DXCreateTextureFromFileInMemory_Addr = 0x39412;

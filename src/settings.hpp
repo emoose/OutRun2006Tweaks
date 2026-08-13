@@ -1,6 +1,7 @@
 #pragma once
 
 #include <filesystem>
+#include <functional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -59,9 +60,31 @@ namespace Settings
 		// user INI holds nothing but genuine overrides. Returns whether it wrote.
 		virtual bool write(inih::INIReader& ini) const = 0;
 
+		// Records the value the game started with, for changed_since_startup.
+		virtual void mark_startup_value() = 0;
+		virtual bool changed_since_startup() const = 0;
+
+		// Runs whenever this setting changes. Only needed where a hook baked the
+		// value into something at apply time: a setting nothing declares is read
+		// live and takes effect on its own.
+		void watch(std::function<void()> onChanged);
+
+		// Declares that the setting requires a restart to apply.
+		void needs_restart();
+
+		// Evaluates a predicate to tell if setting needs restart to apply.
+		void needs_restart(std::function<bool()> predicate);
+
+		// Whether the value as it stands can only take effect after a restart.
+		bool restart_required() const;
+
+		// Calls the registered handlers. The settings window does this once the
+		// control being dragged has been let go of, not on every frame of it.
+		void notify() const;
+
 		// Every registered setting, in no particular order. Function-local
 		// static so the vector exists before the first setting registers into
-		// it, for the same reason HookManager::hooks() is one.
+		// it.
 		static std::vector<SettingBase*>& registry();
 
 	private:
@@ -70,6 +93,10 @@ namespace Settings
 		std::string_view key_;
 		std::string_view description_;
 		std::vector<const char*> valueNames_;
+
+		std::vector<std::function<void()>> handlers_;
+		std::function<bool()> restartPredicate_;
+		bool needsRestart_ = false;
 	};
 
 	// Bounds of a numeric setting. Clamps whatever an INI supplies, and gives
@@ -105,6 +132,7 @@ namespace Settings
 			: SettingBase(deduced_type<T>(), section, key, description, std::move(valueNames))
 			, value_(defaultValue)
 			, baseValue_(defaultValue)
+			, startupValue_(defaultValue)
 		{
 			// Naming the values fixes the range too: they start at 0 and run to
 			// one less than the count, and an INI holding anything else would
@@ -125,6 +153,7 @@ namespace Settings
 			: SettingBase(deduced_type<T>(), section, key, description, {})
 			, value_(defaultValue)
 			, baseValue_(defaultValue)
+			, startupValue_(defaultValue)
 			, range_(range)
 			, hasRange_(true)
 		{
@@ -151,6 +180,12 @@ namespace Settings
 		T* ptr() { return &value_; }
 		void* value_ptr() override { return &value_; }
 
+		// The value the game started with, for a needs_restart predicate that
+		// only blocks certain transitions.
+		const T& startup_value() const { return startupValue_; }
+		bool changed_since_startup() const override { return value_ != startupValue_; }
+		void mark_startup_value() override { startupValue_ = value_; }
+
 		bool has_range() const { return hasRange_; }
 		const Range<T>& range() const { return range_; }
 
@@ -165,6 +200,9 @@ namespace Settings
 		// Value the shipped INI left this setting at, so write() can tell an
 		// override apart from a default.
 		T baseValue_;
+
+		// Value in force once the hooks had applied.
+		T startupValue_;
 
 		Range<T> range_{};
 		bool hasRange_ = false;
@@ -189,6 +227,10 @@ namespace Settings
 	// user INI: inih's writer rebuilds a file from the keys it parsed, which
 	// would drop every comment in the shipped one.
 	bool write(const std::filesystem::path& iniPath);
+
+	// Call once the hooks have applied. Everything after this counts as a change
+	// made during the session, which is what the restart notice is built from.
+	void mark_startup_values();
 
 	void to_log();
 }

@@ -275,6 +275,13 @@ public:
 		return Settings::CDSwitcherEnable;
 	}
 
+	void declare_settings() override
+	{
+		Settings::CDSwitcherEnable.needs_restart();
+		Settings::CDSwitcherTrackNext.needs_restart();
+		Settings::CDSwitcherTrackPrevious.needs_restart();
+	}
+
 	bool apply() override
 	{
 		constexpr int Game_Ctrl_Addr = 0x9C840;

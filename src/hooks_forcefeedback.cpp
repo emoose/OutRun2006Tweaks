@@ -81,6 +81,14 @@ public:
         return Settings::VibrationMode != 0 || Settings::UseNewInput;
     }
 
+    void declare_settings() override
+    {
+        // Both are copied into globals below, which the naked CalcVibrationValues
+        // reads, so a change can't reach them without re-copying.
+        Settings::VibrationStrength.needs_restart();
+        Settings::VibrationControllerId.needs_restart();
+    }
+
     bool apply() override
     {
         VibrationStrength = Settings::VibrationStrength;

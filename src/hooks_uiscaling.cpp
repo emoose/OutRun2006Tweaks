@@ -579,6 +579,15 @@ public:
 		return Settings::UIScalingMode > 0;
 	}
 
+	void declare_settings() override
+	{
+		Settings::UIScalingMode.needs_restart([] {
+			// apply() nops 0x293 bytes of the original sprite path, so mode 0 can't
+			// be returned to. 1 and 2 only change what the hooks read.
+			return (Settings::UIScalingMode.startup_value() == 0) != (Settings::UIScalingMode.get() == 0);
+		});
+	}
+
 	bool apply() override
 	{
 		Memory::VP::Nop(Module::exe_ptr(draw_sprite_custom_matrix_mid_Addr), 0x293);

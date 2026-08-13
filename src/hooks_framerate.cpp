@@ -646,6 +646,19 @@ public:
 		return true;
 	}
 
+	void declare_settings() override
+	{
+		Settings::FramerateInterpolation.watch([] { Interp::Reset(); });
+		Settings::FramerateUnlockExperimental.needs_restart();
+		Settings::FramerateFastLoad.needs_restart([] {
+			// Mode 3 nops the FileLoad_Ctrl call and patches LoadADVData to retn.
+			// 0, 1 and 2 are only tested by the loop, so they interchange freely.
+			return (Settings::FramerateFastLoad.startup_value() == 3) != (Settings::FramerateFastLoad.get() == 3);
+		});
+		// Input::Update is driven from this loop, and latches the key it parses.
+		Settings::HudToggleKey.needs_restart();
+	}
+
 	bool apply() override
 	{
 		// framelimiter init

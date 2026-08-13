@@ -11,10 +11,10 @@ namespace Settings
 {
 	Setting<int> DrawDistanceIncrease{ "Graphics", "DrawDistanceIncrease", 0,
 		"Increases the distance that stage models will begin drawing at, helping a lot with pop-in. The higher this is tweaked "
-		"the higher the chance that LOD models appear earlier than they should; 4-8 fixes the worst pop-in without LOD issues." };
+		"the higher the chance that LOD models appear earlier than they should; 4-8 fixes the worst pop-in without LOD issues.", Range<int>{ 0, 1024 } };
 	Setting<int> DrawDistanceBehind{ "Graphics", "DrawDistanceBehind", 0,
 		"Increases the distance models will draw behind the car, rather than them being culled out almost immediately. "
-		"A lot of models have backface culling issues, so only recommended if using freecam or other camera mods!" };
+		"A lot of models have backface culling issues, so only recommended if using freecam or other camera mods!", Range<int>{ 0, 1024 } };
 }
 
 std::array<std::vector<uint16_t>, 256> ObjectNodes;

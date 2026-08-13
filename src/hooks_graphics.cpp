@@ -8,7 +8,7 @@ namespace Settings
 {
 	Setting<int> SkyGlowFactor{ "Graphics", "SkyGlowFactor", 4,
 		"If set above 0, restores the glowing sky/track effect from the console versions. Resolution of the glow effect is "
-		"divided by the factor value: use 1 for full resolution, or 4 for quarter-res (same factor as console)." };
+		"divided by the factor value: use 1 for full resolution, or 4 for quarter-res (same factor as console).", Range<int>{ 0, 16 } };
 	Setting<bool> SkyGlowTwoStep{ "Graphics", "SkyGlowTwoStep", true,
 		"Reduces aliasing in the sky glow effect by handling the SkyGlowFactor in two steps. "
 		"Likely not console-accurate, but can help reduce the aliasing with Factor = 4 or higher." };
@@ -66,6 +66,11 @@ public:
 	bool validate() override
 	{
 		return Settings::UseHiDefCharacters;
+	}
+
+	void declare_settings() override
+	{
+		Settings::UseHiDefCharacters.needs_restart();
 	}
 
 	bool apply() override
@@ -442,6 +447,14 @@ public:
 		return "RestoreSkyGlow";
 	}
 
+	void declare_settings() override
+	{
+		// The buffers are sized from the factor, so a change has to resize them.
+		// SkyGlowTwoStep is read inside MakeReduceBuff on every call, so nothing
+		// needs declaring for it at all.
+		Settings::SkyGlowFactor.watch([] { RebuildGlowBuffers(); });
+	}
+
 	bool apply() override
 	{
 		// Note: hooks/patches are always applied regardless of INI settings, so they can be changed at runtime
@@ -459,18 +472,29 @@ public:
 		GlowRelease_hook = safetyhook::create_inline(Module::exe_ptr(GlowRelease_Addr), GlowRelease_dest);
 		BlurGlowImage_hook = safetyhook::create_inline(Module::exe_ptr(BlurGlowImage_Addr), BlurGlowImage_dest);
 
-		return !!GlowInit_hook && !!ClearBuffer_hook && !!MakeReduceBuff_hook
-			&& !!GlowRelease_hook && !!BlurGlowImage_hook;
+		if (!GlowInit_hook || !ClearBuffer_hook || !MakeReduceBuff_hook
+			|| !GlowRelease_hook || !BlurGlowImage_hook)
+			return false;
+
+		// Read inside MakeReduceBuff on every call, so nothing to re-do.
+
+		// The buffers are sized from the factor, so a change has to resize them.
+		return true;
 	}
 
-	bool settings_changed() override
+	// Resizing the glow buffers means tearing down what the old size allocated.
+	static void RebuildGlowBuffers()
 	{
-		// Call release before patching glow enabled byte, for it to release resources if needed
+		// declare_settings runs whether or not the hooks installed, so a change
+		// can reach here after apply gave up. The release path calls through
+		// these, which would be a jump into nothing.
+		if (!GlowInit_hook || !GlowRelease_hook)
+			return;
+
+		// Release before patching the enabled byte, so it frees resources if needed
 		GlowRelease_dest();
 		Memory::VP::Patch(Module::exe_ptr<uint8_t>(GlowEnabled_Addr), uint8_t(Settings::SkyGlowFactor > 0 ? 1 : 0));
 		GlowInit_dest();
-
-		return false;
 	}
 
 	static RestoreSkyGlow instance;
@@ -502,6 +526,11 @@ public:
 		return Settings::ReflectionResolution >= 2;
 	}
 
+	void declare_settings() override
+	{
+		Settings::ReflectionResolution.needs_restart();
+	}
+
 	bool apply() override
 	{
 		for (const int& addr : ReflectionResolution_Addrs)
@@ -526,6 +555,11 @@ public:
 	bool validate() override
 	{
 		return Settings::DisableDPIScaling;
+	}
+
+	void declare_settings() override
+	{
+		Settings::DisableDPIScaling.needs_restart();
 	}
 
 	bool apply() override
@@ -569,6 +603,11 @@ public:
 		return Settings::ScreenEdgeCullFix;
 	}
 
+	void declare_settings() override
+	{
+		Settings::ScreenEdgeCullFix.needs_restart();
+	}
+
 	bool apply() override
 	{
 		dest_orig = safetyhook::create_inline(Module::exe_ptr(CalcBall3D2D_Addr), destination);
@@ -594,6 +633,11 @@ public:
 		return Settings::DisableStageCulling;
 	}
 
+	void declare_settings() override
+	{
+		Settings::DisableStageCulling.needs_restart();
+	}
+
 	bool apply() override
 	{
 		// Patch "if (CheckCulling(...))" -> no-op
@@ -617,6 +661,11 @@ public:
 	bool validate() override
 	{
 		return Settings::DisableVehicleLODs;
+	}
+
+	void declare_settings() override
+	{
+		Settings::DisableVehicleLODs.needs_restart();
 	}
 
 	bool apply() override
@@ -708,6 +757,11 @@ public:
 		return Settings::FixZBufferPrecision;
 	}
 
+	void declare_settings() override
+	{
+		Settings::FixZBufferPrecision.needs_restart();
+	}
+
 	bool apply() override
 	{
 		CalcCameraMatrix = safetyhook::create_inline(Module::exe_ptr(CalcCameraMatrix_Addr), CalcCameraMatrix_dest);
@@ -755,6 +809,11 @@ public:
 		return Settings::TransparencySupersampling;
 	}
 
+	void declare_settings() override
+	{
+		Settings::TransparencySupersampling.needs_restart();
+	}
+
 	bool apply() override
 	{
 		dest_hook = safetyhook::create_mid(Module::exe_ptr(DeviceInitHookAddr), destination);
@@ -793,6 +852,13 @@ public:
 	bool validate() override
 	{
 		return Settings::WindowedBorderless;
+	}
+
+	void declare_settings() override
+	{
+		Settings::WindowedBorderless.needs_restart();
+		Settings::WindowPositionX.needs_restart();
+		Settings::WindowPositionY.needs_restart();
 	}
 
 	bool apply() override
@@ -893,6 +959,11 @@ public:
 	bool validate() override
 	{
 		return Settings::VSync != 1;
+	}
+
+	void declare_settings() override
+	{
+		Settings::VSync.needs_restart();
 	}
 
 	bool apply() override
