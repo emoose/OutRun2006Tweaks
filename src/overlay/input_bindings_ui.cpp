@@ -397,9 +397,11 @@ private:
 			setting_changed(Settings::SteeringDeadZone);
 		}
 
-		ImGui::Checkbox("Bypass Sensitivity", &manager.BypassGameSensitivity);
+		if (ImGui::Checkbox("Bypass Sensitivity", Settings::BypassGameSensitivity.ptr()))
+			setting_changed(Settings::BypassGameSensitivity);
 		if (ImGui::IsItemHovered())
-			ImGui::SetTooltip("Passes steering input to the game directly, allows for more sensitive controls");
+			ImGui::SetTooltip("Passes steering input to the game directly, allows for more sensitive controls.\n"
+				"Only used when UseNewInput is enabled.");
 	}
 
 	// The prompt shown while an input is being waited on.
@@ -545,7 +547,8 @@ public:
 					unsavedChanges = true;
 					Settings::SteeringDeadZone = 0.2f;
 					setting_changed(Settings::SteeringDeadZone);
-					manager.BypassGameSensitivity = false;
+					Settings::BypassGameSensitivity = false;
+					setting_changed(Settings::BypassGameSensitivity);
 					manager.setupDefaultBindings();
 					if (auto* controller = manager.getPrimaryGamepad())
 						manager.setupGamepad(controller);

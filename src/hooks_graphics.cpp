@@ -17,8 +17,8 @@ namespace Settings
 
 	Setting<int> AnisotropicFiltering{ "Graphics", "AnisotropicFiltering", 16,
 		"1 - 16, 0 to leave it at games default.", Range<int>{ 0, 16 } };
-	Setting<int> ReflectionResolution{ "Graphics", "ReflectionResolution", 2048,
-		"Resolution used for car reflections, games default is 128x128, 2048x2048 seems a reasonable improvement.",
+	Setting<int> ReflectionResolution{ "Graphics", "ReflectionResolution", 1024,
+		"Resolution used for car reflections, games default is 128x128, 1024x1024 seems a reasonable improvement.",
 		Range<int>{ 0, 8192 } };
 	Setting<bool> TransparencySupersampling{ "Graphics", "TransparencySupersampling", true,
 		"Allows game to enable 4x transparency supersampling, heavily reducing aliasing on things like barriers or cloth "

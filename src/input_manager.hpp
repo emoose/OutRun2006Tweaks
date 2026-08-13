@@ -276,9 +276,6 @@ class InputManager
 	InputSourceType lastInputSource_ = InputSourceType::GamePad;
 
 private:
-	// user settings
-	bool BypassGameSensitivity = false;
-
 	static inline const std::string volumeNames[] = {
 		"Steering",
 		"Acceleration",
@@ -793,7 +790,7 @@ public:
 
 			// Steering runs through the game's own sensitivity curve so that
 			// the in-game sensitivity setting still applies.
-			if (i == 0 && !BypassGameSensitivity)
+			if (i == 0 && !Settings::BypassGameSensitivity)
 			{
 				int cur = ceil(volumes[i].currentValue * 127.0f);
 				int prev = ceil(volumes[i].previousValue * 127.0f);
