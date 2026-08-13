@@ -197,6 +197,7 @@ public:
 	void declare_settings() override
 	{
 		Settings::ProtectLoginData.needs_restart();
+		Settings::ProtectLoginData.hidden(true);
 	}
 
 	bool apply() override
@@ -311,6 +312,7 @@ public:
 	void declare_settings() override
 	{
 		Settings::AllowCharacterSelection.needs_restart();
+		Settings::AllowCharacterSelection.hidden(true);
 	}
 
 	bool apply() override
@@ -695,6 +697,7 @@ public:
 	void declare_settings() override
 	{
 		Settings::DemonwareServerOverride.needs_restart();
+		Settings::DemonwareServerOverride.hidden(true);
 	}
 
 	bool apply() override

@@ -78,6 +78,11 @@ namespace Settings
 		// Whether the value as it stands can only take effect after a restart.
 		bool restart_required() const;
 
+		// Whether this setting should be hidden from UI
+		bool hidden() const { return hidden_; }
+
+		void hidden(bool isHidden) { hidden_ = isHidden; }
+
 		// Calls the registered handlers. The settings window does this once the
 		// control being dragged has been let go of, not on every frame of it.
 		void notify() const;
@@ -93,6 +98,8 @@ namespace Settings
 		std::string_view key_;
 		std::string_view description_;
 		std::vector<const char*> valueNames_;
+
+		bool hidden_ = false;
 
 		std::vector<std::function<void()>> handlers_;
 		std::function<bool()> restartPredicate_;

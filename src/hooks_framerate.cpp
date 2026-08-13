@@ -28,8 +28,8 @@ namespace Settings
 	Setting<bool> FramerateInterpolation{ "Performance", "FramerateInterpolation", true,
 		"Smooths car & camera movement when running above 60FPS, by interpolating positions between game ticks. "
 		"Requires FramerateLimit to be set above 60 (or set to 0). EXPERIMENTAL: may cause visual glitches, disable if you notice any." };
-	Setting<bool> FramerateLimitMode{ "Performance", "FramerateLimitMode", false,
-		"Off is efficient mode, on is accurate mode. Efficient should work fine for most people, but if you have issues it might be worth trying accurate mode." };
+	Setting<int> FramerateLimitMode{ "Performance", "FramerateLimitMode", 0,
+		"Efficient should work fine for most people, but if you have issues it might be worth trying accurate mode.", { "Efficient", "Accurate" } };
 	Setting<bool> FramerateUnlockExperimental{ "Performance", "FramerateUnlockExperimental", true,
 		"Allows the game to render more than one frame per 60Hz game tick, which everything above 60FPS depends on." };
 }
@@ -657,6 +657,9 @@ public:
 		});
 		// Input::Update is driven from this loop, and latches the key it parses.
 		Settings::HudToggleKey.needs_restart();
+
+		Settings::FramerateInterpolationDebugAlpha.hidden(true);
+		Settings::FramerateInterpolationDebugLog.hidden(true);
 	}
 
 	bool apply() override
@@ -713,10 +716,7 @@ public:
 
 		if (Settings::FramerateUnlockExperimental)
 		{
-			if (Settings::FramerateInterpolation)
-			{
-				Interp::Apply();
-			}
+			Interp::Apply();
 
 			constexpr int SetTweeningTable_Addr = 0xED60;
 			SetTweeningTable = safetyhook::create_inline(Module::exe_ptr(SetTweeningTable_Addr), SetTweeningTable_dest);

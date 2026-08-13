@@ -117,6 +117,7 @@ public:
 	void declare_settings() override
 	{
 		Settings::UseNewInput.needs_restart();
+		Settings::UseNewInput.hidden(true);
 	}
 
 	bool apply() override

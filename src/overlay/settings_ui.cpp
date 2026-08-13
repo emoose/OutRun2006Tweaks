@@ -64,7 +64,7 @@ class SettingsWindow : public OverlayWindow
 			return true;
 
 		for (const Settings::SettingBase* setting : Settings::SettingBase::registry())
-			if (setting->section() == section && matches_search(setting->key(), search))
+			if (!setting->hidden() && setting->section() == section && matches_search(setting->key(), search))
 				return true;
 
 		return false;
@@ -162,7 +162,7 @@ public:
 		// Build the section list once, in the shipped INI's order.
 		for (const char* section : SectionOrder)
 			for (const Settings::SettingBase* setting : Settings::SettingBase::registry())
-				if (setting->section() == section)
+				if (!setting->hidden() && setting->section() == section)
 				{
 					sections.emplace_back(section);
 					break;
@@ -170,6 +170,8 @@ public:
 
 		for (const Settings::SettingBase* setting : Settings::SettingBase::registry())
 		{
+			if (setting->hidden()) continue;
+
 			const std::string_view section = setting->section();
 			const bool known = std::any_of(sections.begin(), sections.end(),
 				[section](const std::string& known) { return std::string_view(known) == section; });
@@ -254,7 +256,7 @@ public:
 
 			for (Settings::SettingBase* setting : Settings::SettingBase::registry())
 			{
-				if (setting->section() != std::string_view(section))
+				if (setting->hidden() || setting->section() != std::string_view(section))
 					continue;
 				if (!wholeSection && !matches_search(setting->key(), search))
 					continue;

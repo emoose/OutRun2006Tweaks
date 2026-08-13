@@ -312,6 +312,7 @@ public:
     void declare_settings() override
     {
         Settings::ControllerHotPlug.needs_restart();
+        Settings::ControllerHotPlug.hidden(true);
     }
 
     bool apply() override

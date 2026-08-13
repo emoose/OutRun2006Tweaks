@@ -34,7 +34,7 @@ namespace Settings
 		"(eg. signs/buildings will have much less pop-in)." };
 	Setting<float> CarBaseShadowOpacity{ "Graphics", "CarBaseShadowOpacity", 1.0f,
 		"Restores the player car base shadow that was included in other C2C ports. Opacity = 1.0 can help mask some issues "
-		"with the stencil shadowing; Xbox C2C uses 0.5, but that makes it very transparent on PC." };
+		"with the stencil shadowing; Xbox C2C uses 0.5, but that makes it very transparent on PC.", Range<float>{ 0.0f, 1.0f } };
 
 	Setting<int> VSync{ "Performance", "VSync", 1,
 		"Set to 0 to disable VSync, 1 for normal VSync, or 2 for half-refresh-rate VSync.",
@@ -340,6 +340,17 @@ class RestoreSkyGlow : public Hook
 	static constexpr int BackColor_Addr = 0x49BD5C;
 	static constexpr int GlowParam0_Addr = 0x4A8C18;
 
+	// (4b) InitFilter tests g_GlowEnabled once at game_init around the whole of the
+	// one time setup: the pixel shaders, and scaling vtx_glow2glow_base by
+	// g_ScreenMultiplyX and Y. Nothing repeats either, so booting with the effect
+	// off left the composite quad at its authored 640x480 and switching it on later
+	// drew the glow into that corner with no shaders bound.
+	//
+	// Dropping the test runs the setup either way, leaving the flag to SceneControl
+	// as the per frame switch. D3D_GlowInit_mb tests it itself, so the render
+	// targets are still only allocated once the effect is on.
+	static constexpr int InitFilter_EnabledCheck_Addr = 0x14CE7;
+
 	// (4) Flag for enabling the glow effect - always set to 0 on PC.
 	// (the launcher exe did include a setting for the glow that was hidden, devs
 	// likely intended to add an option for it, but guess they ran out of time
@@ -464,10 +475,14 @@ class RestoreSkyGlow : public Hook
 	inline static SafetyHookInline GlowInit_hook = {};
 	static void __stdcall GlowInit_dest()
 	{
+		// The setup runs even with SkyGlowFactor switched off, so the divisor 
+		// is floored at 1 rather than taken from a setting that can be 0.
+		const int factor = max(1, Settings::SkyGlowFactor.get());
+
 		// Sized here rather than in apply because the render resolution is only
 		// known once the game has read its config.
-		int w = Game::screen_resolution->x / Settings::SkyGlowFactor;
-		int h = Game::screen_resolution->y / Settings::SkyGlowFactor;
+		int w = int(Game::screen_resolution->x) / factor;
+		int h = int(Game::screen_resolution->y) / factor;
 
 		// Floor at the size the console ran, so a small window still leaves the blur
 		// room to work in.
@@ -570,6 +585,9 @@ public:
 
 		for (int addr : { AlphaRefCompare_Imm, AlphaRefReassert_Imm })
 			Memory::VP::Patch(Module::exe_ptr<uint32_t>(addr), uint32_t(1));
+
+		// jz over the one time setup, six bytes.
+		Memory::VP::Nop(Module::exe_ptr(InitFilter_EnabledCheck_Addr), 6);
 
 		GlowInit_hook = safetyhook::create_inline(Module::exe_ptr(GlowInit_Addr), GlowInit_dest);
 		ClearBuffer_hook = safetyhook::create_inline(Module::exe_ptr(ClearBuffer_Addr), ClearBuffer_dest);

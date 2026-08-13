@@ -192,6 +192,7 @@ public:
 	void declare_settings() override
 	{
 		Settings::OverlayEnabled.needs_restart();
+		Settings::OverlayEnabled.hidden(true);
 	}
 
 	bool apply() override

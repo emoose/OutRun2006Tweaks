@@ -870,6 +870,7 @@ public:
 		Settings::TextureBaseFolder.needs_restart();
 		Settings::EnableTextureCache.needs_restart();
 		Settings::UseNewTextureAllocator.needs_restart();
+		Settings::TextureBaseFolder.hidden(true);
 	}
 
 	bool apply() override
