@@ -1284,14 +1284,29 @@ typedef struct tagEvWorkRobot
 } EvWorkRobot;
 static_assert(sizeof(EvWorkRobot) == 0x90);
 
+typedef struct TCullingNode
+{
+	uint32_t flags;
+	D3DVECTOR center;
+
+	// Object space, so CheckCulling scales it by the world matrix before use.
+	float radius;
+
+	uint8_t todo[0x24];
+} CullingNode;
+static_assert(sizeof(CullingNode) == 0x38);
+
 typedef struct TDrawEntry
 {
 	// View space depth of the culling nodes bounding sphere centre, written by
 	// CalcCulling. The stage draw list is ordered on this.
 	float CenterZ_0;
-	uint8_t todo[0x38];
+	uint8_t todo0[0x14];
+	CullingNode* CullNode_18;
+	uint8_t todo1[0x20];
 } DrawEntry;
 static_assert(sizeof(DrawEntry) == 0x3C);
+static_assert(offsetof(DrawEntry, CullNode_18) == 0x18);
 
 typedef struct TDrawBuffer
 {

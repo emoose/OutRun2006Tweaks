@@ -349,35 +349,34 @@ bool DrawDist_ReadExclusions()
 	return true;
 }
 
-// Replaces the games sort of the stage draw list with one that leaves entries
-// of equal depth alone.
+// Orders the stage draw list on each entries bounding sphere far edge. View
+// space runs -Z forward, so ascending puts the entry reaching furthest away
+// first.
 //
-// DrawStoredModel_Execute sorts the list on DrawEntry::CenterZ_0, the view space
-// depth of each entries culling node, then DrawStoredModel_Internal walks it
-// twice: backwards for the opaque pass, forwards for the blended one, so a
-// single ordering serves both.
-//
-// Only the blended pass depends on that order. SetDefaultAlphaState leaves the
-// opaque pass writing depth, so the z-buffer settles it there and the order is
-// just an early-z optimisation. The blended pass runs with ZWRITEENABLE off,
-// which makes list order the only thing deciding which of two blended surfaces
-// draws on top.
-//
-// The games QuickSort is a Hoare partition comparing with a bare >, so entries
-// sharing a CenterZ get permuted rather than left as they were. Two near
-// coplanar surfaces - an ocean and the reflection sitting on it - have
-// effectively the same centre depth, so which one wins is decided by where the
-// pivots happen to fall. That depends on how many objects were queued this
-// frame, so it flips as the count changes while driving, which is the black
-// patch that clears up as you approach.
-//
-// Sorting with submission order as the tie break keeps the depth ordering the
-// blended pass needs while leaving equal-depth entries in the order the stage
-// queued them. No separate index is needed for that: CalcCulling appends with
-// BufferPtrs_10[n] = &Buffer_14[n], so pointer order is already submission
-// order.
+// DrawStoredModel_Execute sorts the list, then DrawStoredModel_Internal walks it
+// twice: backwards for the opaque pass, forwards for the blended one, so one
+// ordering serves both. Only the blended pass depends on it. SetDefaultAlphaState
+// leaves the opaque pass writing depth, so the z-buffer settles that one and the
+// order is no more than an early-z optimisation, while the blended pass runs with
+// ZWRITEENABLE off, which leaves list order deciding which of two blended
+// surfaces draws on top.
 class StableDrawSort : public Hook
 {
+	// Centre depth is a poor stand-in for a large object: a water plane covering
+	// the stage has its node centre wherever the plane happens to be centred, so
+	// it can sort ahead of something that visibly sits on it. The far edge scales
+	// the key with the object instead. Radius is object space, so this is off by
+	// the world matrix scale.
+//
+	// Keep it one key: a comparator that instead calls depths within a tolerance
+	// equal is not a strict weak ordering, and std::sort reads out of bounds when
+	// given one.
+	static float SortKey(const DrawEntry* entry)
+{
+		const float radius = entry->CullNode_18 ? entry->CullNode_18->radius : 0.0f;
+		return entry->CenterZ_0 - radius;
+	}
+
 	static void SortDrawBuffer(DrawBuffer* buffer)
 	{
 		DrawEntry** entries = buffer->BufferPtrs_10;
@@ -385,11 +384,16 @@ class StableDrawSort : public Hook
 		std::sort(entries, entries + buffer->NumBuffers_0,
 			[](const DrawEntry* a, const DrawEntry* b)
 			{
-				if (a->CenterZ_0 < b->CenterZ_0)
+				const float ka = SortKey(a);
+				const float kb = SortKey(b);
+
+				if (ka < kb)
 					return true;
-				if (b->CenterZ_0 < a->CenterZ_0)
+				if (kb < ka)
 					return false;
 
+				// BufferPtrs_10[n] is set to &Buffer_14[n] as entries are appended,
+				// so pointer order is the order the stage queued them.
 				return a < b;
 			});
 	}
