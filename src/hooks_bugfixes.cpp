@@ -47,20 +47,18 @@ public:
 		return "FixRightSideBunkiAnimations";
 	}
 
-	bool validate() override
-	{
-		return Settings::FixRightSideBunkiAnimations;
-	}
-
 	void declare_settings() override
 	{
-		Settings::FixRightSideBunkiAnimations.needs_restart();
+		Settings::FixRightSideBunkiAnimations.watch([this] { apply(); });
 	}
 
 	bool apply() override
 	{
+		// The flag is set as each rendition object loads, so putting the code
+		// back takes effect from the next stage load.
 		constexpr int LoadBranchRenditionObject_SetsCCWFlag_PatchAddr = 0x4F6DC;
-		Memory::VP::Nop(Module::exe_ptr(LoadBranchRenditionObject_SetsCCWFlag_PatchAddr), 7);
+		static TogglePatch patch = TogglePatch::nop(Module::exe_ptr(LoadBranchRenditionObject_SetsCCWFlag_PatchAddr), 7);
+		patch.set(Settings::FixRightSideBunkiAnimations);
 
 		return true;
 	}
@@ -155,14 +153,9 @@ public:
 		return "FixIncorrectShading";
 	}
 
-	bool validate() override
-	{
-		return Settings::FixIncorrectShading;
-	}
-
 	void declare_settings() override
 	{
-		Settings::FixIncorrectShading.needs_restart();
+		Settings::FixIncorrectShading.watch([this] { apply(); });
 	}
 
 	bool apply() override
@@ -190,8 +183,13 @@ public:
 		constexpr int VSULT_TWOSIDE_LAMBERT_Pointer = 0x33F04C;
 		constexpr int VSULT_TWOSIDE_SPECULAR_Pointer = 0x33F050;
 
-		Memory::VP::Patch(Module::exe_ptr<void*>(VSULT_TWOSIDE_LAMBERT_Pointer), VSULT_DOUBLE_LAMBERT);
-		Memory::VP::Patch(Module::exe_ptr<void*>(VSULT_TWOSIDE_SPECULAR_Pointer), VSULT_DOUBLE_SPECULAR);
+		// The pointers are read each time a shader is set, so putting the
+		// originals back takes effect on the next draw.
+		static TogglePatch lambertPatch = TogglePatch::value(Module::exe_ptr(VSULT_TWOSIDE_LAMBERT_Pointer), VSULT_DOUBLE_LAMBERT);
+		static TogglePatch specularPatch = TogglePatch::value(Module::exe_ptr(VSULT_TWOSIDE_SPECULAR_Pointer), VSULT_DOUBLE_SPECULAR);
+
+		lambertPatch.set(Settings::FixIncorrectShading);
+		specularPatch.set(Settings::FixIncorrectShading);
 
 		return true;
 	}
@@ -443,6 +441,8 @@ class FixFullPedalChecks : public Hook
 	static int GetVolume_dest(int channel)
 	{
 		int result = GetVolume.call<int>(channel);
+		if (!Settings::FixFullPedalChecks)
+			return result;
 		if (channel != 1 && channel != 2) // accelerate / brake pedals only
 			return result;
 		if (result < 255 && result >= 250)
@@ -454,6 +454,8 @@ class FixFullPedalChecks : public Hook
 	static int GetVolumeOld_dest(int channel)
 	{
 		int result = GetVolumeOld.call<int>(channel);
+		if (!Settings::FixFullPedalChecks)
+			return result;
 		if (channel != 1 && channel != 2) // accelerate / brake pedals only
 			return result;
 		if (result < 255 && result >= 250)
@@ -465,11 +467,6 @@ public:
 	std::string_view description() override
 	{
 		return "FixFullPedalChecks";
-	}
-
-	bool validate() override
-	{
-		return Settings::FixFullPedalChecks;
 	}
 
 	bool apply() override
@@ -487,12 +484,21 @@ class HideOnlineSigninText : public Hook
 {
 	// Online mode is no longer active, let's try to clean up the remnants of it
 
+	inline static TogglePatch textPatch;
+	inline static TogglePatch boxPatch;
+
+	static void refresh()
+	{
+		textPatch.set(Settings::HideOnlineSigninText);
+		boxPatch.set(Settings::HideOnlineSigninText);
+	}
+
 	inline static SafetyHookInline Sumo_DrawActionButtonName = {};
 	static bool __fastcall Sumo_DrawActionButtonName_dest(uint8_t* thisptr, int unused, int buttonId)
 	{
 		int num = buttonId + (8 * *(DWORD*)(thisptr + 0x408));
 		int buttonStringId = *(DWORD*)(thisptr + (4 * num) + 0x18);
-		if (buttonStringId == 664)
+		if (Settings::HideOnlineSigninText && buttonStringId == 664)
 			return true;
 
 		return Sumo_DrawActionButtonName.thiscall<bool>(thisptr, buttonId);
@@ -503,7 +509,7 @@ class HideOnlineSigninText : public Hook
 	{
 		int num = buttonId + (8 * *(DWORD*)(thisptr + 0x408));
 		int buttonStringId = *(DWORD*)(thisptr + (4 * num) + 0x18);
-		if (buttonStringId == 664)
+		if (Settings::HideOnlineSigninText && buttonStringId == 664)
 			return true;
 
 		return Sumo_DrawActionButtonIcon1.thiscall<bool>(thisptr, buttonId);
@@ -514,7 +520,7 @@ class HideOnlineSigninText : public Hook
 	{
 		int num = buttonId + (8 * *(DWORD*)(thisptr + 0x408));
 		int buttonStringId = *(DWORD*)(thisptr + (4 * num) + 0x18);
-		if (buttonStringId == 664)
+		if (Settings::HideOnlineSigninText && buttonStringId == 664)
 			return true;
 
 		return Sumo_DrawActionButtonIcon2.thiscall<bool>(thisptr, buttonId);
@@ -526,14 +532,9 @@ public:
 		return "HideOnlineSigninText";
 	}
 
-	bool validate() override
-	{
-		return Settings::HideOnlineSigninText;
-	}
-
 	void declare_settings() override
 	{
-		Settings::HideOnlineSigninText.needs_restart();
+		Settings::HideOnlineSigninText.watch([] { refresh(); });
 	}
 
 	bool apply() override
@@ -545,10 +546,12 @@ public:
 		constexpr int Sumo_DrawActionButtonIcon2_Addr = 0x46B20;
 
 		// Hide "Not Signed In" text
-		Memory::VP::Patch(Module::exe_ptr(Sumo_PrintSignedInStatus_Addr), { 0xC3 });
+		textPatch.init(Module::exe_ptr(Sumo_PrintSignedInStatus_Addr), { 0xC3 });
 
 		// Hide box that contains the message above
-		Memory::VP::Patch(Module::exe_ptr(Sumo_DrawSignedInStatusBox_PatchAddr), { 0xEB });
+		boxPatch.init(Module::exe_ptr(Sumo_DrawSignedInStatusBox_PatchAddr), { 0xEB });
+
+		refresh();
 
 		// Don't allow "sign in" action button text/icon to show
 		Sumo_DrawActionButtonName = safetyhook::create_inline(Module::exe_ptr(Sumo_DrawActionButtonName_Addr), Sumo_DrawActionButtonName_dest);

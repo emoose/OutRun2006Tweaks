@@ -194,8 +194,11 @@ class ImpulseVibration : public Hook
         if (HidD_GetProductString(hDevice, wstr, MAX_STR) && wcsstr(wstr, L"360"))
             return ret;
 
-        if (!Settings::ImpulseVibrationMode)
-            return ret; // how did we get here?
+        // TODO: This should disable when UseNewInput is on, since SDL3 is meant to support trigger rumble
+        // But some reason I couldn't get it to work through SDL3 with any backend? (GameInput/RawInput/WGI/DirectInput)
+        // Fortunately keeping this hook active seems to work with it at least.
+        if (!Settings::ImpulseVibrationMode || !Settings::VibrationMode)
+            return ret;
 
         InSetState_t* inData = (InSetState_t*)lpInBuffer;
         if ((inData->flags & XUSB_SET_STATE_FLAG_VIBRATION) != 0)
@@ -234,14 +237,6 @@ public:
     std::string_view description() override
     {
         return "ImpulseVibration";
-    }
-
-    bool validate() override
-    {
-        // TODO: This should disable when UseNewInput is on, since SDL3 is meant to support trigger rumble
-        // But some reason I couldn't get it to work through SDL3 with any backend? (GameInput/RawInput/WGI/DirectInput)
-        // Fortunately keeping this hook active seems to work with it at least.
-        return Settings::ImpulseVibrationMode != 0 && Settings::VibrationMode != 0; // && !Settings::UseNewInput;  
     }
 
     bool apply() override
@@ -359,11 +354,6 @@ public:
     std::string_view description() override
     {
         return "SteeringDeadZone";
-    }
-
-    bool validate() override
-    {
-        return Settings::SteeringDeadZone != 0.2f;
     }
 
     bool apply() override

@@ -112,6 +112,11 @@ class RestoreCarBaseShadow : public Hook
 {
 	static void __cdecl CalcPeraShadow(int a1, int a2, int a3, float a4)
 	{
+		// These call sites were nullsub_1 calls on PC, so skipping the draw
+		// restores exactly what the game did without the shadow.
+		if (Settings::CarBaseShadowOpacity <= 0.f)
+			return;
+
 		// CalcPeraShadow code from C2C Xbox
 		EVWORK_CAR* car = Game::pl_car();
 
@@ -127,11 +132,6 @@ public:
 	std::string_view description() override
 	{
 		return "RestoreCarBaseShadow";
-	}
-
-	bool validate() override
-	{
-		return Settings::CarBaseShadowOpacity > 0;
 	}
 
 	bool apply() override
@@ -583,6 +583,9 @@ class ScreenEdgeCullFix : public Hook
 	{
 		float ret = dest_orig.ccall<float>(a1, a2, a3);
 
+		if (!Settings::ScreenEdgeCullFix)
+			return ret;
+
 		constexpr float ratio_4_3 = 4.f / 3.f;
 
 		float ratio_screen = Game::screen_resolution->x / Game::screen_resolution->y;
@@ -596,16 +599,6 @@ public:
 	std::string_view description() override
 	{
 		return "ScreenEdgeCullFix";
-	}
-
-	bool validate() override
-	{
-		return Settings::ScreenEdgeCullFix;
-	}
-
-	void declare_settings() override
-	{
-		Settings::ScreenEdgeCullFix.needs_restart();
 	}
 
 	bool apply() override
@@ -628,20 +621,16 @@ public:
 		return "DisableStageCulling";
 	}
 
-	bool validate() override
-	{
-		return Settings::DisableStageCulling;
-	}
-
 	void declare_settings() override
 	{
-		Settings::DisableStageCulling.needs_restart();
+		Settings::DisableStageCulling.watch([this] { apply(); });
 	}
 
 	bool apply() override
 	{
 		// Patch "if (CheckCulling(...))" -> no-op
-		Memory::VP::Patch(Module::exe_ptr(CalcCulling_PatchAddr), { 0x90, 0x90 });
+		static TogglePatch patch(Module::exe_ptr(CalcCulling_PatchAddr), { 0x90, 0x90 });
+		patch.set(Settings::DisableStageCulling);
 		return true;
 	}
 
@@ -658,20 +647,16 @@ public:
 		return "DisableVehicleLODs";
 	}
 
-	bool validate() override
-	{
-		return Settings::DisableVehicleLODs;
-	}
-
 	void declare_settings() override
 	{
-		Settings::DisableVehicleLODs.needs_restart();
+		Settings::DisableVehicleLODs.watch([this] { apply(); });
 	}
 
 	bool apply() override
 	{
 		// Patch "eax = car.LodNumber" -> "eax = 0"
-		Memory::VP::Patch(Module::exe_ptr(DispOthcar_PatchAddr), { 0x90, 0x31, 0xC0 });
+		static TogglePatch patch(Module::exe_ptr(DispOthcar_PatchAddr), { 0x90, 0x31, 0xC0 });
+		patch.set(Settings::DisableVehicleLODs);
 
 		return true;
 	}
@@ -894,6 +879,9 @@ class AnisotropicFiltering : public Hook
 	inline static SafetyHookMid dest_hook = {};
 	static void destination(safetyhook::Context& ctx)
 	{
+		if (Settings::AnisotropicFiltering <= 0)
+			return; // leave the games own filtering alone
+
 		int Sampler = ctx.ebp;
 
 		Game::D3DDevice()->SetSamplerState(Sampler, D3DSAMP_MAXANISOTROPY, Settings::AnisotropicFiltering);
@@ -902,6 +890,11 @@ class AnisotropicFiltering : public Hook
 	inline static SafetyHookMid dest_hook2 = {};
 	static void destination2(safetyhook::Context& ctx)
 	{
+		// Checked before the filter is forced below, so 0 really does leave the
+		// games filtering untouched rather than only skipping the level.
+		if (Settings::AnisotropicFiltering <= 0)
+			return;
+
 		int Sampler = *(int*)(ctx.esp + 0xC);
 
 		if (ctx.edi == D3DSAMP_MINFILTER || ctx.edi == D3DSAMP_MAGFILTER)
@@ -916,11 +909,6 @@ public:
 	std::string_view description() override
 	{
 		return "AnisotropicFiltering";
-	}
-
-	bool validate() override
-	{
-		return Settings::AnisotropicFiltering > 0;
 	}
 
 	bool apply() override
