@@ -217,6 +217,16 @@ public:
 		else if (socketState == ix::ReadyState::Open && Overlay::ChatMode == Overlay::ChatMode_Disabled)
 			webSocket.stop();
 
+		// Nothing to draw or listen for with chat off. Below the socket handling
+		// above so a connection still gets closed on the way out, and clears the
+		// input state so disabling it while typing does not leave the window
+		// latched open and holding Overlay::IsActive.
+		if (Overlay::ChatMode == Overlay::ChatMode_Disabled)
+		{
+			isActive = false;
+			return;
+		}
+
 		// Toggle active mode with 'Y' key
 		bool justOpened = false;
 		if (!isActive && ImGui::IsKeyReleased(ImGuiKey_Y))

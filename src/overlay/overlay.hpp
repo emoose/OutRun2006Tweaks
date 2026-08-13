@@ -94,6 +94,11 @@ public:
 
 	inline static bool IsActive = false;
 
+	// No overlay ini on disk means the overlay has never been opened, so the
+	// first open shows an introduction. Cleared as soon as it has been shown,
+	// and the ini written, so it only ever appears once.
+	inline static bool IsFirstRun = false;
+
 	inline static bool RequestBindingDialog = false;
 	inline static bool IsBindingDialogActive = false;
 	inline static bool RequestMouseHide = false;

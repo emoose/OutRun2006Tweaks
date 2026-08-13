@@ -512,6 +512,75 @@ const char* const* Overlay::theme_names()
 	return names;
 }
 
+// Shown once, the first time the overlay is opened on an install that has no
+// overlay ini yet.
+static void render_first_run_intro()
+{
+	constexpr const char* SpritesUrl = "https://github.com/envido32/OR2006Sprites/releases";
+	constexpr const char* LeaderboardsUrl = "http://clarissa.port0.org";
+	constexpr const char* Title = "Welcome##firstrun";
+
+	if (!ImGui::IsPopupOpen(Title))
+		ImGui::OpenPopup(Title);
+
+	const ImVec2 display = ImGui::GetIO().DisplaySize;
+	ImGui::SetNextWindowPos(ImVec2(display.x * 0.5f, display.y * 0.5f), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+	ImGui::SetNextWindowSize(ImVec2(display.x * 0.2f, 0.0f), ImGuiCond_Appearing);
+
+	if (!ImGui::BeginPopupModal(Title, nullptr, ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoResize))
+		return;
+
+	// 0 wraps at the window's right edge.
+	ImGui::PushTextWrapPos(0.0f);
+
+	ImGui::SeparatorText("Welcome to the OutRun2006Tweaks overlay!");
+	ImGui::Spacing();
+
+	ImGui::TextUnformatted("Here you can configure Tweaks, setup a custom course, and adjust the overlay theme.");
+	ImGui::TextUnformatted("(to change the games bindings, head to the game's Settings > Controls menu)");
+	ImGui::Spacing();
+
+	ImGui::TextUnformatted("If this is your first time playing OutRun 2006 with Tweaks, a few things worth knowing:");
+	ImGui::Spacing();
+
+	ImGui::Bullet();
+	ImGui::TextUnformatted("Letterboxing is enabled in menus by default, but racing is full widescreen.");
+
+	ImGui::Bullet();
+	ImGui::TextUnformatted("Online play and leaderboards are back! Create an account from the game's menus to "
+		"race online, download ghosts to run against, and post times.");
+	ImGui::Indent();
+	if (ImGui::Button("Open leaderboards website"))
+		ShellExecuteA(nullptr, "open", LeaderboardsUrl, 0, 0, SW_SHOWNORMAL);
+	ImGui::Unindent();
+
+	ImGui::Bullet();
+	ImGui::TextUnformatted("The game's default UI textures were made for 2006 machines and are very low resolution. "
+		"HD replacements can be downloaded from the OR2006Sprites repo:");
+
+	ImGui::Indent();
+	if (ImGui::Button(SpritesUrl))
+		ShellExecuteA(nullptr, "open", SpritesUrl, 0, 0, SW_SHOWNORMAL);
+	ImGui::Unindent();
+
+	ImGui::Spacing();
+	ImGui::TextUnformatted("Have fun, and enjoy the Beautiful Journey!");
+	ImGui::TextDisabled("- emoose");
+
+	ImGui::PopTextWrapPos();
+
+	ImGui::Spacing();
+	ImGui::Separator();
+
+	if (ImGui::Button("Let's go", ImVec2(ImGui::GetContentRegionAvail().x, 0)))
+	{
+		Overlay::IsFirstRun = false;
+		ImGui::CloseCurrentPopup();
+	}
+
+	ImGui::EndPopup();
+}
+
 void ForceShowCursor(bool show)
 {
 	int counter = 0;
@@ -581,6 +650,20 @@ bool Overlay::render()
 	{
 		render_shell();
 
+		// Written as soon as the intro is up rather than when it is dismissed, so
+		// an alt-F4 partway through still counts as having seen it.
+		if (Overlay::IsFirstRun)
+		{
+			static bool introSettingsWritten = false;
+			if (!introSettingsWritten)
+			{
+				Overlay::settings_write();
+				introSettingsWritten = true;
+			}
+
+			render_first_run_intro();
+		}
+
 		// Tools sit outside the shell so they can be moved and resized freely,
 		// and are switched on from the list in the Debug tab.
 		for (OverlayWindow* window : windows())
@@ -606,6 +689,10 @@ bool Overlay::render()
 bool Overlay::settings_read()
 {
 	spdlog::info("Overlay::settings_read - reading INI from {}", Module::OverlayIniPath.string());
+
+	// Checked before the read rather than from its result, which also fails on a
+	// file that exists but is malformed - that user is not a new one.
+	IsFirstRun = !std::filesystem::exists(Module::OverlayIniPath);
 
 	inih::INIReader ini;
 	try
