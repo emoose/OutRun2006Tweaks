@@ -1286,7 +1286,10 @@ static_assert(sizeof(EvWorkRobot) == 0x90);
 
 typedef struct TDrawEntry
 {
-	uint8_t todo[0x3C];
+	// View space depth of the culling nodes bounding sphere centre, written by
+	// CalcCulling. The stage draw list is ordered on this.
+	float CenterZ_0;
+	uint8_t todo[0x38];
 } DrawEntry;
 static_assert(sizeof(DrawEntry) == 0x3C);
 

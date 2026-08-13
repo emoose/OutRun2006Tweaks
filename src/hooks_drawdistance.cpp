@@ -1,6 +1,7 @@
 #include "hook_mgr.hpp"
 #include "plugin.hpp"
 #include "game_addrs.hpp"
+#include <algorithm>
 #include <array>
 #include <bitset>
 #include <imgui.h>
@@ -348,20 +349,58 @@ bool DrawDist_ReadExclusions()
 	return true;
 }
 
-
-class SkipQuickSortHack : public Hook
+// Replaces the games sort of the stage draw list with one that leaves entries
+// of equal depth alone.
+//
+// DrawStoredModel_Execute sorts the list on DrawEntry::CenterZ_0, the view space
+// depth of each entries culling node, then DrawStoredModel_Internal walks it
+// twice: backwards for the opaque pass, forwards for the blended one, so a
+// single ordering serves both.
+//
+// Only the blended pass depends on that order. SetDefaultAlphaState leaves the
+// opaque pass writing depth, so the z-buffer settles it there and the order is
+// just an early-z optimisation. The blended pass runs with ZWRITEENABLE off,
+// which makes list order the only thing deciding which of two blended surfaces
+// draws on top.
+//
+// The games QuickSort is a Hoare partition comparing with a bare >, so entries
+// sharing a CenterZ get permuted rather than left as they were. Two near
+// coplanar surfaces - an ocean and the reflection sitting on it - have
+// effectively the same centre depth, so which one wins is decided by where the
+// pivots happen to fall. That depends on how many objects were queued this
+// frame, so it flips as the count changes while driving, which is the black
+// patch that clears up as you approach.
+//
+// Sorting with submission order as the tie break keeps the depth ordering the
+// blended pass needs while leaving equal-depth entries in the order the stage
+// queued them. No separate index is needed for that: CalcCulling appends with
+// BufferPtrs_10[n] = &Buffer_14[n], so pointer order is already submission
+// order.
+class StableDrawSort : public Hook
 {
-	// Before drawing transparent objects the game uses QuickSort on them, which seems to sort them based on Z order
-	// For some reason on Palm Beach the order ends up incorrect, and some kind of reflection texture draws on top of the ocean texture, causing a black area to appear until getting close enough
-	// If we skip the QuickSort call on this track that seems to fix it though, hadn't seen any other issues with transparent objects after it
-	// Not sure if all tracks would work fine with this though, so this tweak only disables it on certain tracks setup in .lods.ini
-	// (also not sure why console ports seem to be fine here, could it be related to games D3D9 depth buffer issue, or could be an issue with the model data itself?)
+	static void SortDrawBuffer(DrawBuffer* buffer)
+	{
+		DrawEntry** entries = buffer->BufferPtrs_10;
+
+		std::sort(entries, entries + buffer->NumBuffers_0,
+			[](const DrawEntry* a, const DrawEntry* b)
+			{
+				if (a->CenterZ_0 < b->CenterZ_0)
+					return true;
+				if (b->CenterZ_0 < a->CenterZ_0)
+					return false;
+
+				return a < b;
+			});
+	}
 
 	inline static SafetyHookInline DrawStoredModel_Execute_hook = {};
 	static void DrawStoredModel_Execute_dest()
 	{
-		if (!SkipQuickSortHackStages[*Game::stg_stage_num])
-			Game::QuickSort(Game::s_AftDrawBuffer->BufferPtrs_10, 0, Game::s_AftDrawBuffer->NumBuffers_0 - 1);
+		// TODO: Allow excluding stages if our new sort causes issues with them.
+		// (or remove SkipQuickSortHackStages entirely if all work fine)
+		//if (!SkipQuickSortHackStages[*Game::stg_stage_num])
+		SortDrawBuffer(Game::s_AftDrawBuffer);
 
 		Game::DrawStoredModel_Internal(Game::s_AftDrawBuffer);
 		Game::s_AftDrawBuffer->NumBuffers_0 = 0;
@@ -371,12 +410,7 @@ class SkipQuickSortHack : public Hook
 public:
 	std::string_view description() override
 	{
-		return "SkipQuickSort";
-	}
-
-	bool validate() override
-	{
-		return false;
+		return "StableDrawSort";
 	}
 
 	bool apply() override
@@ -390,9 +424,9 @@ public:
 		return true;
 	}
 
-	static SkipQuickSortHack instance;
+	static StableDrawSort instance;
 };
-SkipQuickSortHack SkipQuickSortHack::instance;
+StableDrawSort StableDrawSort::instance;
 
 class DrawDistanceIncrease : public Hook
 {
@@ -620,11 +654,6 @@ public:
 	std::string_view description() override
 	{
 		return "PauseMenuVisibility";
-	}
-
-	bool validate() override
-	{
-		return Settings::OverlayEnabled;
 	}
 
 	bool apply() override
