@@ -70,8 +70,6 @@ namespace Game
 	inline std::chrono::system_clock::time_point StartupTime;
 	inline float DeltaTime = (1.f / 60.f);
 
-	inline bool DrawDistanceDebugEnabled = false;
-
 	inline GamepadType CurrentPadType = GamepadType::PC;
 	inline GamepadType ForcedPadType = GamepadType::None;
 };

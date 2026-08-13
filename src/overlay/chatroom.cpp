@@ -36,6 +36,12 @@ std::string timePointToString(const std::chrono::system_clock::time_point& timeP
 
 class ChatRoom : public OverlayWindow
 {
+public:
+	// Drawn in both states: a plain message list over the game, gaining a title
+	// bar and an input box once the overlay is open.
+	Kind kind() const override { return Kind::Hud; }
+	const char* name() const override { return "Chat"; }
+
 private:
 	ix::WebSocket webSocket;
 	bool socketActive = false;
@@ -275,15 +281,12 @@ public:
 			}
 		}
 
-		float screenWidth = float(Game::screen_resolution->x);
-		float screenHeight = float(Game::screen_resolution->y);
-		float contentWidth = screenHeight / (3.f / 4.f);
-		float borderWidth = ((screenWidth - contentWidth) / 2) + 0.5f;
+		// Sits in the lower quarter of the game's content area, inset from it.
+		const Overlay::ContentRect content = Overlay::content_rect();
+		const float quarterHeight = content.height / 4;
 
-		float screenQuarterHeight = screenHeight / 4;
-
-		ImGui::SetNextWindowPos(ImVec2(borderWidth + 20, (screenQuarterHeight * 3) - 20), ImGuiCond_FirstUseEver);
-		ImGui::SetNextWindowSize(ImVec2(contentWidth - 40, screenQuarterHeight), ImGuiCond_FirstUseEver);
+		ImGui::SetNextWindowPos(ImVec2(content.x + 20, (quarterHeight * 3) - 20), ImGuiCond_FirstUseEver);
+		ImGui::SetNextWindowSize(ImVec2(content.width - 40, quarterHeight), ImGuiCond_FirstUseEver);
 
 		if (ImGui::Begin("Chat Messages", nullptr, !overlayEnabled ? ImGuiWindowFlags_NoDecoration : 0))
 		{

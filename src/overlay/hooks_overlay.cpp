@@ -139,6 +139,15 @@ class D3DHooks : public Hook
 
 		if (overlayInited)
 		{
+			// A new atlas needs a new font texture. Dropping the device objects
+			// here leaves ImGui_ImplDX9_NewFrame to build them again below, and
+			// happens between frames where changing the atlas is safe.
+			if (Overlay::FontsDirty)
+			{
+				Overlay::rebuild_fonts();
+				ImGui_ImplDX9_InvalidateDeviceObjects();
+			}
+
 			ImGui_ImplDX9_NewFrame();
 			ImGui_ImplWin32_NewFrame();
 			overlayActive = Overlay::render();

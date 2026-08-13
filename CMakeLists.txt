@@ -319,15 +319,19 @@ set(outrun2006tweaks_SOURCES
 	"src/network.cpp"
 	"src/overlay/chatroom.cpp"
 	"src/overlay/course_editor.cpp"
+	"src/overlay/debug_ui.cpp"
 	"src/overlay/hooks_overlay.cpp"
 	"src/overlay/input_bindings_ui.cpp"
 	"src/overlay/notifications.hpp"
 	"src/overlay/overlay.cpp"
 	"src/overlay/overlay.hpp"
 	"src/overlay/server_notifications.cpp"
+	"src/overlay/settings_ui.cpp"
 	"src/overlay/update_check.cpp"
 	"src/plugin.hpp"
 	"src/resource.h"
+	"src/settings.cpp"
+	"src/settings.hpp"
 )
 
 add_library(outrun2006tweaks SHARED)

@@ -32,16 +32,14 @@ bool DrawDist_ReadExclusions();
 class DrawDistanceDebug : public OverlayWindow
 {
 public:
+	Kind kind() const override { return Kind::Tool; }
+	const char* name() const override { return "Draw Distance Debugger"; }
+
 	void init() override {}
 	void render(bool overlayEnabled) override
 	{
-		if (!overlayEnabled || !Game::DrawDistanceDebugEnabled)
-			return;
-
-		ImGui::Begin("Draw Distance Debugger", &Game::DrawDistanceDebugEnabled);
-
-		ImGui::Checkbox("Countdown timer enabled", Game::Sumo_CountdownTimerEnable);
-		ImGui::Checkbox("Pause menu enabled", &EnablePauseMenu);
+		ImGui::SetNextWindowSize(ImVec2(700, 500), ImGuiCond_FirstUseEver);
+		ImGui::Begin("Draw Distance Debugger", &visible);
 
 		// get max column count
 		int num_columns = 0;
@@ -450,7 +448,7 @@ class DrawDistanceIncrease : public Hook
 		int maxDrawDistance = Settings::DrawDistanceIncrease;
 
 		// Per-stage overrides
-		if (!Game::DrawDistanceDebugEnabled)
+		if (!DrawDistanceDebug::instance.visible)
 		{
 			// CANYON: when cur section is lower than 30 (car inside bunki), limit draw dist to ~80
 			// prevents some far-off stage parts drawing in the air
@@ -478,7 +476,7 @@ class DrawDistanceIncrease : public Hook
 				}
 
 				// DEBUG: clear lastadds for this objectnum here
-				if (Game::DrawDistanceDebugEnabled && csOffset == maxDrawDistance)
+				if (DrawDistanceDebug::instance.visible && csOffset == maxDrawDistance)
 				{
 					ObjectNodes[ObjectNum].clear();
 				}
@@ -503,7 +501,7 @@ class DrawDistanceIncrease : public Hook
 						}
 
 						// DEBUG: add *sectionCollList to lastadds list here
-						if (Game::DrawDistanceDebugEnabled && csOffset == maxDrawDistance)
+						if (DrawDistanceDebug::instance.visible && csOffset == maxDrawDistance)
 							ObjectNodes[ObjectNum].push_back(*sectionCollList);
 
 						num++;

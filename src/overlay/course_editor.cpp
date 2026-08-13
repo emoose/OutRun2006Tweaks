@@ -353,18 +353,17 @@ CourseReplacement CourseReplacement::instance;
 class CourseEditor : public OverlayWindow
 {
 public:
+	Kind kind() const override { return Kind::Tab; }
+	const char* name() const override { return "Course Editor"; }
+	int order() const override { return 10; }
+
 	void init() override {}
 	void render(bool overlayEnabled) override
 	{
-		if (!overlayEnabled)
-			return;
-
-		if (ImGui::Begin("Course Editor", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
 		{
 			if (!CustomStageTableCount)
 			{
 				ImGui::Text("Waiting for game to load stage scripts...");
-				ImGui::End();
 				return;
 			}
 
@@ -653,8 +652,6 @@ public:
 				lobbycode_generate();
 			}
 		}
-
-		ImGui::End();
 	}
 	static CourseEditor instance;
 };

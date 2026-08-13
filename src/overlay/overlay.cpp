@@ -8,6 +8,10 @@
 #include "notifications.hpp"
 #include "resource.h"
 #include "overlay.hpp"
+#include <algorithm>
+#include <cmath>
+#include <fstream>
+#include <vector>
 #include <ini.h>
 
 Notifications Notifications::instance;
@@ -16,214 +20,68 @@ bool f11_prev_state = false; // previously seen F11 state
 
 bool overlay_visible = false; // user wants overlay to show?
 
-class GlobalsWindow : public OverlayWindow
+Overlay::ContentRect Overlay::content_rect()
 {
-public:
-	void init() override {}
-	void render(bool overlayEnabled) override
+	const ImVec2 screen = ImGui::GetIO().DisplaySize;
+
+	// Letterboxing only covers the sides, and only outside of gameplay unless
+	// it's set to always.
+	float border = 0.f;
+	if (Settings::UILetterboxing == 1 && !Game::is_in_game())
 	{
-		if (!overlayEnabled)
-			return;
+		const float contentWidth = screen.y / (3.f / 4.f);
+		border = ((screen.x - contentWidth) / 2) + 0.5f;
+	}
 
-		extern bool EnablePauseMenu;
+	return { border, 0.f, screen.x - (border * 2.f), screen.y };
+}
 
-		bool settingsChanged = false;
-
-		if (ImGui::Begin("Globals", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+const std::vector<OverlayWindow*>& Overlay::windows()
+{
+	static std::vector<OverlayWindow*> sorted;
+	if (sorted.empty())
+	{
+		sorted = windows_storage();
+		std::sort(sorted.begin(), sorted.end(), [](const OverlayWindow* a, const OverlayWindow* b)
 		{
-			uint8_t* frontEndData = *Module::exe_ptr<uint8_t*>(0x3B17E8);
-			int frontEndStep = *(int*)frontEndData;
-			int frontEndEvtStep = *(int*)(frontEndData + 0x218);
-			char frontEndMenuLevel = *(char*)(frontEndData + 0x220);
+			if (a->kind() != b->kind())
+				return a->kind() < b->kind();
+			return a->order() < b->order();
+		});
+	}
+	return sorted;
+}
 
-			ImGui::Text("Info");
-			EVWORK_CAR* car = Game::pl_car();
-			ImGui::Text("game_mode: %d", *Game::game_mode);
-			ImGui::Text("current_mode: %d", *Game::current_mode);
-			ImGui::Text("Frontend step indexes: %d / %d / %d", frontEndStep, frontEndEvtStep, int(frontEndMenuLevel));
-			ImGui::Text("Lobby is active: %d", (*Game::SumoNet_CurNetDriver && (*Game::SumoNet_CurNetDriver)->is_in_lobby()));
-			ImGui::Text("Lobby is host: %d", (*Game::SumoNet_CurNetDriver && (*Game::SumoNet_CurNetDriver)->is_hosting()));
-			ImGui::Text("Is MP gamemode: %d", (*Game::game_mode == 3 || *Game::game_mode == 4));
-			ImGui::Text("Car kind: %d", int(car->car_kind_11));
-			ImGui::Text("Car position: %.3f %.3f %.3f", car->position_14.x, car->position_14.y, car->position_14.z);
-			ImGui::Text("OnRoadPlace coli %d, stg %d, section %d",
-				car->OnRoadPlace_5C.loadColiType_0,
-				car->OnRoadPlace_5C.curStageIdx_C,
-				car->OnRoadPlace_5C.roadSectionNum_8);
+void Overlay::render_shell()
+{
+	const ContentRect content = content_rect();
 
-			GameStage cur_stage_num = *Game::stg_stage_num;
-			ImGui::Text("Loaded Stage: %d (%s / %s)", cur_stage_num, Game::GetStageFriendlyName(cur_stage_num), Game::GetStageUniqueName(cur_stage_num));
-				
-			if (Settings::DrawDistanceIncrease > 0)
-				if (ImGui::Button("Open Draw Distance Debugger"))
-					Game::DrawDistanceDebugEnabled = true;
+	ImGui::SetNextWindowSize(ImVec2(min(760.f, content.width - 40.f), min(560.f, content.height - 40.f)), ImGuiCond_FirstUseEver);
+	ImGui::SetNextWindowPos(ImVec2(content.x + 20.f, 20.f), ImGuiCond_FirstUseEver);
 
-#ifdef _DEBUG
-			if (ImGui::Button("Open Binding Dialog"))
-				Overlay::IsBindingDialogActive = true;
+	if (ImGui::Begin("OutRun2006Tweaks", nullptr, ImGuiWindowFlags_NoCollapse))
+	{
+		if (ImGui::BeginTabBar("##shell"))
+		{
+			for (OverlayWindow* window : windows())
+			{
+				if (window->kind() != OverlayWindow::Kind::Tab)
+					continue;
+#ifndef _DEBUG
+				if (window->debug_only())
+					continue;
 #endif
-
-			bool settingsChanged = false;
-
-			ImGui::Separator();
-			ImGui::Text("Gameplay");
-
-			settingsChanged |= ImGui::Checkbox("Countdown timer enabled", Game::Sumo_CountdownTimerEnable);
-			settingsChanged |= ImGui::Checkbox("Pause menu enabled", &EnablePauseMenu);
-			settingsChanged |= ImGui::Checkbox("HUD enabled", (bool*)Game::navipub_disp_flg);
-
-			ImGui::Separator();
-			ImGui::Text("Controls");
-
-			settingsChanged |= ImGui::SliderFloat("SteeringDeadZone", Settings::SteeringDeadZone.ptr(), 0.01, 1.0f);
-			settingsChanged |= ImGui::SliderInt("VibrationStrength", Settings::VibrationStrength.ptr(), 0, 10);
-			settingsChanged |= ImGui::SliderFloat("ImpulseVibrationLeftMultiplier", Settings::ImpulseVibrationLeftMultiplier.ptr(), 0.1, 1);
-			settingsChanged |= ImGui::SliderFloat("ImpulseVibrationRightMultiplier", Settings::ImpulseVibrationRightMultiplier.ptr(), 0.1, 1);
-
-			ImGui::Separator();
-			ImGui::Text("Graphics");
-
-			settingsChanged |= ImGui::SliderInt("FramerateLimit", Settings::FramerateLimit.ptr(), 30, 300);
-			settingsChanged |= ImGui::SliderInt("DrawDistanceIncrease", Settings::DrawDistanceIncrease.ptr(), 0, 4096);
-			settingsChanged |= ImGui::SliderInt("DrawDistanceBehind", Settings::DrawDistanceBehind.ptr(), 0, 4096);
-			settingsChanged |= ImGui::SliderInt("SkyGlowFactor", Settings::SkyGlowFactor.ptr(), 0, 10);
-			settingsChanged |= ImGui::Checkbox("SkyGlowTwoStep", Settings::SkyGlowTwoStep.ptr());
-
-			if (settingsChanged)
-			{
-				HookManager::SettingsChanged();
-			}
-		}
-
-		ImGui::End();
-
-		if (settingsChanged)
-			Overlay::settings_write();
-	}
-	static GlobalsWindow instance;
-};
-GlobalsWindow GlobalsWindow::instance;
-
-class UISettingsWindow : public OverlayWindow
-{
-	bool ShowStyleEditor = false;
-
-public:
-	void init() override {}
-	void render(bool overlayEnabled) override
-	{
-		if (!overlayEnabled)
-			return;
-
-		if (ShowStyleEditor)
-		{
-			if (ImGui::Begin("UI Style Editor", &ShowStyleEditor))
-				ImGui::ShowStyleEditor();
-			ImGui::End();
-		}
-
-		ImVec2 screenSize = ImGui::GetIO().DisplaySize;
-
-		// Calculate starting position for the latest notification
-		// (move it outside of letterbox if letterboxing enabled)
-		float contentWidth = screenSize.y / (3.f / 4.f);
-		float borderWidth = ((screenSize.x - contentWidth) / 2) + 0.5f;
-		if (Settings::UILetterboxing != 1 || Game::is_in_game())
-			borderWidth = 0;
-
-		float startX = screenSize.x - notificationSize.x - borderWidth - 10.f;  // 10px padding from the right
-		float curY = (screenSize.y / 4.0f);
-
-		{
-			bool settingsChanged = false;
-
-			if (ImGui::Begin("UI Settings", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
-			{
-				ImGui::SetWindowPos(ImVec2(startX, curY), ImGuiCond_FirstUseEver);
-
-				if (ImGui::TreeNodeEx("Global", ImGuiTreeNodeFlags_DefaultOpen))
+				if (ImGui::BeginTabItem(window->name()))
 				{
-					if (ImGui::Button("Open UI Style Editor"))
-						ShowStyleEditor = true;
-
-					static bool fontScaleChanged = false;
-					if (ImGui::SliderFloat("Font Scale", &Overlay::GlobalFontScale, 0.5f, 2.5f))
-						fontScaleChanged |= true;
-
-					if (fontScaleChanged)
-						if (ImGui::IsMouseReleased(ImGuiMouseButton_Left))
-						{
-							settingsChanged |= true;
-							fontScaleChanged = false;
-						}
-
-					ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.51f, 0.00f, 0.14f, 0.00f));
-					if (ImGui::Button("-"))
-					{
-						if (Overlay::GlobalFontScale > 1.0f)
-						{
-							Overlay::GlobalFontScale -= 0.05f;
-							settingsChanged = true;
-						}
-					}
-
-					ImGui::SameLine();
-
-					if (ImGui::Button("+"))
-					{
-						if (Overlay::GlobalFontScale < 5.0f)
-						{
-							Overlay::GlobalFontScale += 0.05f;
-							settingsChanged = true;
-						}
-					}
-
-					ImGui::PopStyleColor();
-
-					settingsChanged |= ImGui::SliderFloat("Overlay Opacity", &Overlay::GlobalOpacity, 0.1f, 1.0f);
-
-					ImGui::TreePop();
-				}
-
-				if (ImGui::TreeNodeEx("Notifications", ImGuiTreeNodeFlags_DefaultOpen))
-				{
-					settingsChanged |= ImGui::Checkbox("Enable Notifications", &Overlay::NotifyEnable);
-					settingsChanged |= ImGui::Checkbox("Enable Online Lobby Notifications", &Overlay::NotifyOnlineEnable);
-
-					settingsChanged |= ImGui::SliderInt("Display Time", &Overlay::NotifyDisplayTime, 0, 60);
-					settingsChanged |= ImGui::SliderInt("Online Update Time", &Overlay::NotifyOnlineUpdateTime, 10, 60);
-
-					static const char* items[]{ "Never Hide", "Online Race", "Any Race" };
-					settingsChanged |= ImGui::Combo("Hide During", &Overlay::NotifyHideMode, items, IM_ARRAYSIZE(items));
-
-					ImGui::TreePop();
-				}
-
-				if (ImGui::TreeNodeEx("Chat", ImGuiTreeNodeFlags_DefaultOpen))
-				{
-					static const char* items[]{ "Disable", "Enable", "During Menus Only" };
-					settingsChanged |= ImGui::Combo("Chatroom", &Overlay::ChatMode, items, IM_ARRAYSIZE(items));
-					settingsChanged |= ImGui::SliderFloat("Chat Font Size", &Overlay::ChatFontSize, 0.5f, 2.5f);
-					settingsChanged |= ImGui::Checkbox("Hide Chat Background", &Overlay::ChatHideBackground);
-
-					ImGui::TreePop();
+					window->render(true);
+					ImGui::EndTabItem();
 				}
 			}
-
-			ImGui::End();
-
-			if (settingsChanged)
-			{
-				ImGui::GetStyle().Colors[ImGuiCol_WindowBg].w = Overlay::GlobalOpacity;
-				ImGui::GetIO().FontGlobalScale = Overlay::GlobalFontScale;
-
-				Overlay::settings_write();
-			}
+			ImGui::EndTabBar();
 		}
 	}
-	static UISettingsWindow instance;
-};
-UISettingsWindow UISettingsWindow::instance;
+	ImGui::End();
+}
 
 void Overlay::init()
 {
@@ -253,23 +111,199 @@ void Overlay::init_imgui()
 	ImGuiIO& io = ImGui::GetIO(); (void)io;
 	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
 	io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
-	io.FontGlobalScale = Overlay::GlobalFontScale;
 
-	// Setup Dear ImGui style
-	ImGui::StyleColorsDark();
-	//ImGui::StyleColorsLight();
-	
-	ImGuiStyle& style = ImGui::GetStyle();
-	style.PopupRounding = 20.0f;
-	style.WindowRounding = 20.0f;
-	style.ChildRounding = 20.0f;
-	style.FrameRounding = 6.0f;  // For buttons and other frames
-	style.ScrollbarRounding = 6.0f;
-	style.GrabRounding = 6.0f;   // For sliders and scrollbars
-	style.TabRounding = 6.0f;
+	// Window positions and which tools were left open. Without this ImGui writes
+	// imgui.ini into whatever the working directory happens to be; keep it next
+	// to the DLL with the rest of our files. ImGui holds onto the pointer, so
+	// the string has to outlive this call.
+	static std::string imguiIniPath = (Module::DllPath.parent_path() / "OutRun2006Tweaks.imgui.ini").string();
+	io.IniFilename = imguiIniPath.c_str();
+
+	Overlay::apply_style();
+	Overlay::rebuild_fonts();
 
 	ImGui::GetStyle().Colors[ImGuiCol_WindowBg].w = Overlay::GlobalOpacity;
-	ImGui::GetIO().FontGlobalScale = Overlay::GlobalFontScale;
+}
+
+void Overlay::rebuild_fonts()
+{
+	FontsDirty = false;
+
+	// ImGui's built-in ProggyClean is a bitmap face drawn for exactly 13px, so
+	// the font scale smears it. Rasterising a real typeface at the size actually
+	// wanted keeps it sharp at any scale, and leaves ImGui's own scale
+	// multiplier at its default of 1.0.
+	constexpr float BaseFontSize = 13.0f;
+	const float sizePixels = std::floor(BaseFontSize * std::clamp(GlobalFontScale, 0.5f, 5.0f));
+
+	ImGuiIO& io = ImGui::GetIO();
+	io.Fonts->Clear();
+
+	// Read the file rather than handing ImGui the path, so a Windows directory
+	// with characters outside the active code page still works.
+	std::vector<uint8_t> fontData;
+	{
+		wchar_t windowsDir[MAX_PATH]{};
+		if (GetWindowsDirectoryW(windowsDir, MAX_PATH))
+		{
+			const std::filesystem::path fontPath = std::filesystem::path(windowsDir) / "Fonts" / "segoeui.ttf";
+
+			std::ifstream file(fontPath, std::ios::binary | std::ios::ate);
+			if (file)
+			{
+				fontData.resize(size_t(file.tellg()));
+				file.seekg(0);
+				if (!file.read(reinterpret_cast<char*>(fontData.data()), fontData.size()))
+					fontData.clear();
+			}
+		}
+	}
+
+	bool loaded = false;
+	if (!fontData.empty())
+	{
+		// AddFontFromMemoryTTF takes ownership and frees with ImGui's allocator,
+		// so it gets a buffer allocated by the same one.
+		void* owned = IM_ALLOC(fontData.size());
+		memcpy(owned, fontData.data(), fontData.size());
+
+		loaded = io.Fonts->AddFontFromMemoryTTF(owned, int(fontData.size()), sizePixels) != nullptr;
+	}
+
+	if (!loaded)
+	{
+		spdlog::warn("Overlay::rebuild_fonts - Segoe UI unavailable, falling back to the built-in font");
+
+		ImFontConfig config;
+		config.SizePixels = sizePixels;
+		io.Fonts->AddFontDefault(&config);
+	}
+
+#if IMGUI_VERSION_NUM >= 19200
+	// From 1.92 ImGui rasterises glyphs on demand at whatever size the style
+	// asks for, so the size a font was added at no longer decides how big it
+	// draws. Without this the style's own default of 13 wins and the scale
+	// setting does nothing.
+	ImGui::GetStyle().FontSizeBase = sizePixels;
+#endif
+}
+
+void Overlay::apply_style()
+{
+	ImGui::StyleColorsDark();
+
+	ImGuiStyle& style = ImGui::GetStyle();
+	ImVec4* colors = style.Colors;
+
+	// Dusk over the coast: a cold near-black blue to sit quietly over whatever
+	// the game is drawing, with the warm orange of its own skyboxes picking out
+	// anything interactive. Orange rather than the obvious Ferrari red, so red
+	// is left to mean a problem (as it does in the Debug tab's hook list).
+	const ImVec4 accent = ImVec4(0.98f, 0.49f, 0.16f, 1.00f);
+	const ImVec4 accentBright = ImVec4(1.00f, 0.62f, 0.30f, 1.00f);
+	const ImVec4 accentDim = ImVec4(0.55f, 0.27f, 0.09f, 1.00f);
+
+	const ImVec4 ground = ImVec4(0.05f, 0.06f, 0.09f, 1.00f);
+	const ImVec4 raised = ImVec4(0.11f, 0.13f, 0.17f, 1.00f);
+	const ImVec4 raisedHover = ImVec4(0.17f, 0.20f, 0.26f, 1.00f);
+	const ImVec4 line = ImVec4(0.24f, 0.28f, 0.35f, 0.55f);
+
+	const auto tint = [](const ImVec4& c, float alpha) { return ImVec4(c.x, c.y, c.z, alpha); };
+
+	colors[ImGuiCol_Text] = ImVec4(0.91f, 0.91f, 0.89f, 1.00f);
+	colors[ImGuiCol_TextDisabled] = ImVec4(0.46f, 0.50f, 0.57f, 1.00f);
+
+	colors[ImGuiCol_WindowBg] = ground;
+	// Insets like the settings category rail read as a dip in the window rather
+	// than a surface of their own, so they darken whatever is behind them
+	// instead of painting over it. That keeps them working at any window opacity.
+	colors[ImGuiCol_ChildBg] = ImVec4(0.00f, 0.00f, 0.00f, 0.16f);
+	// Popups and tooltips stay near-opaque, since they are read rather than
+	// looked past.
+	colors[ImGuiCol_PopupBg] = ImVec4(0.07f, 0.08f, 0.11f, 0.97f);
+	colors[ImGuiCol_Border] = line;
+	colors[ImGuiCol_BorderShadow] = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
+
+	colors[ImGuiCol_FrameBg] = raised;
+	colors[ImGuiCol_FrameBgHovered] = raisedHover;
+	colors[ImGuiCol_FrameBgActive] = accentDim;
+
+	colors[ImGuiCol_TitleBg] = ImVec4(0.07f, 0.08f, 0.11f, 1.00f);
+	colors[ImGuiCol_TitleBgActive] = ImVec4(0.14f, 0.11f, 0.09f, 1.00f);
+	colors[ImGuiCol_TitleBgCollapsed] = ImVec4(0.07f, 0.08f, 0.11f, 0.75f);
+	colors[ImGuiCol_MenuBarBg] = raised;
+
+	colors[ImGuiCol_ScrollbarBg] = ImVec4(0.00f, 0.00f, 0.00f, 0.20f);
+	colors[ImGuiCol_ScrollbarGrab] = ImVec4(0.24f, 0.28f, 0.35f, 1.00f);
+	colors[ImGuiCol_ScrollbarGrabHovered] = ImVec4(0.33f, 0.38f, 0.46f, 1.00f);
+	colors[ImGuiCol_ScrollbarGrabActive] = accent;
+
+	colors[ImGuiCol_CheckMark] = accentBright;
+	colors[ImGuiCol_SliderGrab] = accent;
+	colors[ImGuiCol_SliderGrabActive] = accentBright;
+
+	colors[ImGuiCol_Button] = raised;
+	colors[ImGuiCol_ButtonHovered] = raisedHover;
+	colors[ImGuiCol_ButtonActive] = accentDim;
+
+	// Selections and collapsing headers are washes of the accent rather than
+	// solid fills, so a selected row doesn't outshout the text on it.
+	colors[ImGuiCol_Header] = tint(accent, 0.26f);
+	colors[ImGuiCol_HeaderHovered] = tint(accent, 0.40f);
+	colors[ImGuiCol_HeaderActive] = tint(accent, 0.55f);
+
+	colors[ImGuiCol_Separator] = line;
+	colors[ImGuiCol_SeparatorHovered] = accentDim;
+	colors[ImGuiCol_SeparatorActive] = accent;
+
+	colors[ImGuiCol_ResizeGrip] = tint(accent, 0.20f);
+	colors[ImGuiCol_ResizeGripHovered] = tint(accent, 0.50f);
+	colors[ImGuiCol_ResizeGripActive] = accent;
+
+	colors[ImGuiCol_Tab] = ImVec4(0.09f, 0.10f, 0.14f, 1.00f);
+	colors[ImGuiCol_TabHovered] = tint(accent, 0.40f);
+	colors[ImGuiCol_TabSelected] = ImVec4(0.16f, 0.15f, 0.15f, 1.00f);
+	colors[ImGuiCol_TabSelectedOverline] = accent;
+	colors[ImGuiCol_TabDimmed] = ImVec4(0.08f, 0.09f, 0.12f, 1.00f);
+	colors[ImGuiCol_TabDimmedSelected] = ImVec4(0.13f, 0.12f, 0.13f, 1.00f);
+	colors[ImGuiCol_TabDimmedSelectedOverline] = accentDim;
+
+	colors[ImGuiCol_TableHeaderBg] = raised;
+	colors[ImGuiCol_TableBorderStrong] = line;
+	colors[ImGuiCol_TableBorderLight] = ImVec4(0.20f, 0.23f, 0.29f, 0.35f);
+	colors[ImGuiCol_TableRowBg] = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
+	colors[ImGuiCol_TableRowBgAlt] = ImVec4(1.00f, 1.00f, 1.00f, 0.03f);
+
+	// Roomier than ImGui's defaults: most of what the overlay shows is a label
+	// beside a control, and the extra vertical spacing is what stops a settings
+	// page reading as one solid block.
+	style.WindowPadding = ImVec2(12.0f, 12.0f);
+	style.FramePadding = ImVec2(10.0f, 5.0f);
+	style.ItemSpacing = ImVec2(10.0f, 7.0f);
+	style.ItemInnerSpacing = ImVec2(8.0f, 6.0f);
+	style.CellPadding = ImVec2(8.0f, 5.0f);
+	style.IndentSpacing = 20.0f;
+	style.ScrollbarSize = 13.0f;
+	style.GrabMinSize = 11.0f;
+
+	style.WindowBorderSize = 1.0f;
+	style.ChildBorderSize = 1.0f;
+	style.PopupBorderSize = 1.0f;
+	style.FrameBorderSize = 0.0f;
+	style.TabBarBorderSize = 1.0f;
+	style.SeparatorTextBorderSize = 2.0f;
+
+	style.WindowRounding = 10.0f;
+	style.ChildRounding = 8.0f;
+	style.PopupRounding = 10.0f;
+	style.FrameRounding = 5.0f;
+	style.ScrollbarRounding = 8.0f;
+	style.GrabRounding = 5.0f;
+	style.TabRounding = 6.0f;
+
+	style.WindowTitleAlign = ImVec2(0.5f, 0.5f);
+	style.SeparatorTextAlign = ImVec2(0.0f, 0.5f);
+	style.SeparatorTextPadding = ImVec2(16.0f, 6.0f);
 }
 
 void ForceShowCursor(bool show)
@@ -313,8 +347,21 @@ bool Overlay::render()
 		Overlay::RequestBindingDialog = false;
 	}
 
-	for (const auto& wnd : windows())
-		wnd->render(overlay_visible);
+	// Drawn whether or not the overlay is open.
+	for (OverlayWindow* window : windows())
+		if (window->kind() == OverlayWindow::Kind::Hud)
+			window->render(overlay_visible);
+
+	if (overlay_visible)
+	{
+		render_shell();
+
+		// Tools sit outside the shell so they can be moved and resized freely,
+		// and are switched on from the list in the Debug tab.
+		for (OverlayWindow* window : windows())
+			if (window->kind() == OverlayWindow::Kind::Tool && window->visible)
+				window->render(true);
+	}
 
 	if (Overlay::RequestMouseHide)
 	{

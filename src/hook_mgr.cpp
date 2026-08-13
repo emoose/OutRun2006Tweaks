@@ -13,6 +13,11 @@ void HookManager::ApplyHooks()
         if (hook->validate())
         {
             hook->is_active_ = hook->apply();
+
+            // Separates a hook that failed to apply from one the user turned
+            // off, which the overlay's hook list shows differently.
+            hook->has_error_ = !hook->is_active_;
+
             auto desc = hook->description();
             if (!desc.empty())
             {

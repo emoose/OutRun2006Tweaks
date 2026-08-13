@@ -73,17 +73,12 @@ public:
 		if (!Overlay::NotifyEnable)
 			return;
 
-		ImVec2 screenSize = ImGui::GetIO().DisplaySize;
+		// Latest notification goes against the right edge of the game's content,
+		// which letterboxing pulls inward.
+		const Overlay::ContentRect content = Overlay::content_rect();
 
-		// Calculate starting position for the latest notification
-		// (move it outside of letterbox if letterboxing enabled)
-		float contentWidth = screenSize.y / (3.f / 4.f);
-		float borderWidth = ((screenSize.x - contentWidth) / 2) + 0.5f;
-		if (Settings::UILetterboxing != 1 || Game::is_in_game())
-			borderWidth = 0;
-
-		float startX = screenSize.x - notificationSize.x - borderWidth - 10.f;  // 10px padding from the right
-		float curY = (screenSize.y / 4.0f) - (notifications.size() * (notificationSize.y + notificationSpacing) / 2.0f);
+		float startX = content.x + content.width - notificationSize.x - 10.f;  // 10px padding from the right
+		float curY = (content.height / 4.0f) - (notifications.size() * (notificationSize.y + notificationSpacing) / 2.0f);
 
 		std::lock_guard<std::mutex> lock(notificationsMutex);
 

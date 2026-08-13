@@ -54,7 +54,7 @@ private:
 // Static HookManager class
 class HookManager
 {
-private:
+public:
     // Keep hooks vector inside function-local static, to ensure vector actually exists
     // before Hooks try to register themselves.
     static std::vector<Hook*>& hooks()
@@ -63,7 +63,6 @@ private:
         return s_hooks;
     }
 
-public:
     static void RegisterHook(Hook* hook)
 	{
         hooks().emplace_back(hook);
