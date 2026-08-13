@@ -49,6 +49,21 @@ public:
 	inline static float GlobalFontScale = 2.0f;
 	inline static float GlobalOpacity = 0.8f;
 
+	enum Themes
+	{
+		Theme_DarkCoast = 0,
+		Theme_Coast2Coast,
+		Theme_Luna,
+		Theme_Dark,
+		Theme_Light,
+		Theme_Classic,
+		Theme_Count
+	};
+	inline static int CurrentTheme = Theme_DarkCoast;
+
+	// Theme_Count entries, in enum order.
+	static const char* const* theme_names();
+
 	inline static bool NotifyEnable = true;
 	inline static int NotifyDisplayTime = 7;
 	inline static bool NotifyOnlineEnable = true;
@@ -110,8 +125,9 @@ public:
 	static void init();
 	static void init_imgui();
 
-	// Colours and metrics for every overlay window. Split out from init_imgui so
-	// the style can be put back after the ImGui style editor has been played with.
+	// Colours and metrics for every overlay window, from CurrentTheme. Split out
+	// from init_imgui so the style can be put back after the ImGui style editor
+	// has been played with, and so a theme change can re-run it.
 	static void apply_style();
 
 	// Rasterises the UI font at the current GlobalFontScale. The D3D font texture

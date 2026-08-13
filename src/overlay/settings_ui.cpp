@@ -27,12 +27,9 @@ class SettingsWindow : public OverlayWindow
 
 	char searchBuffer[64] = "";
 
-	bool showStyleEditor = false;
-
 	// Writing the INI on every frame of a slider drag would hit the disk
 	// hundreds of times, so the write waits until nothing is being dragged.
 	bool settingsDirty = false;
-	bool overlaySettingsDirty = false;
 	std::vector<Settings::SettingBase*> pendingNotify;
 
 	// Case-insensitive substring match, so "vib" finds VibrationStrength. An
@@ -155,67 +152,6 @@ class SettingsWindow : public OverlayWindow
 		return false;
 	}
 
-	// The overlay keeps its own settings in a separate INI, so they aren't in
-	// the registry and are laid out by hand here.
-	bool draw_overlay_settings()
-	{
-		bool changed = false;
-
-		ImGui::SeparatorText("Overlay");
-
-		// The font is rasterised at whatever scale is picked, so a change means
-		// rebuilding the atlas. Only done once the slider is let go of, rather
-		// than on every frame of the drag.
-		static bool fontScaleHeld = false;
-		if (ImGui::SliderFloat("Font Scale", &Overlay::GlobalFontScale, 0.5f, 2.5f))
-			fontScaleHeld = true;
-		if (fontScaleHeld && ImGui::IsMouseReleased(ImGuiMouseButton_Left))
-		{
-			Overlay::FontsDirty = true;
-			changed = true;
-			fontScaleHeld = false;
-		}
-
-		changed |= ImGui::SliderFloat("Overlay Opacity", &Overlay::GlobalOpacity, 0.1f, 1.0f);
-
-		if (ImGui::Button("Open UI Style Editor"))
-			showStyleEditor = true;
-
-		ImGui::SameLine();
-
-		if (ImGui::Button("Reset Style"))
-		{
-			Overlay::apply_style();
-			ImGui::GetStyle().Colors[ImGuiCol_WindowBg].w = Overlay::GlobalOpacity;
-		}
-
-		ImGui::SeparatorText("Notifications");
-
-		changed |= ImGui::Checkbox("Enable Notifications", &Overlay::NotifyEnable);
-		changed |= ImGui::Checkbox("Enable Online Lobby Notifications", &Overlay::NotifyOnlineEnable);
-		changed |= ImGui::SliderInt("Display Time", &Overlay::NotifyDisplayTime, 0, 60);
-		changed |= ImGui::SliderInt("Online Update Time", &Overlay::NotifyOnlineUpdateTime, 10, 60);
-		{
-			static const char* items[]{ "Never Hide", "Online Race", "Any Race" };
-			changed |= ImGui::Combo("Hide During", &Overlay::NotifyHideMode, items, IM_ARRAYSIZE(items));
-		}
-		changed |= ImGui::Checkbox("Check for Updates", &Overlay::NotifyUpdateCheck);
-
-		ImGui::SeparatorText("Chat");
-
-		{
-			static const char* items[]{ "Disable", "Enable", "During Menus Only" };
-			changed |= ImGui::Combo("Chatroom", &Overlay::ChatMode, items, IM_ARRAYSIZE(items));
-		}
-		changed |= ImGui::SliderFloat("Chat Font Size", &Overlay::ChatFontSize, 0.5f, 2.5f);
-		changed |= ImGui::Checkbox("Hide Chat Background", &Overlay::ChatHideBackground);
-
-		if (changed)
-			ImGui::GetStyle().Colors[ImGuiCol_WindowBg].w = Overlay::GlobalOpacity;
-
-		return changed;
-	}
-
 public:
 	Kind kind() const override { return Kind::Tab; }
 	const char* name() const override { return "Settings"; }
@@ -273,13 +209,6 @@ public:
 
 	void render(bool overlayEnabled) override
 	{
-		if (showStyleEditor)
-		{
-			if (ImGui::Begin("UI Style Editor", &showStyleEditor))
-				ImGui::ShowStyleEditor();
-			ImGui::End();
-		}
-
 		if (sections.empty())
 			return;
 
@@ -347,18 +276,12 @@ public:
 					ImGui::TextDisabled("(restart)");
 				}
 			}
-
-			// Overlay preferences live in their own INI, so they're appended to
-			// the section the overlay's one registered setting sits in. They
-			// aren't registry entries, so they are shown whole or not at all.
-			if (section == "Overlay" && (search.empty() || wholeSection))
-				overlaySettingsDirty |= draw_overlay_settings();
 		}
 		ImGui::EndChild();
 
 		draw_restart_notice();
 
-		// Both writes wait for the control being dragged to be released.
+		// Waits for the control being dragged to be released.
 		if (ImGui::IsAnyItemActive())
 			return;
 
@@ -370,12 +293,6 @@ public:
 
 			Settings::write(Module::UserIniPath);
 			settingsDirty = false;
-		}
-
-		if (overlaySettingsDirty)
-		{
-			Overlay::settings_write();
-			overlaySettingsDirty = false;
 		}
 	}
 

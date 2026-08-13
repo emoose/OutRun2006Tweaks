@@ -325,6 +325,7 @@ set(outrun2006tweaks_SOURCES
 	"src/overlay/notifications.hpp"
 	"src/overlay/overlay.cpp"
 	"src/overlay/overlay.hpp"
+	"src/overlay/overlay_settings_ui.cpp"
 	"src/overlay/server_notifications.cpp"
 	"src/overlay/settings_ui.cpp"
 	"src/overlay/update_check.cpp"
