@@ -219,6 +219,111 @@ class RestoreSkyGlow : public Hook
 	static constexpr int AlphaRefCompare_Imm = 0xB027;
 	static constexpr int AlphaRefReassert_Imm = 0xB039;
 
+	// (2b) One reference cannot serve every draw, because it has to match the
+	// range of alpha the shader in front of it writes. A shader carrying the
+	// exposure op tops out at 63, so 128 rejects all of its draws and the effect
+	// is lost. A shader without it keeps the material's own alpha over the full 0
+	// to 255, so a reference of 1 puts its cutout threshold at almost nothing:
+	// every soft alpha edge draws the fringe it used to clip, and where the
+	// transparent side of the texture is black that fringe reads as a dark border.
+	//
+	// Both want the cut in the same place, half alpha, so the reference is half of
+	// whichever maximum applies.
+	static constexpr int PsSetPixelShader_Addr = 0xAF80;
+	static constexpr int HdrState_Addr = 0x49BC04;
+	static constexpr int ReqPresetPs_Addr = 0x49BC20;
+	static constexpr int VsSetMaterial_Exposure_Addr = 0x10F4F;
+
+	// ConstructPixelShaderProgram's output: the per entry alpha op keys, their
+	// second words, and the entry count in the low nibble of the last.
+	static constexpr int PsdAlphaOp_Addr = 0x49BC28;
+	static constexpr int PsdAlphaOp2_Addr = 0x49BC9C;
+	static constexpr int PsdCount_Addr = 0x49BD14;
+	static constexpr uint32_t MaxCombinerEntries = 9;
+
+	// The combiner encoding whose table entry is redirected above, so finding it
+	// among the emitted entries is what says this shader writes the exposure.
+	static constexpr uint32_t ExposureAlphaOp = 0x10101230;
+	static constexpr uint32_t ExposureAlphaOp2 = 0x4C00;
+
+	// The exposure op only reaches a shader if ConstructPixelShaderProgram emitted
+	// stage 4 carrying it, and three separate things stop that. byte_95AEF4, bit 8
+	// of the material's first texture attribute, makes it skip stage 4 outright,
+	// which is how a material keeps real alpha for blending. A reference below
+	// 0x80 makes SetHDRPostProcessCombiner put the no-op op there instead. And a
+	// material whose earlier stages fill all nine entries never reaches stage 4 at
+	// all. The emitted list is the one place all three show up, and is what
+	// BuildPixelShaderFromCombiners_mb keys its own snippet lookup on.
+	static bool ShaderWritesExposure()
+	{
+		const uint32_t count = *Module::exe_ptr<uint32_t>(PsdCount_Addr) & 0xF;
+		const uint32_t* alphaOp = Module::exe_ptr<uint32_t>(PsdAlphaOp_Addr);
+		const uint32_t* alphaOp2 = Module::exe_ptr<uint32_t>(PsdAlphaOp2_Addr);
+
+		for (uint32_t i = 0; i < count && i < MaxCombinerEntries; i++)
+		{
+			if (alphaOp[i] == ExposureAlphaOp && alphaOp2[i] == ExposureAlphaOp2)
+				return true;
+		}
+
+		return false;
+	}
+
+	// The exposure varies per material, so the reference has to follow it rather
+	// than sit at a constant. The console alpha op was a MUX, (r0.a >= 0.5) ?
+	// exposure : 0, which cut at half alpha whatever the reference was, since
+	// everything below the threshold came out at zero. The mul that stands in for
+	// it writes tex_alpha * exposure, a ramp rather than a step, so the cut lands
+	// wherever reference over exposure falls instead.
+	inline static uint32_t MaterialExposure = 1;
+
+	inline static SafetyHookMid Exposure_hook = {};
+	static void Exposure_dest(safetyhook::Context& ctx)
+	{
+		// __ftol2 has just returned it; the game clamps over the next few
+		// instructions, with unsigned compares, so a negative conversion lands
+		// at 255 rather than 1.
+		uint32_t exposure = ctx.eax;
+		if (exposure < 1)
+			exposure = 1;
+		if (exposure > 255)
+			exposure = 255;
+
+		MaterialExposure = exposure;
+	}
+
+	inline static SafetyHookInline PsSetPixelShader_hook = {};
+	static int __stdcall PsSetPixelShader_dest()
+	{
+		const int result = PsSetPixelShader_hook.stdcall<int>();
+
+		// A preset shader is not built from the combiner tables, so st_psd does not
+		// describe it and the patched immediate never applied to it either. The
+		// game gives it s_HdrState[3], 8 for the blended class, and overriding
+		// that would drop everything below half alpha.
+		if (*Module::exe_ptr<uint32_t>(ReqPresetPs_Addr) != 0)
+			return result;
+
+		// Zero means the game left the reference alone, so nothing here should
+		// touch it either.
+		if (*Module::exe_ptr<uint32_t>(HdrState_Addr) == 0)
+			return result;
+
+		// Half of whichever maximum this shader writes.
+		DWORD alphaRef = 128;
+		if (ShaderWritesExposure())
+		{
+			alphaRef = MaterialExposure / 2;
+			if (alphaRef < 1)
+				alphaRef = 1;
+		}
+
+		if (IDirect3DDevice9* device = Game::D3DDevice())
+			device->SetRenderState(D3DRS_ALPHAREF, alphaRef);
+
+		return result;
+	}
+
 	// (3) D3D9 blends alpha with the colour factors, so the sky's exposure lands as
 	// srcA*srcA + dstA*(1 - srcA) instead of srcA.
 	//
@@ -419,7 +524,7 @@ class RestoreSkyGlow : public Hook
 		uint32_t* backColor = Module::exe_ptr<uint32_t>(BackColor_Addr);
 		const uint32_t prevColor = *backColor;
 
-		if (Game::is_in_game())
+		if (Game::is_in_game() || *Game::current_mode == GameState::STATE_GAMEOVER)
 		{
 			float exposure = 0.25f * *Module::exe_ptr<float>(GlowParam0_Addr);
 
@@ -471,10 +576,15 @@ public:
 		MakeReduceBuff_hook = safetyhook::create_inline(Module::exe_ptr(MakeReduceBuff_Addr), MakeReduceBuff_dest);
 		GlowRelease_hook = safetyhook::create_inline(Module::exe_ptr(GlowRelease_Addr), GlowRelease_dest);
 		BlurGlowImage_hook = safetyhook::create_inline(Module::exe_ptr(BlurGlowImage_Addr), BlurGlowImage_dest);
+		PsSetPixelShader_hook = safetyhook::create_inline(Module::exe_ptr(PsSetPixelShader_Addr), PsSetPixelShader_dest);
 
 		if (!GlowInit_hook || !ClearBuffer_hook || !MakeReduceBuff_hook
-			|| !GlowRelease_hook || !BlurGlowImage_hook)
+			|| !GlowRelease_hook || !BlurGlowImage_hook || !PsSetPixelShader_hook)
 			return false;
+
+		// Mid hook rather than inline: vsSetMaterial is __usercall, and the
+		// exposure only exists in a register partway through it.
+		Exposure_hook = safetyhook::create_mid(Module::exe_ptr(VsSetMaterial_Exposure_Addr), Exposure_dest);
 
 		// Read inside MakeReduceBuff on every call, so nothing to re-do.
 
