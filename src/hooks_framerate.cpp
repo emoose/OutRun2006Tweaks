@@ -445,7 +445,9 @@ class ReplaceGameUpdateLoop : public Hook
 			// (do this inside our update-loop so that any hooked game funcs have accurate state...)
 			Input::Update();
 
-			if (!Overlay::IsActive || Overlay::IsBindingDialogActive)
+			// Runs whether or not the overlay is open: it owns the overlay toggle
+			// and the mod's other binds, and suppresses the game facing state
+			// itself while the overlay has focus.
 			{
 				void InputManager_Update();
 				InputManager_Update();
@@ -656,7 +658,6 @@ public:
 			return (Settings::FramerateFastLoad.startup_value() == 3) != (Settings::FramerateFastLoad.get() == 3);
 		});
 		// Input::Update is driven from this loop, and latches the key it parses.
-		Settings::HudToggleKey.needs_restart();
 
 		Settings::FramerateInterpolationDebugAlpha.hidden(true);
 		Settings::FramerateInterpolationDebugLog.hidden(true);

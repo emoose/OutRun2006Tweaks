@@ -9,6 +9,7 @@
 #include "hook_mgr.hpp"
 #include "plugin.hpp"
 #include "game_addrs.hpp"
+#include "input_manager.hpp"
 
 namespace Settings
 {
@@ -17,10 +18,6 @@ namespace Settings
 	Setting<bool> ControllerHotPlug{ "Controls", "ControllerHotPlug", false,
 		"Allows game to detect newly plugged in devices, rather than needing a restart. May have issues with some "
 		"controllers/wheels, and is ignored when using UseNewInput as hot-plug is supported by it by default." };
-	Setting<std::string> HudToggleKey{ "Controls", "HudToggleKey", "",
-		"Allows assigning a keyboard key to toggle the game HUD. Which keys can be assigned depends on your keyboard "
-		"layout, but binding to a function key such as F10 should work fine on all layouts." };
-
 	Setting<int> ImpulseVibrationMode{ "Controls", "ImpulseVibrationMode", 2,
 		"Enable/disable Xbox Series impulse trigger vibration, or customise it. VibrationMode must be enabled for this to work.",
 		{ "Disable", "Enable impulse triggers", "L/R motors swapped (recommended for impulse triggers)",
@@ -35,7 +32,8 @@ namespace Settings
 
 namespace Input
 {
-    static int HudToggleVKey = 0;
+    // Legacy input only - the new system binds ModAction::HudToggle instead.
+    static constexpr int HudToggleVKey = VK_F10;
 
     void PadUpdate(int controllerIndex)
     {
@@ -78,6 +76,15 @@ namespace Input
 
     void HudToggleUpdate()
     {
+        if (Settings::UseNewInput)
+        {
+            if (InputManager_ModActionPressed(ModAction::HudToggle))
+                *Game::navipub_disp_flg = (*Game::navipub_disp_flg == 0 ? 1 : 0);
+            return;
+        }
+
+        // Legacy input: fixed key, since there is no binding UI without the new
+        // system to change it from.
         static bool HudTogglePrevState = false;
         bool hudToggleKeyState = (GetAsyncKeyState(HudToggleVKey) & 0x8000);
         if (HudTogglePrevState != hudToggleKeyState)
@@ -88,67 +95,12 @@ namespace Input
         }
     }
 
-    int StringToVK(std::string_view key)
-    {
-        // Convert key to uppercase
-        std::string keyUpper(key);
-        std::transform(keyUpper.begin(), keyUpper.end(), keyUpper.begin(),
-            [](unsigned char c) { return std::toupper(c); });
-
-        static const std::unordered_map<std::string_view, int> vkMap = {
-            {"LBUTTON", VK_LBUTTON}, {"RBUTTON", VK_RBUTTON}, {"CANCEL", VK_CANCEL}, {"MBUTTON", VK_MBUTTON},
-            {"XBUTTON1", VK_XBUTTON1}, {"XBUTTON2", VK_XBUTTON2}, {"BACK", VK_BACK}, {"TAB", VK_TAB},
-            {"CLEAR", VK_CLEAR}, {"RETURN", VK_RETURN}, {"SHIFT", VK_SHIFT}, {"CONTROL", VK_CONTROL},
-            {"MENU", VK_MENU}, {"PAUSE", VK_PAUSE}, {"CAPITAL", VK_CAPITAL}, {"ESCAPE", VK_ESCAPE},
-            {"SPACE", VK_SPACE}, {"PRIOR", VK_PRIOR}, {"NEXT", VK_NEXT}, {"END", VK_END},
-            {"HOME", VK_HOME}, {"LEFT", VK_LEFT}, {"UP", VK_UP}, {"RIGHT", VK_RIGHT},
-            {"DOWN", VK_DOWN}, {"SELECT", VK_SELECT}, {"PRINT", VK_PRINT}, {"EXECUTE", VK_EXECUTE},
-            {"SNAPSHOT", VK_SNAPSHOT}, {"INSERT", VK_INSERT}, {"DELETE", VK_DELETE}, {"HELP", VK_HELP},
-            {"LWIN", VK_LWIN}, {"RWIN", VK_RWIN}, {"APPS", VK_APPS}, {"SLEEP", VK_SLEEP},
-            {"NUMPAD0", VK_NUMPAD0}, {"NUMPAD1", VK_NUMPAD1}, {"NUMPAD2", VK_NUMPAD2}, {"NUMPAD3", VK_NUMPAD3},
-            {"NUMPAD4", VK_NUMPAD4}, {"NUMPAD5", VK_NUMPAD5}, {"NUMPAD6", VK_NUMPAD6}, {"NUMPAD7", VK_NUMPAD7},
-            {"NUMPAD8", VK_NUMPAD8}, {"NUMPAD9", VK_NUMPAD9}, {"MULTIPLY", VK_MULTIPLY}, {"ADD", VK_ADD},
-            {"SEPARATOR", VK_SEPARATOR}, {"SUBTRACT", VK_SUBTRACT}, {"DECIMAL", VK_DECIMAL}, {"DIVIDE", VK_DIVIDE},
-            {"F1", VK_F1}, {"F2", VK_F2}, {"F3", VK_F3}, {"F4", VK_F4}, {"F5", VK_F5},
-            {"F6", VK_F6}, {"F7", VK_F7}, {"F8", VK_F8}, {"F9", VK_F9}, {"F10", VK_F10},
-            {"F11", VK_F11}, {"F12", VK_F12}, {"F13", VK_F13}, {"F14", VK_F14}, {"F15", VK_F15},
-            {"F16", VK_F16}, {"F17", VK_F17}, {"F18", VK_F18}, {"F19", VK_F19}, {"F20", VK_F20},
-            {"F21", VK_F21}, {"F22", VK_F22}, {"F23", VK_F23}, {"F24", VK_F24}, {"NUMLOCK", VK_NUMLOCK},
-            {"SCROLL", VK_SCROLL}
-            // TODO: are there any others worth adding here?
-        };
-
-        // Check if key is a single character
-        if (keyUpper.size() == 1)
-        {
-            char ch = keyUpper[0];
-            if (std::isalnum(ch))
-                return std::toupper(ch);
-        }
-
-        // Search in the vkMap
-        auto it = vkMap.find(keyUpper);
-        if (it != vkMap.end())
-            return it->second;
-
-        // If not found, return -1 or some invalid value
-        return 0;
-    }
-
     void Update()
     {
-        static bool inited = false;
-        if (!inited)
-        {
-            HudToggleVKey = StringToVK(Settings::HudToggleKey.get());
-            inited = true;
-        }
-
         // Update gamepad for main controller id
         PadUpdate(Settings::VibrationControllerId);
 
-        if (HudToggleVKey)
-            HudToggleUpdate();
+        HudToggleUpdate();
     }
 };
 

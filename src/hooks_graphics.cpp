@@ -37,8 +37,8 @@ namespace Settings
 		"with the stencil shadowing; Xbox C2C uses 0.5, but that makes it very transparent on PC.", Range<float>{ 0.0f, 1.0f } };
 
 	Setting<int> VSync{ "Performance", "VSync", 1,
-		"Set to 0 to disable VSync, 1 for normal VSync, or 2 for half-refresh-rate VSync.",
-		{ "Disabled", "Normal VSync", "Half-refresh-rate VSync" } };
+		"Syncs rendering to your displays refresh rate to reduce screen tearing.",
+		{ "Disabled", "Enabled", "Half-refresh-rate" } };
 
 	Setting<bool> WindowedBorderless{ "Window", "WindowedBorderless", true,
 		"Forces windowed mode to become borderless. (requires \"DX/WINDOWED = 1\" inside outrun2006.ini)" };

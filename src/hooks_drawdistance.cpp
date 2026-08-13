@@ -7,6 +7,7 @@
 #include <imgui.h>
 #include <ini.h>
 #include "overlay/overlay.hpp"
+#include "input_manager.hpp"
 
 namespace Settings
 {
@@ -54,7 +55,8 @@ public:
 		static ImGuiTableFlags table_flags = ImGuiTableFlags_NoSavedSettings | ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_HighlightHoveredColumn;
 
 		ImGui::Text("Usage:");
-		ImGui::Text("- If an ugly LOD object appears, pause game with ESC and press F11 to bring up this window");
+		ImGui::Text("- If an ugly LOD object appears, pause game with ESC and press %s to bring up this window",
+				InputManager_ModActionDisplayName(ModAction::OverlayToggle).c_str());
 		ImGui::Text("- Reduce Draw Distance below to lowest value that still has the LOD object appearing");
 		ImGui::Text("- Once you find the draw-distance that shows the object, click each node checkbox to disable nodes");
 		ImGui::Text("- After finding the node responsible, you can use \"Copy to clipboard\" below to copy the IDs of them, or hover over the node");

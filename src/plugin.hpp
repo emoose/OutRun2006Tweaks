@@ -85,7 +85,6 @@ namespace Settings
 
 	extern Setting<float> FramerateInterpolationDebugAlpha; // interpolation.cpp
 	extern Setting<bool> FramerateInterpolationDebugLog;    // interpolation.cpp
-	extern Setting<std::string> HudToggleKey;               // hooks_input.cpp
 
 	extern Setting<int> UIScalingMode;                     // hooks_uiscaling.cpp
 	extern Setting<int> UILetterboxing;                    // hooks_uiscaling.cpp

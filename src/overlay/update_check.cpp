@@ -7,6 +7,8 @@
 #include "plugin.hpp"
 #include <spdlog/spdlog.h>
 #include "notifications.hpp"
+#include "overlay.hpp"
+#include "input_manager.hpp"
 #include "resource.h"
 
 uint64_t VersionToInteger(const std::string& version)
@@ -83,7 +85,8 @@ void UpdateCheck_Thread(const std::string& currentVersion, const std::string& re
 {
 	std::string newerVersion = UpdateCheck_IsNewerAvailable(currentVersion, repoOwner, repoName);
 	if (!newerVersion.empty())
-		Notifications::instance.add(std::format("A newer version of OutRun2006Tweaks is available ({})\n---\nPress F11 and click here to visit release page.", newerVersion), 20,
+		Notifications::instance.add(std::format("A newer version of OutRun2006Tweaks is available ({})\n---\nPress {} and click here to visit release page.",
+			newerVersion, InputManager_ModActionDisplayName(ModAction::OverlayToggle)), 20,
             [newerVersion]() {
                 std::string url = "https://github.com/emoose/OutRun2006Tweaks/releases";
                 ShellExecuteA(nullptr, "open", url.c_str(), 0, 0, SW_SHOWNORMAL);

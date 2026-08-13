@@ -11,12 +11,13 @@
 #include <algorithm>
 #include <cmath>
 #include <fstream>
+#include <format>
 #include <vector>
 #include <ini.h>
+#include "input_manager.hpp"
 
 Notifications Notifications::instance;
 
-bool f11_prev_state = false; // previously seen F11 state
 
 bool overlay_visible = false; // user wants overlay to show?
 
@@ -86,12 +87,6 @@ void Overlay::render_shell()
 void Overlay::init()
 {
 	Overlay::settings_read();
-
-	Notifications::instance.add("OutRun2006Tweaks v" MODULE_VERSION_STR " by emoose!\nPress F11 to open overlay.", 0,
-		[]() {
-			std::string url = "https://github.com/emoose/OutRun2006Tweaks";
-			ShellExecuteA(nullptr, "open", url.c_str(), 0, 0, SW_SHOWNORMAL);
-		});
 
 	if (Overlay::CourseReplacementEnabled)
 		Notifications::instance.add("Note: Course Editor Override is enabled from previous session.");
@@ -536,10 +531,29 @@ bool Overlay::render()
 	{
 		for (const auto& wnd : windows())
 			wnd->init();
+
+		// Named here rather than in Overlay::init, which runs from apply() before
+		// the game has a window: InputManager loads its bindings off WindowInit,
+		// so until then the toggle has no key to report.
+		Notifications::instance.add(
+			std::format("OutRun2006Tweaks v" MODULE_VERSION_STR " by emoose!\nPress {} to open overlay.",
+				InputManager_ModActionDisplayName(ModAction::OverlayToggle)), 0,
+			[]() {
+				std::string url = "https://github.com/emoose/OutRun2006Tweaks";
+				ShellExecuteA(nullptr, "open", url.c_str(), 0, 0, SW_SHOWNORMAL);
+			});
+
 		s_hasInited = true;
 	}
 
-	if (ImGui::IsKeyReleased(ImGuiKey_F11))
+	// The bound action when the new input system is on, F11 otherwise. The
+	// binding dialog owns every input while it is up, so the action reports
+	// nothing there and the ImGui path is held off to match.
+	bool toggleOverlay = InputManager_ModActionPressed(ModAction::OverlayToggle);
+	if (!Settings::UseNewInput && !Overlay::IsBindingDialogActive)
+		toggleOverlay |= ImGui::IsKeyReleased(ImGuiKey_F11);
+
+	if (toggleOverlay)
 	{
 		overlay_visible = !overlay_visible;
 		ForceShowCursor(overlay_visible);

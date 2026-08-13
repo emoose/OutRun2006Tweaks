@@ -26,44 +26,57 @@ private:
 	// setupDefaultBindings()/readBindingIni() replace the binding vectors.
 	struct Selection
 	{
-		bool isVolume = true;
+		using Kind = InputManager::ActionKind;
+
+		Kind kind = Kind::Volume;
 		int index = 0;
 
 		bool operator==(const Selection& other) const
 		{
-			return isVolume == other.isVolume && index == other.index;
+			return kind == other.kind && index == other.index;
 		}
+
+		bool isVolume() const { return kind == Kind::Volume; }
 	};
 
 	// The order actions are listed in, grouped by when they get used.
 	struct ActionListEntry
 	{
 		const char* group;
-		bool isVolume;
+		Selection::Kind kind;
 		int index;
 	};
 
+	static constexpr auto Vol = Selection::Kind::Volume;
+	static constexpr auto Sw = Selection::Kind::Switch;
+	static constexpr auto Mod = Selection::Kind::Mod;
+
 	static inline const ActionListEntry ActionList[] = {
-		{ "Driving", true,  int(ADChannel::Steering)        },
-		{ "Driving", true,  int(ADChannel::Acceleration)    },
-		{ "Driving", true,  int(ADChannel::Brake)           },
-		{ "Driving", false, int(SwitchId::GearUp)           },
-		{ "Driving", false, int(SwitchId::GearDown)         },
-		{ "Driving", false, int(SwitchId::ChangeView)       },
+		{ "Driving", Vol, int(ADChannel::Steering)        },
+		{ "Driving", Vol, int(ADChannel::Acceleration)    },
+		{ "Driving", Vol, int(ADChannel::Brake)           },
+		{ "Driving", Sw,  int(SwitchId::GearUp)           },
+		{ "Driving", Sw,  int(SwitchId::GearDown)         },
+		{ "Driving", Sw,  int(SwitchId::ChangeView)       },
 
-		{ "Menus",   false, int(SwitchId::Start)            },
-		{ "Menus",   false, int(SwitchId::Back)             },
-		{ "Menus",   false, int(SwitchId::A)                },
-		{ "Menus",   false, int(SwitchId::B)                },
-		{ "Menus",   false, int(SwitchId::X)                },
-		{ "Menus",   false, int(SwitchId::Y)                },
-		{ "Menus",   false, int(SwitchId::SelectionUp)      },
-		{ "Menus",   false, int(SwitchId::SelectionDown)    },
-		{ "Menus",   false, int(SwitchId::SelectionLeft)    },
-		{ "Menus",   false, int(SwitchId::SelectionRight)   },
+		{ "Menus",   Sw,  int(SwitchId::Start)            },
+		{ "Menus",   Sw,  int(SwitchId::Back)             },
+		{ "Menus",   Sw,  int(SwitchId::A)                },
+		{ "Menus",   Sw,  int(SwitchId::B)                },
+		{ "Menus",   Sw,  int(SwitchId::X)                },
+		{ "Menus",   Sw,  int(SwitchId::Y)                },
+		{ "Menus",   Sw,  int(SwitchId::SelectionUp)      },
+		{ "Menus",   Sw,  int(SwitchId::SelectionDown)    },
+		{ "Menus",   Sw,  int(SwitchId::SelectionLeft)    },
+		{ "Menus",   Sw,  int(SwitchId::SelectionRight)   },
 
-		{ "Online",  false, int(SwitchId::License)          },
-		{ "Online",  false, int(SwitchId::SignIn)           },
+		{ "Online",  Sw,  int(SwitchId::License)          },
+		{ "Online",  Sw,  int(SwitchId::SignIn)           },
+
+		{ "Tweaks",  Mod, int(ModAction::OverlayToggle)   },
+		{ "Tweaks",  Mod, int(ModAction::HudToggle)       },
+		{ "Tweaks",  Mod, int(ModAction::MusicNext)       },
+		{ "Tweaks",  Mod, int(ModAction::MusicPrevious)   },
 	};
 
 	// How far an analog action has to move from rest before its name lights up.
@@ -71,7 +84,7 @@ private:
 	// InputState::isPressed.
 	static constexpr float ActiveThreshold = 0.25f;
 
-	Selection selected{ true, int(ADChannel::Steering) };
+	Selection selected{ Selection::Kind::Volume, int(ADChannel::Steering) };
 
 	// What the listening prompt will write into. -1 appends a binding instead of
 	// replacing one.
@@ -87,22 +100,19 @@ private:
 
 	static InputAction& action_for(const Selection& selection)
 	{
-		auto& manager = InputManager::instance;
-		return selection.isVolume ? manager.volumeBindings[selection.index]
-			: manager.switchBindings[selection.index];
+		return InputManager::instance.actionFor(selection.kind, selection.index);
 	}
 
 	static const std::string& name_for(const Selection& selection)
 	{
-		return selection.isVolume ? InputManager::volumeNames[selection.index]
-			: InputManager::switchNames[selection.index];
+		return InputManager::actionName(selection.kind, selection.index);
 	}
 
 	// Steering reads as a signed axis, and its bindings are named differently
 	// because of it (left/right rather than negated/not).
 	static bool is_steering(const Selection& selection)
 	{
-		return selection.isVolume && selection.index == int(ADChannel::Steering);
+		return selection.isVolume() && selection.index == int(ADChannel::Steering);
 	}
 
 	void begin_listening(const Selection& target, int index)
@@ -224,7 +234,7 @@ private:
 				ImGui::SeparatorText(group);
 			}
 
-			const Selection action{ entry.isVolume, entry.index };
+			const Selection action{ entry.kind, entry.index };
 			const InputState& state = action_for(action).getState();
 
 			// A binding's value keeps its sign, and negating a binding flips it,
@@ -234,7 +244,7 @@ private:
 			// magnitude instead would light up both ends of the same stick.
 			// An analog action uses the sign for direction rather than for on
 			// and off, so there either end of the range counts as movement.
-			const bool active = action.isVolume
+			const bool active = action.isVolume()
 				? std::abs(state.currentValue) >= ActiveThreshold
 				: state.isPressed();
 
@@ -322,7 +332,7 @@ private:
 
 		// Live value of the selected action.
 		const float value = action.getState().currentValue;
-		const float filled = selected.isVolume ? std::abs(value) : value;
+		const float filled = selected.isVolume() ? std::abs(value) : value;
 
 		ImGui::Spacing();
 		ImGui::TextDisabled("Reading");

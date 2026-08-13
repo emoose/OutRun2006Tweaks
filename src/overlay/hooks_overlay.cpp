@@ -12,7 +12,7 @@
 namespace Settings
 {
 	Setting<bool> OverlayEnabled{ "Overlay", "Enabled", true,
-		"Enables the OutRun2006Tweaks overlay, accessible via F11 key (more settings for Overlay are available in the overlay itself)." };
+		"Enables the OutRun2006Tweaks overlay." };
 	Setting<bool> WindowedHideMouseCursor{ "Window", "WindowedHideMouseCursor", true,
 		"Hides mouse cursor while game window is active." };
 }

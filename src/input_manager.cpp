@@ -18,6 +18,30 @@ void InputManager_Update()
 		InputManager::instance.update();
 }
 
+// Only meaningful with the new input system; callers fall back to their own
+// hardcoded keys when it is off.
+bool InputManager_ModActionPressed(ModAction action)
+{
+	return Settings::UseNewInput && InputManager::instance.modActionPressed(action);
+}
+
+// The bound name with the new input system, or the fixed key the legacy paths
+// use when it is off.
+std::string InputManager_ModActionDisplayName(ModAction action)
+{
+	if (Settings::UseNewInput)
+		return InputManager::instance.modActionDisplayName(action);
+
+	switch (action)
+	{
+	case ModAction::OverlayToggle: return "F11";
+	case ModAction::HudToggle:     return "F10";
+	case ModAction::MusicNext:     return "X";
+	case ModAction::MusicPrevious: return "Z";
+	default:                       return "(unbound)";
+	}
+}
+
 void InputManager_SetVibration(WORD left, WORD right)
 {
 	InputManager::instance.setVibration(left, right);

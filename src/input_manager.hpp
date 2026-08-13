@@ -36,6 +36,16 @@ enum class ListenState
 
 inline ListenState isListeningForInput = ListenState::False;
 
+// Actions belonging to the mod rather than the game.
+enum class ModAction
+{
+	OverlayToggle,
+	HudToggle,
+	MusicNext,
+	MusicPrevious,
+	Count
+};
+
 enum class InputSourceType
 {
 	GamePad,
@@ -243,8 +253,14 @@ inline constexpr float RawTriggerThreshold = 0.5f;
 
 class InputManager
 {
+public:
+	// Which of the three binding tables an action lives in.
+	enum class ActionKind { Volume, Switch, Mod };
+
+private:
 	std::array<InputAction, size_t(ADChannel::Count)> volumeBindings;
 	std::array<InputAction, size_t(SwitchId::Count)> switchBindings;
+	std::array<InputAction, size_t(ModAction::Count)> modBindings;
 
 	std::mutex mtx;
 	std::vector<SDL_Gamepad*> controllers;
@@ -254,6 +270,12 @@ class InputManager
 
 	// cached values as of last update call
 	std::array<InputState, size_t(ADChannel::Count)> volumes;
+	std::array<InputState, size_t(ModAction::Count)> modStates;
+
+	// Mod actions are readable while the overlay is up, since the overlay toggle
+	// has to be able to close it again, but not while the binding dialog owns
+	// every input.
+	bool modActionsDeaf = false;
 
 	// Switch bitmasks. switch_current/_previous are what the game sees;
 	// switch_overlay is the same data before game-side suppression, so the
@@ -303,6 +325,14 @@ private:
 		"Unk0x20000",
 		"Change View"
 	};
+
+	static inline const std::string modNames[] = {
+		"Overlay",
+		"HUD Toggle",
+		"Music Next",
+		"Music Previous"
+	};
+	static_assert(std::size(modNames) == size_t(ModAction::Count));
 
 	// switchNames must stay 1:1 with SwitchId - the ini reader/writer index both
 	// by the same value. (volumeNames deliberately does NOT match ADChannel:
@@ -454,6 +484,22 @@ public:
 
 		if (!readBindingIni(Module::BindingsIniPath))
 			setupDefaultBindings();
+
+		ensureOverlayBindable();
+	}
+
+	// An ini written before an action existed has no lines for it, so it loads
+	// unbound. That is recoverable for every action except the overlay toggle:
+	// without it there is no way to reach the UI that would rebind it, so it
+	// always gets its default back.
+	void ensureOverlayBindable()
+	{
+		InputAction& overlay = modBindings[size_t(ModAction::OverlayToggle)];
+		if (!overlay.bindings().empty())
+			return;
+
+		spdlog::warn(__FUNCTION__ ": overlay toggle had no bindings, restoring F11");
+		addModBinding(ModAction::OverlayToggle, SDL_SCANCODE_F11);
 	}
 
 	void setupDefaultBindings()
@@ -462,6 +508,8 @@ public:
 		for (auto& binding : volumeBindings)
 			binding.clear();
 		for (auto& binding : switchBindings)
+			binding.clear();
+		for (auto& binding : modBindings)
 			binding.clear();
 
 		// Keyboard
@@ -527,6 +575,16 @@ public:
 		addSwitchBinding(SwitchId::License, SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER);
 		addSwitchBinding(SwitchId::X, SDL_GAMEPAD_BUTTON_LEFT_SHOULDER);
 		addSwitchBinding(SwitchId::Y, SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER);
+
+		// Mod actions. Keyboard only by default: every gamepad button the game
+		// does not already use is one the user may want for something, and the
+		// music keys in particular used to be a chord (Back, RS+Back) which a
+		// single binding cannot express.
+		addModBinding(ModAction::OverlayToggle, SDL_SCANCODE_F11);
+		addModBinding(ModAction::HudToggle, SDL_SCANCODE_F10);
+		addModBinding(ModAction::MusicNext, SDL_SCANCODE_X);
+		addModBinding(ModAction::MusicNext, SDL_GAMEPAD_BUTTON_BACK);
+		addModBinding(ModAction::MusicPrevious, SDL_SCANCODE_Z);
 	}
 
 	//
@@ -572,7 +630,9 @@ public:
 
 	struct ActionRef
 	{
-		bool isVolume = false;
+		using Kind = ActionKind;
+
+		Kind kind = Kind::Switch;
 		int index = -1;
 		bool negate = false;
 	};
@@ -593,7 +653,7 @@ public:
 		for (int i = 0; i < int(std::size(volumeNames)); i++)
 			if (!stricmp(trimmed.c_str(), volumeNames[i].c_str()))
 			{
-				ref.isVolume = true;
+				ref.kind = ActionRef::Kind::Volume;
 				ref.index = i;
 				return ref;
 			}
@@ -601,7 +661,15 @@ public:
 		for (int i = 0; i < int(SwitchId::Count); i++)
 			if (!stricmp(trimmed.c_str(), switchNames[i].c_str()))
 			{
-				ref.isVolume = false;
+				ref.kind = ActionRef::Kind::Switch;
+				ref.index = i;
+				return ref;
+			}
+
+		for (int i = 0; i < int(ModAction::Count); i++)
+			if (!stricmp(trimmed.c_str(), modNames[i].c_str()))
+			{
+				ref.kind = ActionRef::Kind::Mod;
 				ref.index = i;
 				return ref;
 			}
@@ -630,10 +698,12 @@ public:
 
 	void addBinding(const ActionRef& ref, const InputBinding& binding)
 	{
-		if (ref.isVolume)
-			volumeBindings[ref.index].add(binding);
-		else
-			switchBindings[ref.index].add(binding);
+		switch (ref.kind)
+		{
+		case ActionRef::Kind::Volume: volumeBindings[ref.index].add(binding); break;
+		case ActionRef::Kind::Mod:    modBindings[ref.index].add(binding); break;
+		default:                      switchBindings[ref.index].add(binding); break;
+		}
 	}
 
 	bool readBindingIni(const std::filesystem::path& iniPath)
@@ -724,6 +794,9 @@ public:
 
 		for (int i = 0; i < int(SwitchId::Count); ++i)
 			writeAction(switchNames[i], switchBindings[i]);
+
+		for (int i = 0; i < int(ModAction::Count); ++i)
+			writeAction(modNames[i], modBindings[i]);
 	}
 
 	bool saveBindingIni(const std::filesystem::path& iniPath)
@@ -783,7 +856,7 @@ public:
 		for (size_t i = 0; i < volumeBindings.size(); ++i)
 		{
 			auto& vol = volumeBindings[i].update(gamepad);
-			if (Overlay::IsBindingDialogActive) [[unlikely]]
+			if (Overlay::IsBindingDialogActive || Overlay::IsActive) [[unlikely]]
 				continue;
 
 			volumes[i] = vol;
@@ -850,10 +923,29 @@ public:
 
 		switch_overlay = switch_current;
 
-		if (suppressGameUntilRelease || Overlay::IsBindingDialogActive) [[unlikely]]
+		// The overlay being open used to stop update() running at all, which is
+		// what kept the game from seeing input through it. Mod actions have to be
+		// read while it is open, so it runs either way now and the game is held
+		// off here instead.
+		if (suppressGameUntilRelease || Overlay::IsBindingDialogActive || Overlay::IsActive) [[unlikely]]
 			switch_current = 0;
 
+		updateModActions(gamepad);
+
 		updateRawDInputState();
+	}
+
+	// Mod actions take the overlay's suppression but not the game's, so the
+	// overlay toggle can still close the overlay. The binding dialog owns every
+	// input while it is up, so nothing fires under it. States keep updating
+	// regardless, so a key held across the dialog closing reads as held rather
+	// than newly pressed.
+	void updateModActions(SDL_Gamepad* gamepad)
+	{
+		modActionsDeaf = suppressOverlayUntilRelease || Overlay::IsBindingDialogActive;
+
+		for (size_t i = 0; i < modBindings.size(); ++i)
+			modStates[i] = modBindings[i].update(gamepad);
 	}
 
 	// Rebuilds the raw DirectInput masks from the bindings. Called once per
@@ -890,6 +982,65 @@ public:
 		Game::dinput_state->pressed_8 = raw_pressed;
 		Game::dinput_state->released_C = raw_released;
 	}
+
+	// Table lookups by kind, for the bindings UI which walks all three.
+	InputAction& actionFor(ActionKind kind, int index)
+	{
+		switch (kind)
+		{
+		case ActionKind::Volume: return volumeBindings[index];
+		case ActionKind::Mod:    return modBindings[index];
+		default:                 return switchBindings[index];
+		}
+	}
+
+	static const std::string& actionName(ActionKind kind, int index)
+	{
+		switch (kind)
+		{
+		case ActionKind::Volume: return volumeNames[index];
+		case ActionKind::Mod:    return modNames[index];
+		default:                 return switchNames[index];
+		}
+	}
+
+	// What to call a mod action's binding in a prompt. Prefers a keyboard one:
+	// that is what a reader can press without a pad plugged in, and the pad
+	// labels depend on which pad is connected.
+	std::string modActionDisplayName(ModAction action)
+	{
+		const auto& bindings = modBindings[size_t(action)].bindings();
+		if (bindings.empty())
+			return "(unbound)";
+
+		const InputBinding* pick = &bindings.front();
+		for (const auto& binding : bindings)
+			if (binding.isKeyboard())
+			{
+				pick = &binding;
+				break;
+			}
+
+		auto padType = SDL_GAMEPAD_TYPE_XBOX360;
+		if (auto* primary = getPrimaryGamepad())
+			padType = SDL_GetGamepadType(primary);
+
+		return pick->displayName(padType);
+	}
+
+	// True on the frame a mod action's binding goes down. Deaf while the binding
+	// dialog is up, so a key being bound never also fires what it is bound to.
+	bool modActionPressed(ModAction action) const
+	{
+		if (modActionsDeaf) [[unlikely]]
+			return false;
+
+		return modStates[size_t(action)].isNewlyPressed();
+	}
+
+	const InputAction& modAction(ModAction action) const { return modBindings[size_t(action)]; }
+	InputAction& modAction(ModAction action) { return modBindings[size_t(action)]; }
+	static const std::string& modActionName(ModAction action) { return modNames[size_t(action)]; }
 
 	void setVibration(WORD left, WORD right)
 	{
@@ -935,6 +1086,11 @@ public:
 	void addSwitchBinding(SwitchId id, Args&&... args)
 	{
 		switchBindings[int(id)].add(InputBinding(std::forward<Args>(args)...));
+	}
+	template <typename... Args>
+	void addModBinding(ModAction id, Args&&... args)
+	{
+		modBindings[int(id)].add(InputBinding(std::forward<Args>(args)...));
 	}
 
 	bool anyInputPressed()
@@ -1006,4 +1162,6 @@ public:
 constexpr uint32_t StartSwitchMask = 1 << int(SwitchId::Start);
 
 void InputManager_Update();
+bool InputManager_ModActionPressed(ModAction action);
+std::string InputManager_ModActionDisplayName(ModAction action);
 void InputManager_SetVibration(WORD left, WORD right);
