@@ -79,8 +79,11 @@ private:
 	int bindIndex = -1;
 	std::string bindingName;
 
+	// Track binding changes (options tab are handled differently)
 	bool unsavedChanges = false;
 	bool confirmingReset = false;
+
+	std::vector<Settings::SettingBase*> pendingSettings;
 
 	static InputAction& action_for(const Selection& selection)
 	{
@@ -352,18 +355,47 @@ private:
 		ImGui::TextDisabled("Bindings apply to whichever controller is selected.");
 	}
 
+	// These are tweaks settings rather than bindings, so they go to the tweaks INI
+	// the moment they are changed, the way the settings window writes them. Save
+	// and its unsaved marker stay about bindings alone.
+	void setting_changed(Settings::SettingBase& setting)
+	{
+		if (std::find(pendingSettings.begin(), pendingSettings.end(), &setting) == pendingSettings.end())
+			pendingSettings.emplace_back(&setting);
+	}
+
+	// Held back until the control being dragged is let go of, so a slider doesn't
+	// write the INI on every frame of the drag.
+	void flush_settings()
+	{
+		if (pendingSettings.empty() || ImGui::IsAnyItemActive())
+			return;
+
+		for (Settings::SettingBase* setting : pendingSettings)
+			setting->notify();
+		pendingSettings.clear();
+
+		Settings::write(Module::UserIniPath);
+	}
+
 	void draw_options()
 	{
 		auto& manager = InputManager::instance;
 
 		const char* vibrationModes[] = { "Disabled", "Enabled", "Swap L/R", "Merge L/R" };
-		ImGui::Combo("Vibration Mode", Settings::VibrationMode.ptr(), vibrationModes, IM_ARRAYSIZE(vibrationModes));
-		ImGui::SliderInt("Vibration Strength", Settings::VibrationStrength.ptr(), 0, 10);
-		ImGui::Combo("Impulse Vibration", Settings::ImpulseVibrationMode.ptr(), vibrationModes, IM_ARRAYSIZE(vibrationModes));
+		if (ImGui::Combo("Vibration Mode", Settings::VibrationMode.ptr(), vibrationModes, IM_ARRAYSIZE(vibrationModes)))
+			setting_changed(Settings::VibrationMode);
+		if (ImGui::SliderInt("Vibration Strength", Settings::VibrationStrength.ptr(), 0, 10))
+			setting_changed(Settings::VibrationStrength);
+		if (ImGui::Combo("Impulse Vibration", Settings::ImpulseVibrationMode.ptr(), vibrationModes, IM_ARRAYSIZE(vibrationModes)))
+			setting_changed(Settings::ImpulseVibrationMode);
 
 		int deadzonePercent = int(Settings::SteeringDeadZone * 100.f);
 		if (ImGui::SliderInt("Steering Deadzone", &deadzonePercent, 5, 20, "%d%%"))
+		{
 			Settings::SteeringDeadZone = float(deadzonePercent) / 100.f;
+			setting_changed(Settings::SteeringDeadZone);
+		}
 
 		ImGui::Checkbox("Bypass Sensitivity", &manager.BypassGameSensitivity);
 		if (ImGui::IsItemHovered())
@@ -512,6 +544,7 @@ public:
 				{
 					unsavedChanges = true;
 					Settings::SteeringDeadZone = 0.2f;
+					setting_changed(Settings::SteeringDeadZone);
 					manager.BypassGameSensitivity = false;
 					manager.setupDefaultBindings();
 					if (auto* controller = manager.getPrimaryGamepad())
@@ -532,6 +565,10 @@ public:
 
 			ImGui::EndPopup();
 		}
+
+		// Outside the popup so a change still reaches the INI on the frame the
+		// dialog is closed.
+		flush_settings();
 
 		if (!dialogOpen)
 		{
