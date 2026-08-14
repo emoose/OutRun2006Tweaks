@@ -34,7 +34,7 @@ class OverlaySettingsWindow : public OverlayWindow
 		// rebuilding the atlas. Only done once the slider is let go of, rather
 		// than on every frame of the drag.
 		static bool fontScaleHeld = false;
-		if (ImGui::SliderFloat("Font Scale", &Overlay::GlobalFontScale, 0.5f, 2.5f))
+		if (ImGui::SliderFloat("Font Scale", &Overlay::GlobalFontScale, 0.5f, 3.5f))
 			fontScaleHeld = true;
 		if (fontScaleHeld && ImGui::IsMouseReleased(ImGuiMouseButton_Left))
 		{
@@ -49,6 +49,8 @@ class OverlaySettingsWindow : public OverlayWindow
 			changed = true;
 		}
 
+		// Debug only, as custom styles aren't currently saved
+#ifdef _DEBUG
 		if (ImGui::Button("Open UI Style Editor"))
 			showStyleEditor = true;
 
@@ -58,6 +60,7 @@ class OverlaySettingsWindow : public OverlayWindow
 		// editor changed.
 		if (ImGui::Button("Reset Style"))
 			Overlay::apply_style();
+#endif
 
 		return changed;
 	}
@@ -91,7 +94,7 @@ class OverlaySettingsWindow : public OverlayWindow
 			static const char* items[]{ "Disable", "Enable", "During Menus Only" };
 			changed |= ImGui::Combo("Chatroom", &Overlay::ChatMode, items, IM_ARRAYSIZE(items));
 		}
-		changed |= ImGui::SliderFloat("Chat Font Size", &Overlay::ChatFontSize, 0.5f, 2.5f);
+		changed |= ImGui::SliderFloat("Chat Font Size", &Overlay::ChatFontSize, 0.5f, 3.5f);
 		changed |= ImGui::Checkbox("Hide Chat Background", &Overlay::ChatHideBackground);
 
 		return changed;

@@ -95,6 +95,11 @@ public:
 
 	void render(bool overlayEnabled) override
 	{
+		if (ImGui::Button("Troubleshooting"))
+			ShellExecuteA(nullptr, "open", "https://github.com/emoose/OutRun2006Tweaks/discussions/318", 0, 0, SW_SHOWNORMAL);
+
+		ImGui::SameLine();
+
 		const char* label = "Show First Run Page";
 		const float buttonWidth = ImGui::CalcTextSize(label).x +
 			ImGui::GetStyle().FramePadding.x * 2.0f;
@@ -127,11 +132,11 @@ public:
 		const float measure = min(ImGui::GetContentRegionAvail().x, ImGui::GetFontSize() * 34.0f);
 		const float margin = (ImGui::GetContentRegionAvail().x - measure) * 0.5f;
 
-		text_centred("The tweaks are free and open-source, licensed under the MIT License.");
+		text_centred("OutRun2006Tweaks is free and open-source software, licensed under the MIT License.");
 
 		ImGui::Indent(margin);
 		ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + measure);
-		ImGui::TextUnformatted("Online services for multiplayer/leaderboards/ghost downloads are free too, but these run on servers paid for out of pocket, so keeping them online is an ongoing cost.");
+		ImGui::TextUnformatted("Online services for multiplayer/leaderboards/ghost downloads are free too, but run on servers paid for out of pocket, so keeping them online is an ongoing cost.");
 		ImGui::TextUnformatted("If any of this has added something to your time with the game, a coffee goes a long way towards keeping it all running.");
 		ImGui::PopTextWrapPos();
 		ImGui::Unindent(margin);

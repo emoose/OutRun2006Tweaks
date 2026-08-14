@@ -527,14 +527,14 @@ static void render_first_run_intro()
 {
 	constexpr const char* SpritesUrl = "https://gamebanana.com/games/20751";
 	constexpr const char* LeaderboardsUrl = "http://clarissa.port0.org";
-	constexpr const char* Title = "Welcome##firstrun";
+	constexpr const char* Title = "First Run - Welcome!##firstrun";
 
 	if (!ImGui::IsPopupOpen(Title))
 		ImGui::OpenPopup(Title);
 
 	const ImVec2 display = ImGui::GetIO().DisplaySize;
-	ImGui::SetNextWindowPos(ImVec2(display.x * 0.5f, display.y * 0.5f), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
-	ImGui::SetNextWindowSize(ImVec2(display.x * 0.2f, 0.0f), ImGuiCond_Appearing);
+	ImGui::SetNextWindowPos(ImVec2(display.x * 0.5f, display.y * 0.5f), 0, ImVec2(0.5f, 0.5f));
+	ImGui::SetNextWindowSize(ImVec2(display.x * (0.1f * Overlay::GlobalFontScale), 0.0f));
 
 	if (!ImGui::BeginPopupModal(Title, nullptr, ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoResize))
 		return;
@@ -575,6 +575,26 @@ static void render_first_run_intro()
 	ImGui::Unindent();
 
 	ImGui::Spacing();
+	ImGui::TextUnformatted("If this font size isn't suitable, you can adjust it here (or in the Overlay section):");
+
+	bool changed = false;
+	static bool fontScaleHeld = false;
+	static float fontScale = Overlay::GlobalFontScale; // TODO: This can go stale if user closes popup -> changes setting in Overlay -> opens popup
+	if (ImGui::SliderFloat("Font Scale", &fontScale, 0.5f, 3.5f))
+		fontScaleHeld = true;
+	if (fontScaleHeld && ImGui::IsMouseReleased(ImGuiMouseButton_Left))
+	{
+		Overlay::GlobalFontScale = fontScale;
+		Overlay::FontsDirty = true;
+		changed = true;
+		fontScaleHeld = false;
+	}
+
+	if (changed && !ImGui::IsAnyItemActive())
+	{
+		Overlay::settings_write();
+	}
+
 	ImGui::TextUnformatted("Have fun, and enjoy the Beautiful Journey!");
 	ImGui::TextDisabled("- emoose");
 
