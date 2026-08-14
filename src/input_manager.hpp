@@ -459,34 +459,7 @@ public:
 			setupGamepad(pad);
 	}
 
-	void init(HWND hwnd)
-	{
-		SDL_SetHint(SDL_HINT_JOYSTICK_RAWINPUT, "0");
-		SDL_SetHint(SDL_HINT_JOYSTICK_WGI, "1");
-		SDL_SetHint(SDL_HINT_JOYSTICK_DIRECTINPUT, "1");
-
-		SDL_Init(SDL_INIT_GAMEPAD | SDL_INIT_VIDEO);
-
-		// Need to setup SDL_Window for SDL to see keyboard events
-		SDL_PropertiesID props = SDL_CreateProperties();
-		if (props)
-		{
-			SDL_SetStringProperty(props, SDL_PROP_WINDOW_CREATE_TITLE_STRING, "OutRun2006Tweaks");
-			SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_RESIZABLE_BOOLEAN, true);
-			SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_WIDTH_NUMBER, 1280);
-			SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_HEIGHT_NUMBER, 720);
-			SDL_SetPointerProperty(props, SDL_PROP_WINDOW_CREATE_WIN32_HWND_POINTER, hwnd);
-
-			window = SDL_CreateWindowWithProperties(props);
-		}
-		else
-			spdlog::error(__FUNCTION__ ": failed to create properties ({}), keyboard might not work with UseNewInput properly!", SDL_GetError());
-
-		if (!readBindingIni(Module::BindingsIniPath))
-			setupDefaultBindings();
-
-		ensureOverlayBindable();
-	}
+	void init(HWND hwnd);
 
 	// An ini written before an action existed has no lines for it, so it loads
 	// unbound. That is recoverable for every action except the overlay toggle:

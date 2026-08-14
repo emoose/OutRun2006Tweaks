@@ -8,9 +8,49 @@ namespace Settings
 	Setting<bool> BypassGameSensitivity{ "Controls", "BypassGameSensitivity", false,
 		"Passes steering input to the game directly instead of through its own sensitivity curve, allowing for more "
 		"sensitive controls. Only used when UseNewInput is enabled." };
+
+	Setting<bool> AllowRawInput{ "Controls", "AllowRawInput", true,
+		"Allows SDL to use RawInput backend" };
+	Setting<bool> AllowDirectInput{ "Controls", "AllowDirectInput", true,
+		"Allows SDL to use DirectInput backend" };
+	Setting<bool> AllowXInput{ "Controls", "AllowXInput", false,
+		"Allows SDL to use XInput backend" };
+	Setting<bool> AllowWGI{ "Controls", "AllowWGI", true,
+		"Allows SDL to use WGI backend" };
 }
 
 InputManager InputManager::instance;
+
+// TODO: Move most of input_manager.hpp to this .cpp, not sure why so much was left in there..
+void InputManager::init(HWND hwnd)
+{
+	SDL_SetHint(SDL_HINT_JOYSTICK_RAWINPUT, Settings::AllowRawInput ? "1" : "0");
+	SDL_SetHint(SDL_HINT_JOYSTICK_DIRECTINPUT, Settings::AllowDirectInput ? "1" : "0");
+	SDL_SetHint(SDL_HINT_XINPUT_ENABLED, Settings::AllowXInput ? "1" : "0");
+	SDL_SetHint(SDL_HINT_JOYSTICK_WGI, Settings::AllowWGI ? "1" : "0");
+
+	SDL_Init(SDL_INIT_GAMEPAD | SDL_INIT_VIDEO);
+
+	// Need to setup SDL_Window for SDL to see keyboard events
+	SDL_PropertiesID props = SDL_CreateProperties();
+	if (props)
+	{
+		SDL_SetStringProperty(props, SDL_PROP_WINDOW_CREATE_TITLE_STRING, "OutRun2006Tweaks");
+		SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_RESIZABLE_BOOLEAN, true);
+		SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_WIDTH_NUMBER, 1280);
+		SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_HEIGHT_NUMBER, 720);
+		SDL_SetPointerProperty(props, SDL_PROP_WINDOW_CREATE_WIN32_HWND_POINTER, hwnd);
+
+		window = SDL_CreateWindowWithProperties(props);
+	}
+	else
+		spdlog::error(__FUNCTION__ ": failed to create properties ({}), keyboard might not work with UseNewInput properly!", SDL_GetError());
+
+	if (!readBindingIni(Module::BindingsIniPath))
+		setupDefaultBindings();
+
+	ensureOverlayBindable();
+}
 
 void InputManager_Update()
 {
@@ -142,6 +182,10 @@ public:
 	{
 		Settings::UseNewInput.needs_restart();
 		Settings::UseNewInput.hidden(true);
+		Settings::AllowRawInput.hidden(true);
+		Settings::AllowDirectInput.hidden(true);
+		Settings::AllowXInput.hidden(true);
+		Settings::AllowWGI.hidden(true);
 	}
 
 	bool apply() override
