@@ -95,9 +95,15 @@ public:
 
 	void render(bool overlayEnabled) override
 	{
-		const float lineHeight = ImGui::GetTextLineHeight();
+		const char* label = "Show First Run Page";
+		const float buttonWidth = ImGui::CalcTextSize(label).x +
+			ImGui::GetStyle().FramePadding.x * 2.0f;
 
-		ImGui::Dummy(ImVec2(0.0f, lineHeight));
+		ImGui::SetCursorPosX(ImGui::GetWindowContentRegionMax().x - buttonWidth);
+		if (ImGui::Button(label))
+			Overlay::IsFirstRun = true;
+
+		const float lineHeight = ImGui::GetTextLineHeight();
 
 		{
 			ScopedFontScale big(2.0f);

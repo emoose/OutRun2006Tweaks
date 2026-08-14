@@ -57,7 +57,8 @@ void Overlay::render_shell()
 {
 	const ContentRect content = content_rect();
 
-	const ImVec2 windowSize(min(810.f, content.width - 40.f), min(560.f, content.height - 40.f));
+	// default to 1130 width to fully show course editor at fontsize 2.0
+	const ImVec2 windowSize(min(1130.f, content.width - 40.f), min(600.f, content.height - 40.f));
 
 	ImGui::SetNextWindowSize(windowSize, ImGuiCond_FirstUseEver);
 	ImGui::SetNextWindowPos(
@@ -554,10 +555,13 @@ static void render_first_run_intro()
 	ImGui::TextUnformatted("Letterboxing is enabled in menus by default, but racing is full widescreen. (can be changed to 4:3 in Tweaks settings)");
 
 	ImGui::Bullet();
+	ImGui::TextUnformatted("Controller vibration is supported, but disabled by default as some Bluetooth controllers can have framerate issues. (configure it in Controls settings)");
+
+	ImGui::Bullet();
 	ImGui::TextUnformatted("Online play and leaderboards are back! Create an account from the game's menus to "
 		"race online, download ghosts to run against, and post times.");
 	ImGui::Indent();
-	if (ImGui::Button("Open leaderboards website"))
+	if (ImGui::Button("Click to view leaderboards website"))
 		ShellExecuteA(nullptr, "open", LeaderboardsUrl, 0, 0, SW_SHOWNORMAL);
 	ImGui::Unindent();
 

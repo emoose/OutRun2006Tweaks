@@ -6,7 +6,7 @@ namespace Settings
 {
 	Setting<int> UIScalingMode{ "Graphics", "UIScalingMode", 1,
 		"Adjusts the UI scaling applied by the game.",
-		{ "Vanilla, stretches to screen ratio", "Scaled UI without stretching (Outrun Online Arcade)",
+		{ "Vanilla, stretches to screen ratio", "Scaled UI, no stretching (Outrun Online Arcade)",
 		  "Centered 4:3 UI" } };
 	Setting<int> UILetterboxing{ "Graphics", "UILetterboxing", 1,
 		"Adds 4:3 letterboxing to game menus, to address graphical issues outside of the menus 4:3 display. "
