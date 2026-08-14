@@ -749,13 +749,23 @@ bool Overlay::settings_read()
 	// folder, so this player still hasn't seen the introduction.
 	if (!IsFirstRun)
 	{
-		std::string machineId;
-		machineId = ini.Get("Overlay", "UniqueId", machineId);
+		std::string machineId, version;
+		machineId = ini.Get("Overlay", "FirstRunUniqueId", machineId);
 		if (machineId != machine_id())
 		{
 			spdlog::info("Overlay::settings_read - INI was written on a different machine, treating as first run");
 			IsFirstRun = true;
 		}
+
+		// if we add any changelog to the first-run screen:
+#if 0
+		version = ini.Get("Overlay", "LastRunVersion", version);
+		if (version != std::string(MODULE_VERSION_STR))
+		{
+			spdlog::info("Overlay::settings_read - INI was written on a different version, treating as first run");
+			IsFirstRun = true;
+		}
+#endif
 	}
 
 	GlobalFontScale = ini.Get("Overlay", "FontScale", GlobalFontScale);
@@ -784,7 +794,8 @@ bool Overlay::settings_read()
 bool Overlay::settings_write()
 {
 	inih::INIReader ini;
-	ini.Set("Overlay", "UniqueId", machine_id());
+	ini.Set("Overlay", "FirstRunUniqueId", machine_id());
+	ini.Set("Overlay", "LastRunVersion", MODULE_VERSION_STR);
 	ini.Set("Overlay", "FontScale", GlobalFontScale);
 	ini.Set("Overlay", "Opacity", GlobalOpacity);
 	ini.Set("Overlay", "Theme", CurrentTheme);

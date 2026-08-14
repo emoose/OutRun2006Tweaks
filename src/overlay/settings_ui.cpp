@@ -258,6 +258,9 @@ public:
 				if (ImGui::Button("Configure Input Bindings"))
 					Overlay::IsBindingDialogActive = true;
 
+			if (section == "CDSwitcher" && search.empty())
+				ImGui::Text("Custom tracks can be added in OutRun2006Tweaks.ini [CDTracks] section.");
+
 			for (Settings::SettingBase* setting : Settings::SettingBase::registry())
 			{
 				if (setting->hidden() || setting->section() != std::string_view(section))

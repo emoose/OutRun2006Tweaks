@@ -576,12 +576,8 @@ public:
 		addSwitchBinding(SwitchId::X, SDL_GAMEPAD_BUTTON_LEFT_SHOULDER);
 		addSwitchBinding(SwitchId::Y, SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER);
 
-		// Mod actions. Keyboard only by default: every gamepad button the game
-		// does not already use is one the user may want for something, and the
-		// music keys in particular used to be a chord (Back, RS+Back) which a
-		// single binding cannot express.
+		// Mod actions.
 		addModBinding(ModAction::OverlayToggle, SDL_SCANCODE_F11);
-		addModBinding(ModAction::HudToggle, SDL_SCANCODE_F10);
 		addModBinding(ModAction::MusicNext, SDL_SCANCODE_X);
 		addModBinding(ModAction::MusicNext, SDL_GAMEPAD_BUTTON_BACK);
 		addModBinding(ModAction::MusicPrevious, SDL_SCANCODE_Z);

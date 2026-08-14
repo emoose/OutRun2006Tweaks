@@ -113,6 +113,7 @@ public:
 
 		const std::string copyright = std::format("Copyright (c) 2024 - {} emoose", current_year());
 		text_centred_dim(copyright.c_str());
+
 		link_centred("https://github.com/emoose/OutRun2006Tweaks", "https://github.com/emoose/OutRun2006Tweaks");
 
 		ImGui::Dummy(ImVec2(0.0f, lineHeight * 0.5f));
@@ -120,16 +121,16 @@ public:
 		const float measure = min(ImGui::GetContentRegionAvail().x, ImGui::GetFontSize() * 34.0f);
 		const float margin = (ImGui::GetContentRegionAvail().x - measure) * 0.5f;
 
-		text_centred("The tweaks are free, and so are the online services.");
+		text_centred("The tweaks are free and open-source, licensed under the MIT License.");
 
 		ImGui::Indent(margin);
 		ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + measure);
-		ImGui::TextUnformatted("Multiplayer, leaderboards and ghost downloads all run on servers paid out of pocket, keeping them up is an ongoing cost.");
-		ImGui::TextUnformatted("If any of this has added something to your time with the game, a coffee goes a long way towards keeping it running.");
+		ImGui::TextUnformatted("Online services for multiplayer/leaderboards/ghost downloads are free too, but these run on servers paid for out of pocket, so keeping them online is an ongoing cost.");
+		ImGui::TextUnformatted("If any of this has added something to your time with the game, a coffee goes a long way towards keeping it all running.");
 		ImGui::PopTextWrapPos();
 		ImGui::Unindent(margin);
 
-		ImGui::Dummy(ImVec2(0.0f, lineHeight * 0.75f));
+		ImGui::Dummy(ImVec2(0.0f, lineHeight * 0.50f));
 
 		link_centred("https://ko-fi.com/emoose", "https://ko-fi.com/emoose");
 	}

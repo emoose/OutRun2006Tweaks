@@ -17,7 +17,7 @@ namespace Settings
 
 	Setting<bool> CDSwitcherEnable{ "CDSwitcher", "SwitcherEnable", false,
 		"Installs an aftermarket CD switcher onto each of your cars, which can be used to change music tracks during a race. "
-		"Tracks are changed with the Z and X keys, or the gamepad buttons bound below." };
+		"Tracks are changed with the Z and X keys by default, can be rebound in the bindings config." };
 	Setting<bool> CDSwitcherDisplayTitle{ "CDSwitcher", "SwitcherDisplayTitle", true,
 		"Whether to display track title after switching." };
 	Setting<int> CDSwitcherTitleFont{ "CDSwitcher", "SwitcherTitleFont", 2,
@@ -32,7 +32,7 @@ namespace Settings
 	Setting<int> CDSwitcherTitlePositionY{ "CDSwitcher", "SwitcherTitlePositionY", 450,
 		"Where the track title is drawn on screen, based on games original 640x480 screen dimensions." };
 	Setting<bool> CDSwitcherShuffleTracks{ "CDSwitcher", "SwitcherShuffleTracks", false,
-		"Shuffles the tracks defined in CDTracks section on game launch." };
+		"Shuffles the tracks on game launch." };
 }
 
 std::string BGMOverridePath;
