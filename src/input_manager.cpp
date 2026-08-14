@@ -20,9 +20,9 @@ void InputManager_Update()
 
 // Only meaningful with the new input system; callers fall back to their own
 // hardcoded keys when it is off.
-bool InputManager_ModActionPressed(ModAction action)
+bool InputManager_ModActionHeld(ModAction action)
 {
-	return Settings::UseNewInput && InputManager::instance.modActionPressed(action);
+	return Settings::UseNewInput && InputManager::instance.modActionHeld(action);
 }
 
 // The bound name with the new input system, or the fixed key the legacy paths

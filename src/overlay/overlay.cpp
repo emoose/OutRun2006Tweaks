@@ -626,7 +626,15 @@ bool Overlay::render()
 	// The bound action when the new input system is on, F11 otherwise. The
 	// binding dialog owns every input while it is up, so the action reports
 	// nothing there and the ImGui path is held off to match.
-	bool toggleOverlay = InputManager_ModActionPressed(ModAction::OverlayToggle);
+	// The action reports held rather than an edge, so the press is taken against
+	// last frame here: the input manager updates on game ticks, which do not line
+	// up with rendered frames.
+	static bool overlayKeyHeld = false;
+	const bool overlayKeyNow = InputManager_ModActionHeld(ModAction::OverlayToggle);
+
+	bool toggleOverlay = overlayKeyNow && !overlayKeyHeld;
+	overlayKeyHeld = overlayKeyNow;
+
 	if (!Settings::UseNewInput && !Overlay::IsBindingDialogActive)
 		toggleOverlay |= ImGui::IsKeyReleased(ImGuiKey_F11);
 

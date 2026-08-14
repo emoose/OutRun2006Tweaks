@@ -1028,14 +1028,20 @@ public:
 		return pick->displayName(padType);
 	}
 
-	// True on the frame a mod action's binding goes down. Deaf while the binding
-	// dialog is up, so a key being bound never also fires what it is bound to.
-	bool modActionPressed(ModAction action) const
+	// Whether a mod action's binding is down right now. Deliberately not an edge:
+	// this updates once per game tick while callers read on their own cadence,
+	// which for the overlay is once per rendered frame, so an edge taken here
+	// would be seen twice above tick rate and missed below it. Callers compare
+	// against their own previous value instead, which is right at any rate.
+	//
+	// False while the binding dialog is up, so a key being bound never also fires
+	// what it is bound to.
+	bool modActionHeld(ModAction action) const
 	{
 		if (modActionsDeaf) [[unlikely]]
 			return false;
 
-		return modStates[size_t(action)].isNewlyPressed();
+		return modStates[size_t(action)].isPressed();
 	}
 
 	const InputAction& modAction(ModAction action) const { return modBindings[size_t(action)]; }
@@ -1162,6 +1168,6 @@ public:
 constexpr uint32_t StartSwitchMask = 1 << int(SwitchId::Start);
 
 void InputManager_Update();
-bool InputManager_ModActionPressed(ModAction action);
+bool InputManager_ModActionHeld(ModAction action);
 std::string InputManager_ModActionDisplayName(ModAction action);
 void InputManager_SetVibration(WORD left, WORD right);

@@ -76,17 +76,13 @@ namespace Input
 
     void HudToggleUpdate()
     {
-        if (Settings::UseNewInput)
-        {
-            if (InputManager_ModActionPressed(ModAction::HudToggle))
-                *Game::navipub_disp_flg = (*Game::navipub_disp_flg == 0 ? 1 : 0);
-            return;
-        }
-
-        // Legacy input: fixed key, since there is no binding UI without the new
-        // system to change it from.
         static bool HudTogglePrevState = false;
-        bool hudToggleKeyState = (GetAsyncKeyState(HudToggleVKey) & 0x8000);
+
+        // Legacy input has no binding UI, so it uses a fixed key.
+        bool hudToggleKeyState = Settings::UseNewInput
+            ? InputManager_ModActionHeld(ModAction::HudToggle)
+            : (GetAsyncKeyState(HudToggleVKey) & 0x8000) != 0;
+
         if (HudTogglePrevState != hudToggleKeyState)
         {
             HudTogglePrevState = hudToggleKeyState;

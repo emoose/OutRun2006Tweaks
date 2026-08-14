@@ -298,12 +298,14 @@ class ReplaceGameUpdateLoop : public Hook
 	{
 		auto CurGameState = *Game::current_mode;
 
+#ifdef _DEBUG
 		// TEMP: Allow toggling interpolation with K key
 		if (IsKeyPressed('K'))
 		{
 			Settings::FramerateInterpolation = !Settings::FramerateInterpolation;
 			Interp::Reset();
 		}
+#endif
 
 		// Skip framelimiter during load screens to help reduce load times
 		bool skipFrameLimiter = Settings::FramerateLimit == 0;

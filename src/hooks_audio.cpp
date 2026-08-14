@@ -147,8 +147,8 @@ class CDSwitcher : public Hook
 
 		if (Settings::UseNewInput)
 		{
-			KeyStateNext = InputManager_ModActionPressed(ModAction::MusicNext);
-			KeyStatePrev = InputManager_ModActionPressed(ModAction::MusicPrevious);
+			KeyStateNext = InputManager_ModActionHeld(ModAction::MusicNext);
+			KeyStatePrev = InputManager_ModActionHeld(ModAction::MusicPrevious);
 		}
 		else
 		{
