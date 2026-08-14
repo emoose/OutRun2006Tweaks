@@ -545,7 +545,7 @@ static void render_first_run_intro()
 	ImGui::Spacing();
 
 	ImGui::TextUnformatted("Here you can configure Tweaks, setup a custom course, and adjust the overlay theme.");
-	ImGui::TextUnformatted("(to change the games bindings, head to the game's Settings > Controls menu)");
+	ImGui::TextUnformatted("(to change the games bindings, head to the game's Options > Controls menu)");
 	ImGui::Spacing();
 
 	ImGui::TextUnformatted("If this is your first time playing OutRun 2006 with Tweaks, a few things worth knowing:");
