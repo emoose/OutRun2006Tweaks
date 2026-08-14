@@ -524,7 +524,7 @@ const char* const* Overlay::theme_names()
 // overlay ini yet.
 static void render_first_run_intro()
 {
-	constexpr const char* SpritesUrl = "https://github.com/envido32/OR2006Sprites/releases";
+	constexpr const char* SpritesUrl = "https://gamebanana.com/games/20751";
 	constexpr const char* LeaderboardsUrl = "http://clarissa.port0.org";
 	constexpr const char* Title = "Welcome##firstrun";
 
@@ -545,14 +545,13 @@ static void render_first_run_intro()
 	ImGui::Spacing();
 
 	ImGui::TextUnformatted("Here you can configure Tweaks, setup a custom course, and adjust the overlay theme.");
-	ImGui::TextUnformatted("(to change the games bindings, head to the game's Options > Controls menu)");
 	ImGui::Spacing();
 
-	ImGui::TextUnformatted("If this is your first time playing OutRun 2006 with Tweaks, a few things worth knowing:");
+	ImGui::TextUnformatted("If it's your first time playing OutRun 2006 with Tweaks, a few things worth knowing:");
 	ImGui::Spacing();
 
 	ImGui::Bullet();
-	ImGui::TextUnformatted("Letterboxing is enabled in menus by default, but racing is full widescreen.");
+	ImGui::TextUnformatted("Letterboxing is enabled in menus by default, but racing is full widescreen. (can be changed to 4:3 in Tweaks settings)");
 
 	ImGui::Bullet();
 	ImGui::TextUnformatted("Online play and leaderboards are back! Create an account from the game's menus to "
@@ -564,7 +563,7 @@ static void render_first_run_intro()
 
 	ImGui::Bullet();
 	ImGui::TextUnformatted("The game's default UI textures were made for 2006 machines and are very low resolution. "
-		"HD replacements can be downloaded from the OR2006Sprites repo:");
+		"HD replacements can be downloaded from the C2C GameBanana page:");
 
 	ImGui::Indent();
 	if (ImGui::Button(SpritesUrl))

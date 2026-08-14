@@ -12,8 +12,8 @@
 namespace Settings
 {
 	Setting<int> DrawDistanceIncrease{ "Graphics", "DrawDistanceIncrease", 0,
-		"Increases the distance that stage models will begin drawing at, helping a lot with pop-in. The higher this is tweaked "
-		"the higher the chance that LOD models appear earlier than they should; 4-8 fixes the worst pop-in without LOD issues.", Range<int>{ 0, 1024 } };
+		"Increases the distance that stage models will begin drawing at, helping a lot with pop-in. "
+		"Higher values may have a chance of causing LOD models to appear, please post screenshots of any you find on the GitHub page for them to get fixed!", Range<int>{ 0, 1024 } };
 	Setting<int> DrawDistanceBehind{ "Graphics", "DrawDistanceBehind", 0,
 		"Increases the distance models will draw behind the car, rather than them being culled out almost immediately. "
 		"A lot of models have backface culling issues, so only recommended if using freecam or other camera mods!", Range<int>{ 0, 1024 } };
@@ -369,12 +369,12 @@ class StableDrawSort : public Hook
 	// it can sort ahead of something that visibly sits on it. The far edge scales
 	// the key with the object instead. Radius is object space, so this is off by
 	// the world matrix scale.
-//
+	//
 	// Keep it one key: a comparator that instead calls depths within a tolerance
 	// equal is not a strict weak ordering, and std::sort reads out of bounds when
 	// given one.
 	static float SortKey(const DrawEntry* entry)
-{
+	{
 		const float radius = entry->CullNode_18 ? entry->CullNode_18->radius : 0.0f;
 		return entry->CenterZ_0 - radius;
 	}
@@ -568,6 +568,13 @@ public:
 	bool validate() override
 	{
 		return Settings::DrawDistanceIncrease > 0 || Settings::DrawDistanceBehind > 0;
+	}
+
+	void declare_settings() override
+	{
+		// TODO: DrawDistanceBehind causes some stage models not to draw for some reason.
+		// Once that's fixed this can be unhidden.
+		Settings::DrawDistanceBehind.hidden(true);
 	}
 
 	bool apply() override

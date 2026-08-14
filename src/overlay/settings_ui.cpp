@@ -19,7 +19,7 @@ class SettingsWindow : public OverlayWindow
 	// Section order of the shipped INI. Anything registered under a section not
 	// listed here is added to the end rather than dropped.
 	static inline const char* SectionOrder[] = {
-		"Performance", "Controls", "Graphics", "Audio", "CDSwitcher", "Window", "Misc", "Overlay", "Bugfixes",
+		"Performance", "Graphics", "Controls", "Audio", "CDSwitcher", "Window", "Misc", "Overlay", "Bugfixes",
 	};
 
 	std::vector<std::string> sections;
@@ -254,6 +254,10 @@ public:
 			// rather than only the settings whose own names happen to match.
 			const bool wholeSection = matches_search(section, search);
 
+			if (section == "Controls" && search.empty())
+				if (ImGui::Button("Configure Input Bindings"))
+					Overlay::IsBindingDialogActive = true;
+
 			for (Settings::SettingBase* setting : Settings::SettingBase::registry())
 			{
 				if (setting->hidden() || setting->section() != std::string_view(section))
@@ -268,6 +272,15 @@ public:
 					settingsDirty = true;
 					if (std::find(pendingNotify.begin(), pendingNotify.end(), setting) == pendingNotify.end())
 						pendingNotify.emplace_back(setting);
+				}
+
+				// Failsafe if user has entered framerate above 0 but less than 60
+				// (since game is mainly meant for playing at 60 - it /should/ allow running at lower framerates though, but will likely break things)
+				if (settingsDirty && setting == &Settings::FramerateLimit)
+				{
+					int val = Settings::FramerateLimit.get();
+					if (val > 0 && val < 60)
+						*Settings::FramerateLimit.ptr() = 60;
 				}
 
 				draw_description(setting);

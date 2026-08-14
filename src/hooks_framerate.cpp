@@ -19,10 +19,11 @@ typedef struct timecaps_tag {
 namespace Settings
 {
 	Setting<int> FramerateLimit{ "Performance", "FramerateLimit", 0,
-		"0 will disable framelimiter and rely on vsync to match your monitor refresh rate instead (or an external limiter). "
+		"Valid values are 0 (unlimited/vsync), 60 (vanilla), or values above 60. "
 		"Framerates above 60 will duplicate frames, unless FramerateInterpolation is also enabled." };
 	Setting<int> FramerateFastLoad{ "Performance", "FramerateFastLoad", 3,
-		"Unlimits framerate during load screens to help reduce load times.",
+		"Unlimits framerate during load screens to help reduce load times. "
+		"(NOTE: slow load times can be caused by external framelimiters - Tweaks can't help those)",
 		{ "Disable", "Unlimit framerate during load screens", "Unlimit framerate & disable vsync (may cause screen flash)",
 		  "(fastest) Process files during framelimit period" } };
 	Setting<bool> FramerateInterpolation{ "Performance", "FramerateInterpolation", true,
@@ -659,8 +660,7 @@ public:
 			// 0, 1 and 2 are only tested by the loop, so they interchange freely.
 			return (Settings::FramerateFastLoad.startup_value() == 3) != (Settings::FramerateFastLoad.get() == 3);
 		});
-		// Input::Update is driven from this loop, and latches the key it parses.
-
+		Settings::FramerateUnlockExperimental.hidden(true);
 		Settings::FramerateInterpolationDebugAlpha.hidden(true);
 		Settings::FramerateInterpolationDebugLog.hidden(true);
 	}

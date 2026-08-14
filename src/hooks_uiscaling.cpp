@@ -6,13 +6,13 @@ namespace Settings
 {
 	Setting<int> UIScalingMode{ "Graphics", "UIScalingMode", 1,
 		"Adjusts the UI scaling applied by the game.",
-		{ "Game default, stretches to screen ratio", "Fixed UI scaling without stretching, based on Outrun Online Arcade",
-		  "4:3 UI centered to middle of screen" } };
+		{ "Vanilla, stretches to screen ratio", "Scaled UI without stretching (Outrun Online Arcade)",
+		  "Centered 4:3 UI" } };
 	Setting<int> UILetterboxing{ "Graphics", "UILetterboxing", 1,
-		"Adds 4:3 letterboxing to game menus, to address some graphical issues outside of the menus 4:3 display. "
-		"Only used when UIScalingMode is set to 1 or above.",
+		"Adds 4:3 letterboxing to game menus, to address graphical issues outside of the menus 4:3 display. "
+		"Only used when UIScalingMode isn't set to Vanilla.",
 		{ "Disable all letterboxing", "Letterbox menus only, disabled when in-game",
-		  "Always letterbox (only recommended with UIScalingMode = 2)" } };
+		  "Always letterbox (only use with Centered 4:3 UI)" } };
 }
 
 enum class ScalingMode

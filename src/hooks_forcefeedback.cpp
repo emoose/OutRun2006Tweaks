@@ -78,10 +78,10 @@ public:
 
     void declare_settings() override
     {
-        // Both are copied into globals below, which the naked CalcVibrationValues
-        // reads, so a change can't reach them without re-copying.
-        Settings::VibrationStrength.needs_restart();
+        Settings::VibrationStrength.watch([] { VibrationStrength = Settings::VibrationStrength; });
+
         Settings::VibrationControllerId.needs_restart();
+        Settings::VibrationControllerId.hidden(Settings::UseNewInput); // Only hidden if UseNewInput enabled
     }
 
     bool apply() override
