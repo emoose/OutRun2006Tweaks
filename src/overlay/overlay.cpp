@@ -57,8 +57,16 @@ void Overlay::render_shell()
 {
 	const ContentRect content = content_rect();
 
-	ImGui::SetNextWindowSize(ImVec2(min(760.f, content.width - 40.f), min(560.f, content.height - 40.f)), ImGuiCond_FirstUseEver);
-	ImGui::SetNextWindowPos(ImVec2(content.x + 20.f, 20.f), ImGuiCond_FirstUseEver);
+	const ImVec2 windowSize(min(810.f, content.width - 40.f), min(560.f, content.height - 40.f));
+
+	ImGui::SetNextWindowSize(windowSize, ImGuiCond_FirstUseEver);
+	ImGui::SetNextWindowPos(
+		ImVec2(
+			content.x + (content.width - windowSize.x) * 0.5f,
+			content.y + (content.height - windowSize.y) * 0.5f
+		),
+		ImGuiCond_FirstUseEver
+	);
 
 	if (ImGui::Begin("OutRun2006Tweaks", nullptr, ImGuiWindowFlags_NoCollapse))
 	{

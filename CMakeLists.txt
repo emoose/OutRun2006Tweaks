@@ -317,6 +317,7 @@ set(outrun2006tweaks_SOURCES
 	"src/interpolation.cpp"
 	"src/interpolation.hpp"
 	"src/network.cpp"
+	"src/overlay/about_ui.cpp"
 	"src/overlay/chatroom.cpp"
 	"src/overlay/course_editor.cpp"
 	"src/overlay/debug_ui.cpp"
