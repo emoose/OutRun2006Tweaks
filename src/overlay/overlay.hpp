@@ -94,9 +94,10 @@ public:
 
 	inline static bool IsActive = false;
 
-	// No overlay ini on disk means the overlay has never been opened, so the
-	// first open shows an introduction. Cleared as soon as it has been shown,
-	// and the ini written, so it only ever appears once.
+	// Set when no overlay ini is on disk, or when the one that is there was
+	// written on another machine, either of which means the overlay has never
+	// been opened here, so the first open shows an introduction. Cleared as soon
+	// as it has been shown, and the ini written, so it only ever appears once.
 	inline static bool IsFirstRun = false;
 
 	inline static bool RequestBindingDialog = false;

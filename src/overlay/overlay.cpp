@@ -702,6 +702,31 @@ bool Overlay::render()
 	return IsActive;
 }
 
+// Creates a unique machine ID hash, that we can use when checking if this is the
+// first run of the game (in case user has overlay.ini from a different machine)
+static std::string machine_id()
+{
+	static const std::string id = []
+	{
+		char name[MAX_COMPUTERNAME_LENGTH + 1]{};
+		DWORD length = DWORD(std::size(name));
+		if (!GetComputerNameA(name, &length))
+			length = 0;
+
+		// FNV-1a
+		uint64_t hash = 0xCBF29CE484222325;
+		for (DWORD i = 0; i < length; i++)
+		{
+			hash ^= uint8_t(name[i]);
+			hash *= 0x100000001B3;
+		}
+
+		return std::format("{:016X}", hash);
+	}();
+
+	return id;
+}
+
 bool Overlay::settings_read()
 {
 	spdlog::info("Overlay::settings_read - reading INI from {}", Module::OverlayIniPath.string());
@@ -719,6 +744,19 @@ bool Overlay::settings_read()
 	{
 		spdlog::error("Overlay::settings_read - INI read failed! The file might not exist, or may have duplicate settings inside");
 		return false;
+	}
+
+	// An id from some other machine means the ini came along with a copied game
+	// folder, so this player still hasn't seen the introduction.
+	if (!IsFirstRun)
+	{
+		std::string machineId;
+		machineId = ini.Get("Overlay", "UniqueId", machineId);
+		if (machineId != machine_id())
+		{
+			spdlog::info("Overlay::settings_read - INI was written on a different machine, treating as first run");
+			IsFirstRun = true;
+		}
 	}
 
 	GlobalFontScale = ini.Get("Overlay", "FontScale", GlobalFontScale);
@@ -747,6 +785,7 @@ bool Overlay::settings_read()
 bool Overlay::settings_write()
 {
 	inih::INIReader ini;
+	ini.Set("Overlay", "UniqueId", machine_id());
 	ini.Set("Overlay", "FontScale", GlobalFontScale);
 	ini.Set("Overlay", "Opacity", GlobalOpacity);
 	ini.Set("Overlay", "Theme", CurrentTheme);
