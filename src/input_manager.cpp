@@ -2,21 +2,17 @@
 
 namespace Settings
 {
+	Setting<int> InputBackend{ "Controls", "InputBackend", 0,
+		"Backend to use for the SDL3 input system. "
+		"If your controller fails to be detected, try changing the backend here and relaunching.",
+		{ "Windows.Gaming.Input", "RawInput", "DirectInput", "XInput" } };
+
 	Setting<bool> UseNewInput{ "Controls", "UseNewInput", true,
 		"Enables new SDL-based input system, allowing game to see full trigger range without any shared trigger axes issues "
 		"(experimental, not every menu/gamemode has been tested with it yet)." };
 	Setting<bool> BypassGameSensitivity{ "Controls", "BypassGameSensitivity", false,
 		"Passes steering input to the game directly instead of through its own sensitivity curve, allowing for more "
 		"sensitive controls. Only used when UseNewInput is enabled." };
-
-	Setting<bool> AllowRawInput{ "Controls", "AllowRawInput", true,
-		"Allows SDL to use RawInput backend" };
-	Setting<bool> AllowDirectInput{ "Controls", "AllowDirectInput", true,
-		"Allows SDL to use DirectInput backend" };
-	Setting<bool> AllowXInput{ "Controls", "AllowXInput", false,
-		"Allows SDL to use XInput backend" };
-	Setting<bool> AllowWGI{ "Controls", "AllowWGI", true,
-		"Allows SDL to use WGI backend" };
 }
 
 InputManager InputManager::instance;
@@ -24,10 +20,10 @@ InputManager InputManager::instance;
 // TODO: Move most of input_manager.hpp to this .cpp, not sure why so much was left in there..
 void InputManager::init(HWND hwnd)
 {
-	SDL_SetHint(SDL_HINT_JOYSTICK_RAWINPUT, Settings::AllowRawInput ? "1" : "0");
-	SDL_SetHint(SDL_HINT_JOYSTICK_DIRECTINPUT, Settings::AllowDirectInput ? "1" : "0");
-	SDL_SetHint(SDL_HINT_XINPUT_ENABLED, Settings::AllowXInput ? "1" : "0");
-	SDL_SetHint(SDL_HINT_JOYSTICK_WGI, Settings::AllowWGI ? "1" : "0");
+	SDL_SetHint(SDL_HINT_JOYSTICK_WGI, Settings::InputBackend == 0 ? "1" : "0");
+	SDL_SetHint(SDL_HINT_JOYSTICK_RAWINPUT, Settings::InputBackend == 1 ? "1" : "0");
+	SDL_SetHint(SDL_HINT_JOYSTICK_DIRECTINPUT, Settings::InputBackend == 2 ? "1" : "0");
+	SDL_SetHint(SDL_HINT_XINPUT_ENABLED, Settings::InputBackend == 3 ? "1" : "0");
 
 	SDL_Init(SDL_INIT_GAMEPAD | SDL_INIT_VIDEO);
 
@@ -182,10 +178,7 @@ public:
 	{
 		Settings::UseNewInput.needs_restart();
 		Settings::UseNewInput.hidden(true);
-		Settings::AllowRawInput.hidden(true);
-		Settings::AllowDirectInput.hidden(true);
-		Settings::AllowXInput.hidden(true);
-		Settings::AllowWGI.hidden(true);
+		Settings::InputBackend.needs_restart();
 	}
 
 	bool apply() override
