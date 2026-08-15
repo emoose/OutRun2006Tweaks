@@ -898,17 +898,45 @@ class TransparencySupersampling : public Hook
 	inline static SafetyHookMid deviceReset_hook = {};
 	static void destination(safetyhook::Context& ctx)
 	{
-		auto* device = Game::D3DDevice();
-		device->SetRenderState(D3DRS_MULTISAMPLEANTIALIAS, TRUE);
-		device->SetRenderState(D3DRS_ANTIALIASEDLINEENABLE, TRUE);
-		device->SetRenderState(D3DRS_ALPHABLENDENABLE, TRUE);
-		device->SetRenderState(D3DRS_SRCBLEND, D3DBLEND_SRCALPHA);
-		device->SetRenderState(D3DRS_DESTBLEND, D3DBLEND_INVSRCALPHA);
-		device->SetRenderState(D3DRS_MULTISAMPLEMASK, 0xFFFFFFFF);
+		static D3DADAPTER_IDENTIFIER9 adapterId = { 0 };
 
-		// NVIDIA transparency supersampling
-		device->SetRenderState(D3DRS_ADAPTIVETESS_Y, D3DFORMAT(MAKEFOURCC('A', 'T', 'O', 'C')));
-		device->SetRenderState(D3DRS_ADAPTIVETESS_Y, D3DFORMAT(MAKEFOURCC('S', 'S', 'A', 'A')));
+		if (adapterId.VendorId == 0)
+		{
+			auto* d3d = Game::D3D();
+			if (!d3d || !SUCCEEDED(d3d->GetAdapterIdentifier(*Game::D3DAdapterNum, 0, &adapterId)))
+				adapterId.VendorId = 0xFFFF;
+		}
+
+		if (adapterId.VendorId == 0x10DE) // NVIDIA
+		{
+			auto* device = Game::D3DDevice();
+			spdlog::debug("TransparencySupersampling: enabling NVIDIA ATOC/SSAA");
+			device->SetRenderState(D3DRS_MULTISAMPLEANTIALIAS, TRUE);
+			device->SetRenderState(D3DRS_ANTIALIASEDLINEENABLE, TRUE);
+			device->SetRenderState(D3DRS_ALPHABLENDENABLE, TRUE);
+			device->SetRenderState(D3DRS_SRCBLEND, D3DBLEND_SRCALPHA);
+			device->SetRenderState(D3DRS_DESTBLEND, D3DBLEND_INVSRCALPHA);
+			device->SetRenderState(D3DRS_MULTISAMPLEMASK, 0xFFFFFFFF);
+
+			// NVIDIA transparency supersampling
+			// TODO: Intel apparently supports the same ATOC switch, but users have reported issues before, unsure if they were on intel
+			device->SetRenderState(D3DRS_ADAPTIVETESS_Y, D3DFORMAT(MAKEFOURCC('A', 'T', 'O', 'C')));
+			device->SetRenderState(D3DRS_ADAPTIVETESS_Y, D3DFORMAT(MAKEFOURCC('S', 'S', 'A', 'A')));
+		}
+		else if (adapterId.VendorId == 0x1002) // AMD
+		{
+			auto* device = Game::D3DDevice();
+			spdlog::debug("TransparencySupersampling: enabling AMD ATOC");
+			device->SetRenderState(D3DRS_MULTISAMPLEANTIALIAS, TRUE);
+			device->SetRenderState(D3DRS_ANTIALIASEDLINEENABLE, TRUE);
+			device->SetRenderState(D3DRS_ALPHABLENDENABLE, TRUE);
+			device->SetRenderState(D3DRS_SRCBLEND, D3DBLEND_SRCALPHA);
+			device->SetRenderState(D3DRS_DESTBLEND, D3DBLEND_INVSRCALPHA);
+			device->SetRenderState(D3DRS_MULTISAMPLEMASK, 0xFFFFFFFF);
+
+			// AMD ATOC?
+			device->SetRenderState(D3DRS_POINTSIZE, MAKEFOURCC('A', '2', 'M', '1'));
+		}
 	}
 
 public:

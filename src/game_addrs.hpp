@@ -61,12 +61,16 @@ namespace Game
 	inline bool* Sumo_IntroLogosEnable = nullptr;
 
 	inline D3DPRESENT_PARAMETERS* D3DPresentParams = nullptr;
+	inline IDirect3D9** D3D_ptr = nullptr;
 	inline IDirect3DDevice9** D3DDevice_ptr = nullptr;
 
 	inline IDirectInput8A** DirectInput8_ptr = nullptr;
 
 	inline HWND* hWnd_ptr = nullptr;
 
+	inline IDirect3D9* D3D() {
+		return *D3D_ptr;
+	}
 	inline IDirect3DDevice9* D3DDevice() {
 		return *D3DDevice_ptr;
 	}
@@ -346,8 +350,9 @@ namespace Game
 		Sumo_CountdownTimerEnable = Module::exe_ptr<bool>(0x237911);
 		Sumo_IntroLogosEnable = Module::exe_ptr<bool>(0x2319A1);
 
-		D3DPresentParams = Module::exe_ptr<D3DPRESENT_PARAMETERS>(0x49BD64);
 		D3DDevice_ptr = Module::exe_ptr<IDirect3DDevice9*>(0x49BD60);
+		D3DPresentParams = Module::exe_ptr<D3DPRESENT_PARAMETERS>(0x49BD64);
+		D3D_ptr = Module::exe_ptr<IDirect3D9*>(0x49BD9C);
 		DirectInput8_ptr = Module::exe_ptr<IDirectInput8A*>(0x4606E8);
 		hWnd_ptr = Module::exe_ptr<HWND>(0x4A8C88);
 
