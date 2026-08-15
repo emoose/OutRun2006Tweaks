@@ -70,11 +70,12 @@ std::string InputManager_ModActionDisplayName(ModAction action)
 
 	switch (action)
 	{
-	case ModAction::OverlayToggle: return "F11";
-	case ModAction::HudToggle:     return "F10";
-	case ModAction::MusicNext:     return "X";
-	case ModAction::MusicPrevious: return "Z";
-	default:                       return "(unbound)";
+		case ModAction::OverlayToggle: return "F11";
+		case ModAction::HudToggle:     return "F10";
+		case ModAction::OpenChat:      return "Y";
+		case ModAction::MusicNext:     return "X";
+		case ModAction::MusicPrevious: return "Z";
+		default:                       return "(unbound)";
 	}
 }
 

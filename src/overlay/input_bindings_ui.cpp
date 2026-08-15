@@ -75,6 +75,7 @@ private:
 
 		{ "Tweaks",  Mod, int(ModAction::OverlayToggle)   },
 		{ "Tweaks",  Mod, int(ModAction::HudToggle)       },
+		{ "Tweaks",  Mod, int(ModAction::OpenChat)        },
 		{ "Tweaks",  Mod, int(ModAction::MusicNext)       },
 		{ "Tweaks",  Mod, int(ModAction::MusicPrevious)   },
 	};

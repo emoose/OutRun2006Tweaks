@@ -6,6 +6,7 @@
 #include "game_addrs.hpp"
 #include <imgui.h>
 #include "notifications.hpp"
+#include "input_manager.hpp"
 #include <array>
 #include <random>
 #include "overlay.hpp"
@@ -228,8 +229,17 @@ public:
 		}
 
 		// Toggle active mode with 'Y' key
+		static bool overlayKeyHeld = false;
+		const bool overlayKeyNow = InputManager_ModActionHeld(ModAction::OpenChat);
+
+		bool toggleOverlay = overlayKeyNow && !overlayKeyHeld;
+		overlayKeyHeld = overlayKeyNow;
+
+		if (!Settings::UseNewInput && !Overlay::IsBindingDialogActive)
+			toggleOverlay |= ImGui::IsKeyReleased(ImGuiKey_Y);
+
 		bool justOpened = false;
-		if (!isActive && ImGui::IsKeyReleased(ImGuiKey_Y))
+		if (!isActive && toggleOverlay)
 		{
 			justOpened = true;
 			isActive = true;
@@ -238,7 +248,7 @@ public:
 		if (isActive && ImGui::IsKeyReleased(ImGuiKey_Escape))
 			isActive = false;
 
-		if (isActive && ImGui::IsKeyReleased(ImGuiKey_Enter))
+		if (isActive && (ImGui::IsKeyReleased(ImGuiKey_Enter) || ImGui::IsKeyReleased(ImGuiKey_KeypadEnter)))
 			isActive = false;
 
 		if (isActive)

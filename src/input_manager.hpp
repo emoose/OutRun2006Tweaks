@@ -41,6 +41,7 @@ enum class ModAction
 {
 	OverlayToggle,
 	HudToggle,
+	OpenChat,
 	MusicNext,
 	MusicPrevious,
 	Count
@@ -329,6 +330,7 @@ private:
 	static inline const std::string modNames[] = {
 		"Overlay",
 		"HUD Toggle",
+		"Open Chat",
 		"Music Next",
 		"Music Previous"
 	};
@@ -551,6 +553,7 @@ public:
 
 		// Mod actions.
 		addModBinding(ModAction::OverlayToggle, SDL_SCANCODE_F11);
+		addModBinding(ModAction::OpenChat, SDL_SCANCODE_Y);
 		addModBinding(ModAction::MusicNext, SDL_SCANCODE_X);
 		addModBinding(ModAction::MusicNext, SDL_GAMEPAD_BUTTON_BACK);
 		addModBinding(ModAction::MusicPrevious, SDL_SCANCODE_Z);
@@ -714,6 +717,8 @@ public:
 		for (auto& binding : volumeBindings)
 			binding.clear();
 		for (auto& binding : switchBindings)
+			binding.clear();
+		for (auto& binding : modBindings)
 			binding.clear();
 
 		for (const auto& entry : entries)
