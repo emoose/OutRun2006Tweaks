@@ -955,6 +955,27 @@ public:
 
 	bool apply() override
 	{
+		// Some versions of the game include an outrun2006.ini by mistake, if it's older than 3 months it's likely not the users.
+		// We'll just delete it if that's the case.
+		// (if it was the users config and we delete by accident, the damage is minimal, and we tell user how to prevent it in log too)
+		const std::filesystem::path configPath = "outrun2006.ini";
+		if (std::filesystem::exists(configPath))
+		{
+			const auto lastWrite = std::filesystem::last_write_time(configPath);
+			const auto now = std::filesystem::file_time_type::clock::now();
+
+			const DWORD attributes = GetFileAttributesW(configPath.c_str());
+
+			const bool hidden = attributes != INVALID_FILE_ATTRIBUTES && (attributes & FILE_ATTRIBUTE_HIDDEN) != 0;
+			const bool readOnly = attributes != INVALID_FILE_ATTRIBUTES && (attributes & FILE_ATTRIBUTE_READONLY) != 0;
+
+			if (!hidden && !readOnly && now - lastWrite > std::chrono::days(90))
+			{
+				std::filesystem::remove(configPath);
+				spdlog::warn("GameDefaultConfigOverride: deleted old outrun2006.ini (older than 3 months - set file to read-only or hidden to prevent in future)");
+			}
+		}
+
 		// Override the default settings used when game INI doesn't exist/is empty
 		// (these can still be overridden via INI if needed)
 
