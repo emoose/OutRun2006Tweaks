@@ -13,6 +13,8 @@ namespace inih
 
 namespace Settings
 {
+	inline bool DisableSettingsWrite = false;
+
 	// The value types an INI setting can hold. Lets the INI code and the
 	// settings UI work with a setting without knowing which Setting<T> it has.
 	enum class Type
@@ -47,6 +49,7 @@ namespace Settings
 		virtual void* value_ptr() = 0;
 
 		virtual std::string to_string() const = 0;
+		virtual bool set_from_string(std::string_view value) = 0;
 
 		// Reads this setting's key, leaving the current value in place when the
 		// INI doesn't contain it.
@@ -197,6 +200,8 @@ namespace Settings
 		const Range<T>& range() const { return range_; }
 
 		std::string to_string() const override;
+		bool set_from_string(std::string_view value);
+
 		void read(const inih::INIReader& ini) override;
 		void mark_base_value() override { baseValue_ = value_; }
 		bool write(inih::INIReader& ini) const override;
@@ -225,6 +230,9 @@ namespace Settings
 	// Reads every registered setting, leaving any the file doesn't mention at
 	// the value it already holds.
 	bool read(const std::filesystem::path& iniPath);
+
+	// Reads key=value pairs from command-line and assigns them to any matching setting
+	bool read_cmd_line(int argc, wchar_t** argv);
 
 	// Call once the shipped INI has been read and before the user INI is, so
 	// that write() can tell which settings are overrides.

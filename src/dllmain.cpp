@@ -1,5 +1,6 @@
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
+#include <shellapi.h>
 #include <filesystem>
 
 #include "hook_mgr.hpp"
@@ -96,6 +97,19 @@ void Plugin_Init()
 
 	if (std::filesystem::exists(Module::UserIniPath))
 		Settings::read(Module::UserIniPath);
+
+	int argc;
+	LPWSTR* argv = CommandLineToArgvW(GetCommandLineW(), &argc);
+	if (argv)
+	{
+		bool changed = Settings::read_cmd_line(argc, argv);
+		LocalFree(argv);
+		if (changed)
+		{
+			// Prevent command-line overrides from being written back to ini
+			Settings::DisableSettingsWrite = true;
+		} 
+	}
 
 	Settings::to_log();
 
