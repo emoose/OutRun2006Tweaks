@@ -268,6 +268,16 @@ public:
 				if (!wholeSection && !matches_search(setting->key(), search))
 					continue;
 
+				// Warn about Windows.Input.Gaming when showing VibrationMode
+				if (setting == &Settings::VibrationMode && Settings::InputBackend == 0)
+				{
+					const ImVec4 accent = ImGui::GetStyle().Colors[ImGuiCol_CheckMark];
+
+					ImGui::PushStyleColor(ImGuiCol_Text, accent);
+					ImGui::TextUnformatted("NOTE: Current InputBackend could cause hitches/framedrops with vibration enabled!");
+					ImGui::PopStyleColor();
+				}
+
 				const std::string label(setting->key());
 
 				if (draw_control(setting, label))

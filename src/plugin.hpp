@@ -112,6 +112,8 @@ namespace Settings
 	extern Setting<bool> FixFullPedalChecks;               // hooks_bugfixes.cpp
 	extern Setting<bool> OverlayEnabled;                   // overlay/hooks_overlay.cpp
 
+	extern Setting<int> InputBackend;					   // input_manager.cpp
+
 	// Track list for the CD switcher. Read by its own parser rather than as a
 	// setting, since INIReader doesn't preserve the order of a section's keys.
 	inline std::vector<std::pair<std::string, std::string>> CDTracks;
