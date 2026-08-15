@@ -910,7 +910,7 @@ class TransparencySupersampling : public Hook
 		if (adapterId.VendorId == 0x10DE) // NVIDIA
 		{
 			auto* device = Game::D3DDevice();
-			spdlog::debug("TransparencySupersampling: enabling NVIDIA ATOC/SSAA");
+			spdlog::debug("TransparencySupersampling: enabling NVIDIA SSAA");
 			device->SetRenderState(D3DRS_MULTISAMPLEANTIALIAS, TRUE);
 			device->SetRenderState(D3DRS_ANTIALIASEDLINEENABLE, TRUE);
 			device->SetRenderState(D3DRS_ALPHABLENDENABLE, TRUE);
@@ -918,11 +918,19 @@ class TransparencySupersampling : public Hook
 			device->SetRenderState(D3DRS_DESTBLEND, D3DBLEND_INVSRCALPHA);
 			device->SetRenderState(D3DRS_MULTISAMPLEMASK, 0xFFFFFFFF);
 
+			// TODO: Allow switching between ATOC/SSAA modes, may give better performance for some?
+			// Enabling ATOC here causes graphical issues though.
+			// (Intel apparently supports the same ATOC switch, but users have reported issues before, unsure if they were on intel)
+			//device->SetRenderState(D3DRS_ADAPTIVETESS_Y, D3DFORMAT(MAKEFOURCC('A', 'T', 'O', 'C')));
+
 			// NVIDIA transparency supersampling
-			// TODO: Intel apparently supports the same ATOC switch, but users have reported issues before, unsure if they were on intel
-			device->SetRenderState(D3DRS_ADAPTIVETESS_Y, D3DFORMAT(MAKEFOURCC('A', 'T', 'O', 'C')));
 			device->SetRenderState(D3DRS_ADAPTIVETESS_Y, D3DFORMAT(MAKEFOURCC('S', 'S', 'A', 'A')));
 		}
+
+		// TODO: AMD ATOC mode.
+		// This causes same graphical issues that the NVIDIA ATOC above gave.
+		// Maybe it can be worked into the actual rendering code instead.
+#if 0
 		else if (adapterId.VendorId == 0x1002) // AMD
 		{
 			auto* device = Game::D3DDevice();
@@ -934,9 +942,10 @@ class TransparencySupersampling : public Hook
 			device->SetRenderState(D3DRS_DESTBLEND, D3DBLEND_INVSRCALPHA);
 			device->SetRenderState(D3DRS_MULTISAMPLEMASK, 0xFFFFFFFF);
 
-			// AMD ATOC?
+			// AMD ATOC
 			device->SetRenderState(D3DRS_POINTSIZE, MAKEFOURCC('A', '2', 'M', '1'));
 		}
+#endif
 	}
 
 public:
