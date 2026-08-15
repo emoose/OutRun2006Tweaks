@@ -296,6 +296,7 @@ namespace Settings
 			spdlog::error("Settings::write - DisableSettingsWrite is true, aborting write");
 			return false;
 		}
+
 		inih::INIReader ini;
 
 		int numWritten = 0;
@@ -307,6 +308,32 @@ namespace Settings
 		try
 		{
 			writer.write(iniPath, ini);
+
+			// Read the generated file
+			std::ifstream in(iniPath);
+			if (!in)
+				throw std::runtime_error("Failed to reopen INI file");
+
+			std::string contents((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+
+			in.close();
+
+			// Rewrite with header prepended
+			std::ofstream out(iniPath, std::ios::trunc);
+			if (!out)
+				throw std::runtime_error("Failed to reopen INI file for writing");
+
+			out << "# This file contains user-customized settings from the OR2006Tweaks defaults.\n"
+				"# If you're packing up the game, please don't include this file!\n\n"
+				<< contents;
+
+			if (!out)
+				throw std::runtime_error("Failed while writing INI header");
+		}
+		catch (const std::exception& e)
+		{
+			spdlog::error("Settings::write - INI write failed: {}", e.what());
+			return false;
 		}
 		catch (...)
 		{

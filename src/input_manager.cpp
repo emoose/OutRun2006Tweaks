@@ -177,7 +177,7 @@ public:
 	void declare_settings() override
 	{
 		Settings::UseNewInput.needs_restart();
-		Settings::UseNewInput.hidden(true);
+		Settings::UseNewInput.hidden(Settings::UseNewInput); // Unhide if UseNewInput is disabled for some reason, hide if it's enabled
 		Settings::InputBackend.needs_restart();
 	}
 

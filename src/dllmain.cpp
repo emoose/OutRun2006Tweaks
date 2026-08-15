@@ -107,6 +107,7 @@ void Plugin_Init()
 		if (changed)
 		{
 			// Prevent command-line overrides from being written back to ini
+			spdlog::warn("Command-line overrides are in use, disabling INI writes.");
 			Settings::DisableSettingsWrite = true;
 		} 
 	}

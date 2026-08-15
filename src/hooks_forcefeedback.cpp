@@ -10,8 +10,8 @@
 namespace Settings
 {
 	Setting<int> VibrationMode{ "Controls", "VibrationMode", 0,
-		"Enable/disable/customize the xbox vibration code. (NOTE: Some bluetooth controllers may cause framerate issues when vibration is enabled)",
-		{ "Disable", "Enable xbox vibration", "L/R motors swapped", "L/R motors merged together" } };
+		"Enable/disable/customize the Xbox vibration code. (NOTE: Some bluetooth controllers may cause framerate issues when vibration is enabled)",
+		{ "Disable", "Enable Xbox vibration", "L/R motors swapped", "L/R motors merged together" } };
 	Setting<int> VibrationStrength{ "Controls", "VibrationStrength", 7,
 		"VibrationStrength range is 0 to 10.", Range<int>{ 0, 10 } };
 	Setting<int> VibrationControllerId{ "Controls", "VibrationControllerId", 0,

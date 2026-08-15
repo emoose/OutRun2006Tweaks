@@ -260,7 +260,7 @@ public:
     void declare_settings() override
     {
         Settings::ControllerHotPlug.needs_restart();
-        Settings::ControllerHotPlug.hidden(true);
+        Settings::ControllerHotPlug.hidden(Settings::UseNewInput); // Only hidden if UseNewInput enabled
     }
 
     bool apply() override

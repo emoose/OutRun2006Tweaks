@@ -300,7 +300,7 @@ public:
 
 		if (ImGui::Begin("Chat Messages", nullptr, !overlayEnabled ? ImGuiWindowFlags_NoDecoration : 0))
 		{
-			ImGui::SetWindowFontScale(Overlay::ChatFontSize);
+			ImGui::PushFont(ImGui::GetFont(), ImGui::GetStyle().FontSizeBase * Overlay::ChatFontSize);
 			ImGui::BeginChild("ScrollingRegion", ImVec2(0, -ImGui::GetFrameHeightWithSpacing()), false, ImGuiWindowFlags_HorizontalScrollbar);
 
 			// Get total available height of scroll region
@@ -371,6 +371,8 @@ public:
 				if (justOpened)
 					ImGui::SetKeyboardFocusHere(-1);
 			}
+
+			ImGui::PopFont();
 		}
 		ImGui::End();
 		if (!overlayEnabled && Overlay::ChatHideBackground)
