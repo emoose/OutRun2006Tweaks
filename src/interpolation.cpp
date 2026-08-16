@@ -394,6 +394,12 @@ static ConnectionEntry ConnReal[ConnectionEntryCount]{};
 static bool ConnPrevValid = false;
 static bool ConnOverridden = false;
 
+// Per slot, because only the slots that were interpolated hold a captured tick
+// value. Restoring a slot that was skipped writes back whatever pair last
+// occupied it, which resurrects cut lines and links cars that are no longer
+// beside each other.
+static bool ConnEntryOverridden[ConnectionEntryCount]{};
+
 // The heart above each line spins via a single global, advanced once per
 // tick by ConnectBetweenCars. Interpolating it keeps the spin matching the
 // now-smooth travel. Must be unwound before the next tick: the game's own
@@ -416,7 +422,13 @@ static void RestoreConnections()
 		return;
 
 	for (int i = 0; i < ConnectionEntryCount; i++)
+	{
+		if (!ConnEntryOverridden[i])
+			continue;
+
 		Game::connection_tbl[i] = ConnReal[i];
+		ConnEntryOverridden[i] = false;
+	}
 
 	ConnOverridden = false;
 }
@@ -449,8 +461,12 @@ static void InterpolateConnections(float alpha)
 		if (prev.eventIdA != live.eventIdA || prev.eventIdB != live.eventIdB)
 			continue;
 
-		if (!ConnOverridden)
+		if (!ConnEntryOverridden[i])
+		{
 			ConnReal[i] = live;
+			ConnEntryOverridden[i] = true;
+			ConnOverridden = true;
+		}
 
 		const auto& real = ConnReal[i];
 
@@ -461,8 +477,6 @@ static void InterpolateConnections(float alpha)
 		live.lineScaleZ = LerpF(prev.lineScaleZ, real.lineScaleZ, alpha);
 		live.heartScale = LerpF(prev.heartScale, real.heartScale, alpha);
 	}
-
-	ConnOverridden = true;
 }
 
 static void InterpolateHartRot(float alpha)
@@ -493,6 +507,10 @@ static void InterpolateHartRot(float alpha)
 static D3DVECTOR HeartWorldSaved[AttachHeartEntryCount][2]{};
 static bool HeartOverridden = false;
 
+// Only the entries the rebake actually wrote have a saved tick value; the rest
+// hold whatever heart last used the slot.
+static bool HeartEntryOverridden[AttachHeartEntryCount]{};
+
 static void RestoreHeartWorld()
 {
 	if (!HeartOverridden)
@@ -500,9 +518,13 @@ static void RestoreHeartWorld()
 
 	for (int i = 0; i < AttachHeartEntryCount; i++)
 	{
+		if (!HeartEntryOverridden[i])
+			continue;
+
 		auto& entry = Game::attach_heart_table[i];
 		entry.world[0] = HeartWorldSaved[i][0];
 		entry.world[1] = HeartWorldSaved[i][1];
+		HeartEntryOverridden[i] = false;
 	}
 
 	HeartOverridden = false;
@@ -525,10 +547,12 @@ static void RebakeHeartWorld()
 		if (!car)
 			continue;
 
-		if (!HeartOverridden)
+		if (!HeartEntryOverridden[i])
 		{
 			HeartWorldSaved[i][0] = entry.world[0];
 			HeartWorldSaved[i][1] = entry.world[1];
+			HeartEntryOverridden[i] = true;
+			HeartOverridden = true;
 		}
 
 		Game::mxPushLoadMatrix(&car->matrix_B0);
@@ -537,8 +561,6 @@ static void RebakeHeartWorld()
 				Game::mxCalcPoint(&entry.world[k], &entry.local[k]);
 		Game::mxPopMatrix();
 	}
-
-	HeartOverridden = true;
 }
 
 // The true (tick) values, saved while the interpolated ones are live.
