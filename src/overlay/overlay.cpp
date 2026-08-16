@@ -69,7 +69,9 @@ void Overlay::render_shell()
 		ImGuiCond_FirstUseEver
 	);
 
-	if (ImGui::Begin("OutRun2006Tweaks", nullptr, ImGuiWindowFlags_NoCollapse))
+	// Tab contents scroll in a child of their own, so the tab bar stays at the top rather than
+	// sliding out of view with them.
+	if (ImGui::Begin("OutRun2006Tweaks", nullptr, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse))
 	{
 		if (ImGui::BeginTabBar("##shell"))
 		{
@@ -83,7 +85,12 @@ void Overlay::render_shell()
 #endif
 				if (ImGui::BeginTabItem(window->name()))
 				{
-					window->render(true);
+					// BeginTabItem has pushed the tab onto the ID stack, so each tab gets its own
+					// child and keeps its own scroll position.
+					if (ImGui::BeginChild("##tabbody", ImVec2(0, 0)))
+						window->render(true);
+					ImGui::EndChild();
+
 					ImGui::EndTabItem();
 				}
 			}

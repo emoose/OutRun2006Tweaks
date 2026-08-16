@@ -323,6 +323,7 @@ set(outrun2006tweaks_SOURCES
 	"src/overlay/debug_ui.cpp"
 	"src/overlay/hooks_overlay.cpp"
 	"src/overlay/input_bindings_ui.cpp"
+	"src/overlay/networking_ui.cpp"
 	"src/overlay/notifications.hpp"
 	"src/overlay/overlay.cpp"
 	"src/overlay/overlay.hpp"
@@ -334,6 +335,8 @@ set(outrun2006tweaks_SOURCES
 	"src/resource.h"
 	"src/settings.cpp"
 	"src/settings.hpp"
+	"src/upnp.cpp"
+	"src/upnp.hpp"
 )
 
 add_library(outrun2006tweaks SHARED)

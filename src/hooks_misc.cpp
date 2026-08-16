@@ -5,8 +5,7 @@
 #include "plugin.hpp"
 #include "game_addrs.hpp"
 #include <random>
-#include <miniupnpc.h>
-#include <upnpcommands.h>
+#include "upnp.hpp"
 #include <WinSock2.h>
 #include <fstream>
 #include <wincrypt.h>
@@ -637,50 +636,8 @@ class DemonwareServerOverride : public Hook
 		WSADATA tmp;
 		WSAStartup(0x202, &tmp);
 
-		int upnpError = UPNPDISCOVER_SUCCESS;
-		UPNPDev* upnpDevice = upnpDiscover(2000, NULL, NULL, 0, 0, 2, &upnpError);
-
-		bool anyError = false;
-		int ret = 0;
-		if (upnpError != UPNPDISCOVER_SUCCESS || !upnpDevice)
-		{
-			spdlog::error("UPnP: upnpDiscover failed with error {}", upnpError);
-			return;
-		}
-
-		struct UPNPUrls urls;
-		struct IGDdatas data;
-		char lanaddr[16];
-		char wanaddr[16];
-
-		ret = UPNP_GetValidIGD(upnpDevice, &urls, &data, lanaddr, sizeof(lanaddr), wanaddr, sizeof(wanaddr));
-		if (ret != 1 && ret != 2 && ret != 3) // UPNP_GetValidIGD returning 1/2/3 should be fine
-		{
-			spdlog::error("UPnP: UPNP_GetValidIGD failed with error {}", ret);
-			return;
-		}
-
-		std::list<int> portNums = { 41455, 41456, 41457 };
-
-		for (auto port : portNums)
-		{
-			for (int i = 0; i < 2; i++)
-			{
-				ret = UPNP_AddPortMapping(urls.controlURL, data.first.servicetype,
-					std::to_string(port).c_str(), std::to_string(port).c_str(),
-					lanaddr, "OutRun2006", i == 0 ? "TCP" : "UDP", NULL, NULL);
-				if (ret != UPNPCOMMAND_SUCCESS)
-				{
-					spdlog::error("UPnP: UPNP_AddPortMapping failed for port {}/{}, error code {}", port, i, ret);
-					anyError = true;
-				}
-			}
-		}
-
-		if (ret == 0 && !anyError)
-		{
-			spdlog::info("UPnP: port mappings succeeded");
-		}
+		// Try port forwarding on UPnP thread.
+		UPnP::refresh();
 	}
 
 public:
