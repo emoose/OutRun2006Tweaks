@@ -184,6 +184,15 @@ public:
 
 	bool apply() override
 	{
+		// OR2 arcade menus check for "ChangeView" action for their Y/F2 button checks
+		// All the C2C menus check for the "Y" action instead though (and the C2C X/F1 check uses "X" action)
+		// Rather than needing to overload ChangeView with more binds, let's just patch OR2 to match C2C and check for "Y"
+		constexpr uintptr_t Sel_ModeSel_Ctrl_ChangeViewMask = 0xC3F4C;
+		constexpr uintptr_t Sel_Bgm_Ctrl_ChangeViewMask = 0xC49D6;
+
+		Memory::VP::Patch(Module::exe_ptr(Sel_ModeSel_Ctrl_ChangeViewMask), uint32_t(1 << int(SwitchId::Y)));
+		Memory::VP::Patch(Module::exe_ptr(Sel_Bgm_Ctrl_ChangeViewMask), uint32_t(1 << int(SwitchId::Y)));
+
 		SwitchOn_hook = safetyhook::create_inline(Module::exe_ptr(0x536F0), SwitchOn_dest);
 		SwitchNow_hook = safetyhook::create_inline(Module::exe_ptr(0x536C0), SwitchNow_dest);
 		GetVolume_hook = safetyhook::create_inline(Module::exe_ptr(0x53720), GetVolume_dest);
