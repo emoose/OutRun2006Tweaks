@@ -900,7 +900,10 @@ typedef struct tagEVWORK_CAR
   int16_t field_162;
   uint8_t unk_164[6];
   uint16_t field_16A;
-  D3DVECTOR field_16C;
+  // Previous position the display lerps from. CalcDispMatrix draws the car at
+  // mxSubdivideVector(position_14, alpha, this, 1 - alpha), so the rendered car
+  // sits (1 - alpha) * (position_14 - this) behind its tick position.
+  D3DVECTOR disp_prev_pos_16C;
   float field_178;
   int16_t field_17C[3];
   uint8_t unk_182[2];
@@ -1363,6 +1366,39 @@ typedef struct TOsoCommonWork
 	uint8_t unk_60[0x04];
 	uint32_t modelId_64;            // 0x64 - xmtObjId handed to DrawObject_Internal
 } OsoCommonWork;
+
+// NL particle system. Each source owns one buffer of particles, and the stride
+// varies by particle type - but nlParticleBorn fills the first 0x20 bytes of
+// every particle whatever its type, so these fields are at fixed offsets.
+typedef struct TNLPartParticle
+{
+	int32_t   flags;                // 0x00 - high bit set while alive
+	D3DVECTOR pos;                  // 0x04
+	D3DVECTOR vel;                  // 0x10 - added to pos once per tick
+	void* ctrlFunc;             // 0x1C - null means the slot is free
+} NLPartParticle;
+static_assert(sizeof(NLPartParticle) == 0x20);
+
+typedef struct TNLPartSource
+{
+	int32_t  flags;                 // 0x00 - source is live while negative
+	int32_t  particleCount;         // 0x04
+	uint8_t* particles;             // 0x08 - base of the particle buffer
+	uint8_t  gap0C[0x5C];
+	int32_t  particleStride;        // 0x68 - bytes per particle
+	// Rewritten by pcds_funconly_mf each tick, bumped by nlParticleBorn per spawn.
+	int32_t  liveCount;             // 0x6C
+	// Render config, set once at source init and read by particle_draw_* per draw.
+	int32_t  blendSrc;              // 0x70 - D3DRS_SRCBLEND
+	int32_t  blendDst;              // 0x74 - D3DRS_DESTBLEND
+	int32_t  useReduceBuff;         // 0x78
+	int32_t  useZBuff;              // 0x7C
+	int32_t  zOffset;               // 0x80
+} NLPartSource;
+static_assert(sizeof(NLPartSource) == 0x84);
+
+// ParticleEfc_Ctrl walks this many sources.
+static constexpr int NLPartSourceCount = 11;
 
 // HAM "catch the hearts" table entry. AttachHeart bakes world[] from the owner
 // car's matrix_B0 each tick; HeartDisp_car_heart draws from world[] and

@@ -563,6 +563,157 @@ static void RebakeHeartWorld()
 	}
 }
 
+// --- Particles ---
+//
+// Every particle controller advances its particles with the same Euler step
+// once per tick, from pcds_funconly_mf under ParticleEfc_Ctrl:
+//
+//   pos.x += vel.x;  pos.y += vel.y;  pos.z += vel.z;
+//
+// particle_draw_quad reads pos and nothing else, so between ticks a particle
+// holds one position while the rest of the world glides.
+//
+// AfterTicks renders at tick(N-1) + alpha, since everything else lerps
+// prev -> current, but the particle set is whatever the tick left behind, at
+// tick N. Particles lead the rendered world by (1 - alpha) ticks, which at
+// speed is metres: the spray comes from the middle of the car rather than the
+// tyres, and overlapping the bodywork makes it read as far more opaque than it
+// is. Shifting each particle back along the span CalcDispMatrix draws the car
+// along lines the two up again.
+//
+// Two cases that leaves alone:
+//  - A particle born during tick N did not exist at tick(N-1) + alpha, so no
+//    shift is right for it. It should not be on screen yet.
+//  - particle_draw_quad draws the whole pool rather than the live count, so
+//    dead slots still render stale vertices.
+//
+// Unwound before the next tick: the controllers read pos back for their
+// ground-plane test and their distance cull, and efptl_ctrl_water kills any
+// particle that ends up on the wrong side of that plane.
+
+// particle_draw_quad clamps its own walk to this, so no source can exceed it.
+static constexpr int NLPartMaxParticles = 512;
+
+// How far behind its tick position the car is drawn, which is the offset the
+// spray has to come back by. CalcDispMatrix places the car at
+//
+//     mxSubdivideVector(&out, &position_14, alpha, &disp_prev_pos_16C, 1 - alpha)
+//
+// so the gap is (1 - alpha) * (position_14 - disp_prev_pos_16C). Taking the
+// pair the display itself uses matters: disp_prev_pos_16C does not span exactly
+// one tick, so differencing position_14 across a tick lands short, and a
+// particle's own vel lands shorter still since it carries only water_follow
+// (0.75) of spd_mb_20.
+static D3DVECTOR CarDispLag{};
+
+// The tick position per slot, held while the shifted one is live. Fixed size so
+// nothing allocates mid-frame.
+static D3DVECTOR ParticleRealPos[NLPartSourceCount][NLPartMaxParticles]{};
+static bool ParticleEntryOverridden[NLPartSourceCount][NLPartMaxParticles]{};
+static bool ParticlesOverridden = false;
+
+static void RestoreParticles()
+{
+	if (!ParticlesOverridden)
+		return;
+
+	for (int s = 0; s < NLPartSourceCount; s++)
+	{
+		const NLPartSource& src = Game::nl_part_src[s];
+		if (!src.particles || src.particleStride <= 0)
+			continue;
+
+		const int count = min(src.particleCount, NLPartMaxParticles);
+		for (int i = 0; i < count; i++)
+		{
+			if (!ParticleEntryOverridden[s][i])
+				continue;
+
+			auto* particle = reinterpret_cast<NLPartParticle*>(
+				src.particles + size_t(src.particleStride) * size_t(i));
+			particle->pos = ParticleRealPos[s][i];
+			ParticleEntryOverridden[s][i] = false;
+		}
+	}
+
+	ParticlesOverridden = false;
+}
+
+static void InterpolateParticles(float alpha)
+{
+	// Applying twice without a Reset in between would shift an already shifted
+	// position.
+	RestoreParticles();
+
+	int sourcesSeen = 0;
+	int moved = 0;
+	float lastShift = 0.0f;
+
+	if (Debug.doParticles && Game::nl_part_src)
+	{
+		const float back = (1.0f - alpha) * Debug.particleOffsetScale;
+
+		if (EVWORK_CAR* plCar = Game::pl_car())
+		{
+			CarDispLag.x = plCar->position_14.x - plCar->disp_prev_pos_16C.x;
+			CarDispLag.y = plCar->position_14.y - plCar->disp_prev_pos_16C.y;
+			CarDispLag.z = plCar->position_14.z - plCar->disp_prev_pos_16C.z;
+		}
+		else
+		{
+			CarDispLag = D3DVECTOR{ 0.0f, 0.0f, 0.0f };
+		}
+
+		for (int s = 0; s < NLPartSourceCount; s++)
+		{
+			NLPartSource& src = Game::nl_part_src[s];
+
+			// Same test ParticleEfc_Ctrl and nlParticleDraw use to skip a source.
+			if (src.flags >= 0 || !src.particles || src.particleStride <= 0 || src.particleCount <= 0)
+				continue;
+
+			sourcesSeen++;
+
+			const int count = min(src.particleCount, NLPartMaxParticles);
+			for (int i = 0; i < count; i++)
+			{
+				auto* particle = reinterpret_cast<NLPartParticle*>(
+					src.particles + size_t(src.particleStride) * size_t(i));
+
+				// nlParticleGetWork treats a null controller as a free slot and
+				// the draw tests the flags sign, so a particle has to pass both
+				// to be on screen.
+				if (!particle->ctrlFunc || particle->flags >= 0)
+					continue;
+
+				ParticleRealPos[s][i] = particle->pos;
+				ParticleEntryOverridden[s][i] = true;
+				ParticlesOverridden = true;
+
+				const D3DVECTOR basis = Debug.particleUseDispLag ? CarDispLag : particle->vel;
+				const D3DVECTOR shift{ basis.x * back, basis.y * back, basis.z * back };
+
+				particle->pos.x -= shift.x;
+				particle->pos.y -= shift.y;
+				particle->pos.z -= shift.z;
+
+				moved++;
+				lastShift = std::sqrt(shift.x * shift.x + shift.y * shift.y + shift.z * shift.z);
+			}
+		}
+	}
+
+#ifdef _DEBUG
+	Debug.particleSourcesSeen = sourcesSeen;
+	Debug.particlesMoved = moved;
+	Debug.particleLastShift = lastShift;
+	Debug.carDispLag = std::sqrt(CarDispLag.x * CarDispLag.x
+		+ CarDispLag.y * CarDispLag.y + CarDispLag.z * CarDispLag.z);
+#else
+	(void)sourcesSeen; (void)moved; (void)lastShift;
+#endif
+}
+
 // The true (tick) values, saved while the interpolated ones are live.
 static D3DVECTOR CameraRealPos{};
 static D3DVECTOR CameraRealLook{};
@@ -687,10 +838,20 @@ void AfterTicks(double qpcFreqMs)
 	// CalcDispMatrix used, or one thing slides while another is frozen.
 	const float effectiveAlpha = Game::GetInterpAlpha();
 
+#ifdef _DEBUG
+	Debug.alpha = alpha;
+	Debug.effectiveAlpha = effectiveAlpha;
+	Debug.carsReplayed = 0;
+#endif
+
 	for (EVWORK_CAR* car : InterpCars)
 	{
-		if (!car)
+		if (!car || !Debug.doCars)
 			continue;
+
+#ifdef _DEBUG
+		Debug.carsReplayed++;
+#endif
 
 		// CalcDispMatrix writes matrix_B0 (display, which we want moved)
 		// but also field_D28, a derived world point that gameplay reads:
@@ -707,14 +868,22 @@ void AfterTicks(double qpcFreqMs)
 	}
 
 	// Attached hearts are baked from matrix_B0 too.
-	RebakeHeartWorld();
+	if (Debug.doHearts)
+		RebakeHeartWorld();
 
 	// "Cut the lines" endpoints are baked from raw car positions.
-	InterpolateConnections(effectiveAlpha);
-	InterpolateHartRot(effectiveAlpha);
+	if (Debug.doConnections)
+	{
+		InterpolateConnections(effectiveAlpha);
+		InterpolateHartRot(effectiveAlpha);
+	}
+
+	// Particles only step on a tick, so without this they lead the rest of the
+	// world by up to a tick.
+	InterpolateParticles(effectiveAlpha);
 
 	// Stage load-in scale.
-	if (StageScalePrevValid && !StageScaleOverridden)
+	if (Debug.doStageScale && StageScalePrevValid && !StageScaleOverridden)
 	{
 		StageScaleReal = *Game::stage_disp_scale;
 		*Game::stage_disp_scale = LerpF(StageScalePrev, StageScaleReal, effectiveAlpha);
@@ -742,7 +911,7 @@ void AfterTicks(double qpcFreqMs)
 		{
 			spdlog::info("  car pos=({:.3f},{:.3f},{:.3f}) prev=({:.3f},{:.3f},{:.3f}) drawnB0=({:.3f},{:.3f},{:.3f})",
 				pc->position_14.x, pc->position_14.y, pc->position_14.z,
-				pc->field_16C.x, pc->field_16C.y, pc->field_16C.z,
+				pc->disp_prev_pos_16C.x, pc->disp_prev_pos_16C.y, pc->disp_prev_pos_16C.z,
 				pc->matrix_B0._41, pc->matrix_B0._42, pc->matrix_B0._43);
 		}
 
@@ -760,7 +929,7 @@ void AfterTicks(double qpcFreqMs)
 	// on screen every frame even though its world motion is correct.
 	//
 	// Restore the pre-tick cache first so sub_482F20 sees prev != cur.
-	if (CameraPrevValid)
+	if (CameraPrevValid && Debug.doCamera)
 	{
 		EvWorkCamera* cam = Game::camera();
 		if (cam && Game::pl_car())
@@ -910,6 +1079,7 @@ void Reset()
 
 	RestoreHeartWorld();
 	RestoreConnections();
+	RestoreParticles();
 	RestoreStageScale();
 }
 

@@ -167,6 +167,8 @@ namespace Game
 	inline ConnectionEntry* connection_tbl = nullptr;      // 0x800AF8
 	// Y-spin of the 3D heart drawn above each connected line.
 	inline float* hart_rot_f = nullptr;                    // 0x804384
+	// Particle sources, walked by ParticleEfc_Ctrl and nlParticleDraw.
+	inline NLPartSource* nl_part_src = nullptr;            // 0x8A8D18
 	inline uint8_t* g_EventIsOpenFlag = nullptr;  // 0x79FB48
 	inline mxCalcPoint_fn mxCalcPoint = nullptr;  // 0x40A7D0
 
@@ -402,6 +404,7 @@ namespace Game
 		attach_heart_table = Module::exe_ptr<AttachHeartEntry>(0x4037C8);
 		connection_tbl = Module::exe_ptr<ConnectionEntry>(0x400AF8);
 		hart_rot_f = Module::exe_ptr<float>(0x404384);
+		nl_part_src = Module::exe_ptr<NLPartSource>(0x4A8D18);
 		g_EventIsOpenFlag = Module::exe_ptr<uint8_t>(0x39FB48);
 		mxCalcPoint = Module::fn_ptr<mxCalcPoint_fn>(0xA7D0);
 		CalcCharMatrixAddr = reinterpret_cast<uintptr_t>(Module::exe_ptr(GameAddr::CalcCharMatrix));
