@@ -3,12 +3,14 @@
 
 A wrapper DLL that can patch in fixes & tweaks into OutRun 2006: Coast 2 Coast.
 
-Latest releases can be found under the releases section: https://github.com/emoose/OutRun2006Tweaks/releases  
-(note: these releases are **currently very outdated**, if you have a GitHub account you can download the latest builds from the Actions tab above, otherwise try checking the Discord below!)
+Latest releases can be found under the releases section: https://github.com/emoose/OutRun2006Tweaks/releases
+
+> [!NOTE]  
+> **Releases are currently very outdated**, and missing a lot of new features (new input system, config overlay, framerate interpolation...) - if you have a GitHub account you can download the latest builds from the Actions tab at top of the page, otherwise try checking the Discord below!
 
 **Tweaks will also point the game to new multiplayer servers**, just head to the multiplayer section in-game and pick a username & password there!
 
-Online games are regularly setup on the OutRun2006Tweaks discord: https://discord.gg/GFjKAMg83t
+Online games are regularly setup on the **OutRun2006Tweaks Discord**: https://discord.gg/GFjKAMg83t
 
 ### Features
 
@@ -17,7 +19,6 @@ Online games are regularly setup on the OutRun2006Tweaks discord: https://discor
 - Prevents save corruption bug when remapping controls with many input devices connected
 - Pegasus animation's clopping sound effect will now end correctly
 - Fixed C2C ranking scoreboards not updating on Steam and other releases due to faulty anti-piracy checks
-- Text related to the online service can optionally be hidden
 - Automatically disables DPI scaling on the game window to fix scaling issues
 - Fixes issues with shading on certain character/stage models (eg. the ending cutscene models)
 - Allows particles like grass/gravel to be drawn correctly, like in the console versions
