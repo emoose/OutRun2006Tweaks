@@ -1,9 +1,10 @@
 # OutRun2006Tweaks
 [![GitHub Downloads](https://img.shields.io/github/downloads/emoose/OutRun2006Tweaks/total)](https://github.com/emoose/OutRun2006Tweaks/releases)
 
-A wrapper DLL that can patch in some minor fixes & tweaks into OutRun 2006: Coast 2 Coast.
+A wrapper DLL that can patch in fixes & tweaks into OutRun 2006: Coast 2 Coast.
 
-Latest builds can be found under the releases section: https://github.com/emoose/OutRun2006Tweaks/releases
+Latest releases can be found under the releases section: https://github.com/emoose/OutRun2006Tweaks/releases  
+(note: these releases are **currently very outdated**, if you have a GitHub account you can download the latest builds from the Actions tab above, otherwise try checking the Discord below!)
 
 **Tweaks will also point the game to new multiplayer servers**, just head to the multiplayer section in-game and pick a username & password there!
 
