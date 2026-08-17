@@ -164,7 +164,7 @@ RestoreCarBaseShadow RestoreCarBaseShadow::instance;
 // * glow_param[1] * 255), so an ordinary material at intensity 0 gives 63, and
 // g_GlowParamTable sets the baseline to match.
 //
-// Four (4!) separate things had to be fixed for this to work properly, plus two
+// Five separate things had to be fixed for this to work properly, plus two
 // more for quality:
 class RestoreSkyGlow : public Hook
 {
@@ -221,20 +221,39 @@ class RestoreSkyGlow : public Hook
 	static constexpr int AlphaRefCompare_Imm = 0xB027;
 	static constexpr int AlphaRefReassert_Imm = 0xB039;
 
-	// (2b) One reference cannot serve every draw, because it has to match the
-	// range of alpha the shader in front of it writes. A shader carrying the
-	// exposure op tops out at 63, so 128 rejects all of its draws and the effect
-	// is lost. A shader without it keeps the material's own alpha over the full 0
-	// to 255, so a reference of 1 puts its cutout threshold at almost nothing:
-	// every soft alpha edge draws the fringe it used to clip, and where the
-	// transparent side of the texture is black that fringe reads as a dark border.
+	// (2b) The console uses one reference for every HDR draw, s_HdrState[4], left
+	// at 1 by SetHDRPostProcessCombiner, which is what the immediates above now
+	// hold. One value serves because its alpha op is a MUX: alpha comes out as the
+	// material's exposure or as 0, so 1 always cuts at half texture alpha.
 	//
-	// Both want the cut in the same place, half alpha, so the reference is half of
-	// whichever maximum applies.
+	// The mul standing in for that MUX writes tex_alpha * exposure, a ramp, so 1
+	// would cut at almost nothing and every soft alpha edge would draw the fringe
+	// it used to clip. Half the exposure puts the cut back where the MUX had it,
+	// so a draw carrying the op has its reference set per draw instead.
 	static constexpr int PsSetPixelShader_Addr = 0xAF80;
 	static constexpr int HdrState_Addr = 0x49BC04;
 	static constexpr int ReqPresetPs_Addr = 0x49BC20;
 	static constexpr int VsSetMaterial_Exposure_Addr = 0x10F4F;
+
+	// (2c) byte_95AEF4 is bit 8 of a material's first texture attribute, set per
+	// material by SetMaterialStructure to mark one that needs its real alpha.
+	// psSetPixelShader passes it to ConstructPixelShaderProgram, which then skips
+	// stage 4 and emits no exposure op, and picks s_HdrState[1] over [2] for
+	// D3DRS_COLORWRITEENABLE, the same mask with the alpha bit cleared. Neither is
+	// in the Xbox build, which calls its shader builder with no argument at all
+	// and always uses the mask with alpha.
+	//
+	// The guard covers a case that cannot arise. It stops a blended draw having
+	// its alpha replaced by an exposure the blender would then use as srcA, but a
+	// blended draw is alpha class 1, and SetHDRPostProcessCombiner gives an HDR
+	// enable of 0 the no-op alpha op regardless. Only class 0 carries the exposure
+	// op, and class 0 has blending off.
+	//
+	// What it costs is every material with alpha in its texture, cutouts as well
+	// as blends. A hatched road verge is a cutout, so it writes no exposure and
+	// shows whatever is behind it, which against sky is the sky's own exposure.
+	static constexpr int MaterialKeepsAlpha_Addr = 0x8F56;
+
 
 	// ConstructPixelShaderProgram's output: the per entry alpha op keys, their
 	// second words, and the entry count in the low nibble of the last.
@@ -311,14 +330,15 @@ class RestoreSkyGlow : public Hook
 		if (*Module::exe_ptr<uint32_t>(HdrState_Addr) == 0)
 			return result;
 
-		// Half of whichever maximum this shader writes.
-		DWORD alphaRef = 128;
-		if (ShaderWritesExposure())
-		{
-			alphaRef = MaterialExposure / 2;
-			if (alphaRef < 1)
-				alphaRef = 1;
-		}
+		// A shader without the op keeps the reference the game left it, which the
+		// immediates above have already put where the console holds it.
+		if (!ShaderWritesExposure())
+			return result;
+
+		// Half the exposure, putting the cut where the console's MUX had it.
+		DWORD alphaRef = MaterialExposure / 2;
+		if (alphaRef < 1)
+			alphaRef = 1;
 
 		if (IDirect3DDevice9* device = Game::D3DDevice())
 			device->SetRenderState(D3DRS_ALPHAREF, alphaRef);
@@ -587,6 +607,8 @@ public:
 
 		for (int addr : { AlphaRefCompare_Imm, AlphaRefReassert_Imm })
 			Memory::VP::Patch(Module::exe_ptr<uint32_t>(addr), uint32_t(1));
+
+		Memory::VP::Patch(Module::exe_ptr(MaterialKeepsAlpha_Addr), { 0x30, 0xC0 }); // and al, 1 -> xor al, al
 
 		// jz over the one time setup, six bytes.
 		Memory::VP::Nop(Module::exe_ptr(InitFilter_EnabledCheck_Addr), 6);
