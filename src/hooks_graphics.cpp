@@ -20,6 +20,8 @@ namespace Settings
 	Setting<int> ReflectionResolution{ "Graphics", "ReflectionResolution", 1024,
 		"Resolution used for car reflections, games default is 128x128, 1024x1024 seems a reasonable improvement.",
 		Range<int>{ 0, 8192 } };
+	Setting<float> ReflectionUpdateRate{ "Graphics", "ReflectionUpdateRate", 0.5f,
+		"How much of the car reflection to redraw each frame: 1.0 redraws all faces every frame, 0.5 spreads it over two frames (games default).", Range<float>{ 0.0f, 1.0f } };
 	Setting<bool> TransparencySupersampling{ "Graphics", "TransparencySupersampling", true,
 		"Allows game to enable 4x transparency supersampling, heavily reducing aliasing on things like barriers or cloth "
 		"around the track edge. For best results use this with \"DX/ANTIALIASING = 2\" inside outrun2006.ini." };
@@ -671,6 +673,51 @@ public:
 	static ReflectionResolution instance;
 };
 ReflectionResolution ReflectionResolution::instance;
+
+// Envmap_RenderToCubeMap redraws part of the car reflection cubemap each frame, picking
+// up from the face the previous frame stopped on, so the count it works out is faces for
+// this frame rather than an update rate. Vanilla asks for 3 of the 6 faces, completing a
+// cubemap every second frame, which was 30 of them a second at the games 60FPS lock.
+class ReflectionUpdateRate : public Hook
+{
+	const static int Envmap_FaceCount_Addr = 0x1447E;
+
+	static constexpr int FacesPerCubemap = 6;
+
+	inline static SafetyHookMid FaceCount_midhook = {};
+
+	static void FaceCount_dest(SafetyHookContext& ctx)
+	{
+		// Carried between frames so a share that doesn't come to a whole number of
+		// faces still averages out, 0.25 alternating one face and two. A cubemap
+		// left part drawn continues next frame, as the game holds the face cursor.
+		static float pendingFaces = 0.0f;
+
+		pendingFaces += FacesPerCubemap * Settings::ReflectionUpdateRate.get();
+
+		const int faces = int(pendingFaces);
+		pendingFaces -= float(faces);
+
+		ctx.eax = faces;
+	}
+
+public:
+	std::string_view description() override
+	{
+		return "ReflectionUpdateRate";
+	}
+
+	bool apply() override
+	{
+		Memory::VP::Nop(Module::exe_ptr<uint8_t>(Envmap_FaceCount_Addr), 7);
+		FaceCount_midhook = safetyhook::create_mid(Module::exe_ptr(Envmap_FaceCount_Addr), FaceCount_dest);
+
+		return true;
+	}
+
+	static ReflectionUpdateRate instance;
+};
+ReflectionUpdateRate ReflectionUpdateRate::instance;
 
 class DisableDPIScaling : public Hook
 {

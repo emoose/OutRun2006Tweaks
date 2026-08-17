@@ -754,18 +754,6 @@ public:
 			SpraniAddList_hook = safetyhook::create_inline(Module::exe_ptr(0x28320), SpraniAddList_dest);
 		}
 
-		// Increase reflection update rate, default is 3 (30fps)
-		// Set it to framerate limit div 10 (add 9 to make it round up to nearest 10)
-		int numUpdates = (Settings::FramerateLimit + 9) / 10;
-		if (numUpdates > 3)
-		{
-			constexpr int Envmap_RenderToCubeMap_PatchAddr = 0x1447E;
-			Memory::VP::Nop(Module::exe_ptr(Envmap_RenderToCubeMap_PatchAddr), 2);
-
-			constexpr int Envmap_RenderToCubeMap_PatchAddr2 = 0x14480 + 1;
-			Memory::VP::Patch(Module::exe_ptr(Envmap_RenderToCubeMap_PatchAddr2), numUpdates);
-		}
-
 		return !!dest_hook;
 	}
 
