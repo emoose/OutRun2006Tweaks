@@ -714,6 +714,43 @@ static void InterpolateParticles(float alpha)
 #endif
 }
 
+// --- Heart Attack mission sprites (hit the ghosts etc) ---
+//
+// The sprites a Heart Attack mission draws over a car are queued by
+// sprani_play_ae_auth_3dpos_pers from that car's position_14 - our 
+// interpolation only applies to matrix_B0, so we'll hook the code to switch it 
+// to get position from there instead.
+//
+// It also needs no check against FramerateInterpolation: without it the alpha
+// stays 1.0, CalcDispMatrix leaves matrix_B0's translation equal to
+// position_14, and this substitutes a value identical to the original.
+static inline uintptr_t MissionSpriteDispPos(uintptr_t esi)
+{
+	auto* car = reinterpret_cast<EVWORK_CAR*>(esi);
+	return reinterpret_cast<uintptr_t>(&car->matrix_B0._41);
+}
+
+static SafetyHookMid HeartDispBumpPos_hook = {};
+static void HeartDispBumpPos_dest(SafetyHookContext& ctx)
+{
+	ctx.ecx = MissionSpriteDispPos(ctx.esi);
+}
+
+static SafetyHookMid SumoHeartBumpPos_hook = {};
+static void SumoHeartBumpPos_dest(SafetyHookContext& ctx)
+{
+	ctx.eax = MissionSpriteDispPos(ctx.esi);
+}
+
+// This one copies through the register into a stack vector and then raises y
+// for the marker's bob, so it picks up the interpolated position and keeps the
+// animation on top of it.
+static SafetyHookMid SumoHeartMarkerPos_hook = {};
+static void SumoHeartMarkerPos_dest(SafetyHookContext& ctx)
+{
+	ctx.edx = MissionSpriteDispPos(ctx.esi);
+}
+
 // The true (tick) values, saved while the interpolated ones are live.
 static D3DVECTOR CameraRealPos{};
 static D3DVECTOR CameraRealLook{};
@@ -1150,6 +1187,14 @@ bool Apply()
 	// Attached-heart pulse: rewrite the computed animation angle in-register.
 	HeartPulse_hook = safetyhook::create_mid(Module::exe_ptr(GameAddr::HeartDisp_PulseAngle), HeartPulse_dest);
 	if (!HeartPulse_hook)
+		return false;
+
+	// Heart Attack mission markers: hand the sprite the car's drawn position
+	// rather than its tick position.
+	HeartDispBumpPos_hook = safetyhook::create_mid(Module::exe_ptr(0x5D256), HeartDispBumpPos_dest);
+	SumoHeartBumpPos_hook = safetyhook::create_mid(Module::exe_ptr(0x110B36), SumoHeartBumpPos_dest);
+	SumoHeartMarkerPos_hook = safetyhook::create_mid(Module::exe_ptr(0x10FC25), SumoHeartMarkerPos_dest);
+	if (!HeartDispBumpPos_hook || !SumoHeartBumpPos_hook || !SumoHeartMarkerPos_hook)
 		return false;
 
 	InterpCars.reserve(32);
