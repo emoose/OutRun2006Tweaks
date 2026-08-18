@@ -5,12 +5,12 @@ A wrapper DLL that can patch in fixes & tweaks into OutRun 2006: Coast 2 Coast.
 
 Latest releases can be found under the releases section: https://github.com/emoose/OutRun2006Tweaks/releases
 
-> [!NOTE]  
-> **Releases are currently very outdated**, and missing a lot of new features (new input system, config overlay, framerate interpolation...) - if you have a GitHub account you can download the latest builds from the Actions tab at top of the page, otherwise try checking the Discord below!
-
 **Tweaks will also point the game to new multiplayer servers**, just head to the multiplayer section in-game and pick a username & password there!
 
 Online games are regularly setup on the **OutRun2006Tweaks Discord**: https://discord.gg/GFjKAMg83t
+
+> [!NOTE]  
+> **Releases are currently very outdated**, and missing a lot of new features (new input system, config overlay, framerate interpolation...) - if you have a GitHub account you can download the latest builds from the Actions tab at top of the page, otherwise try checking the Discord above!
 
 ### Features
 
@@ -22,16 +22,16 @@ Online games are regularly setup on the **OutRun2006Tweaks Discord**: https://di
 - Automatically disables DPI scaling on the game window to fix scaling issues
 - Fixes issues with shading on certain character/stage models (eg. the ending cutscene models)
 - Allows particles like grass/gravel to be drawn correctly, like in the console versions
-- Game can be forced to run on a single core, to help with freezing issues on some modern systems
-- Bink movie files larger than 1024 pixels will now play without crashes
+- Crashes with multi-core machines are now fixed.
+- Bink movie files larger than 1024 pixels can now play without crashes
 - Game crashes will now write a crash report into CrashDumps folder (please feel free to post any crash reports to the issues page!)
 
 **Graphics:**
+- Bloom/glow effect from the console & arcade versions has been re-added
 - UI can now scale to different aspect ratios without stretching
 - Game scene & UI textures can be extracted from game, and replaced with higher-resolution versions
 - Allows disabling vehicle LODs, reducing the ugly pop-in as they get closer
 - Fixed Z-buffer precision issues that caused heavy Z-fighting and distant object pop-in
-- Bloom/glow effect from the console & arcade versions has been re-added
 - Lens flare effect now loads from correct path without needing to change game files
 - Stage objects such as traffic cones now only disappear once they're actually off-screen
 - Fixes certain effects like engine backfiring which failed to appear when using controllers
