@@ -102,14 +102,47 @@ class D3DHooks : public Hook
 			// Only show letterboxing if not in game, or UILetterboxing is 2
 			if (!Game::is_in_game() || Settings::UILetterboxing == 2)
 			{
-				// Backup existing cullmode and set to none, otherwise we won't get drawn
-				DWORD prevCullMode = D3DCULL_NONE;
+				// This runs after SceneControl has finished, so anything left set here carries
+				// into the next frame. The game's material layer keeps its own copies of device
+				// state (st_prevTexIdx, texture_color_op and friends) and skips reapplying a
+				// state it believes is already set, so every change below has to be put back.
+				DWORD prevCullMode = D3DCULL_CCW;
+				DWORD prevAlphaBlend = FALSE;
+				DWORD prevZEnable = D3DZB_TRUE;
+				DWORD prevLighting = TRUE;
+				DWORD prevColorOp = D3DTOP_MODULATE;
+				DWORD prevAlphaOp = D3DTOP_SELECTARG1;
+				UINT prevStreamOffset = 0;
+				UINT prevStreamStride = 0;
+
+				IDirect3DBaseTexture9* prevTexture = nullptr;
+				IDirect3DVertexShader9* prevVertexShader = nullptr;
+				IDirect3DPixelShader9* prevPixelShader = nullptr;
+				IDirect3DVertexDeclaration9* prevVertexDecl = nullptr;
+				IDirect3DVertexBuffer9* prevStreamData = nullptr;
+
 				d3ddev->GetRenderState(D3DRS_CULLMODE, &prevCullMode);
+				d3ddev->GetRenderState(D3DRS_ALPHABLENDENABLE, &prevAlphaBlend);
+				d3ddev->GetRenderState(D3DRS_ZENABLE, &prevZEnable);
+				d3ddev->GetRenderState(D3DRS_LIGHTING, &prevLighting);
+				d3ddev->GetTextureStageState(0, D3DTSS_COLOROP, &prevColorOp);
+				d3ddev->GetTextureStageState(0, D3DTSS_ALPHAOP, &prevAlphaOp);
+				d3ddev->GetTexture(0, &prevTexture);
+				d3ddev->GetVertexShader(&prevVertexShader);
+				d3ddev->GetPixelShader(&prevPixelShader);
+				d3ddev->GetVertexDeclaration(&prevVertexDecl);
+				d3ddev->GetStreamSource(0, &prevStreamData, &prevStreamOffset, &prevStreamStride);
+
+				// Borders get culled without this
 				d3ddev->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
+
+				// A shader left bound by the scene would shade the borders instead of the
+				// fixed-function path, and would ignore the stage state set up below
+				d3ddev->SetVertexShader(nullptr);
+				d3ddev->SetPixelShader(nullptr);
 
 				// Seems these SetRenderState/SetTexture calls are needed for DGVoodoo to render letterbox while imgui is active
 				// DXVK/D3D9 seem to work fine without them
-				// TODO: the game keeps its own copies of the render states so it can update them if needed, should we update the games copy here?
 				{
 					// Set render states
 					d3ddev->SetRenderState(D3DRS_ALPHABLENDENABLE, FALSE);
@@ -132,8 +165,35 @@ class D3DHooks : public Hook
 				// Draw right border
 				d3ddev->DrawPrimitive(D3DPT_TRIANGLESTRIP, 4, 2);
 
-				// Restore original cullmode
 				d3ddev->SetRenderState(D3DRS_CULLMODE, prevCullMode);
+				d3ddev->SetRenderState(D3DRS_ALPHABLENDENABLE, prevAlphaBlend);
+				d3ddev->SetRenderState(D3DRS_ZENABLE, prevZEnable);
+				d3ddev->SetRenderState(D3DRS_LIGHTING, prevLighting);
+				d3ddev->SetTextureStageState(0, D3DTSS_COLOROP, prevColorOp);
+				d3ddev->SetTextureStageState(0, D3DTSS_ALPHAOP, prevAlphaOp);
+
+				// A Get on a resource adds a reference, so each one is released once it's
+				// back on the device. SetFVF above replaced the vertex declaration, so
+				// restoring the declaration object covers both the FVF and non-FVF cases.
+				d3ddev->SetTexture(0, prevTexture);
+				if (prevTexture)
+					prevTexture->Release();
+
+				d3ddev->SetVertexShader(prevVertexShader);
+				if (prevVertexShader)
+					prevVertexShader->Release();
+
+				d3ddev->SetPixelShader(prevPixelShader);
+				if (prevPixelShader)
+					prevPixelShader->Release();
+
+				d3ddev->SetVertexDeclaration(prevVertexDecl);
+				if (prevVertexDecl)
+					prevVertexDecl->Release();
+
+				d3ddev->SetStreamSource(0, prevStreamData, prevStreamOffset, prevStreamStride);
+				if (prevStreamData)
+					prevStreamData->Release();
 			}
 		}
 
