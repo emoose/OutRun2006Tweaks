@@ -96,7 +96,10 @@ void Plugin_Init()
 	Settings::mark_base_values();
 
 	if (std::filesystem::exists(Module::UserIniPath))
+	{
+		Settings::CDTracks.clear();
 		Settings::read(Module::UserIniPath);
+	}
 
 	int argc;
 	LPWSTR* argv = CommandLineToArgvW(GetCommandLineW(), &argc);
