@@ -4,6 +4,11 @@
 #include "overlay/overlay.hpp"
 #include "interpolation.hpp"
 
+namespace OutRunVRRenderer
+{
+	bool IsCadencePacingActive() noexcept;
+}
+
 // from timeapi.h, which we can't include since our proxy timeBeginPeriod etc funcs will conflict...
 typedef struct timecaps_tag {
 	UINT    wPeriodMin;     /* minimum period supported  */
@@ -18,6 +23,11 @@ typedef struct timecaps_tag {
 
 namespace Settings
 {
+	// Defined by src/vr/settings.cpp. The legacy limiter uses these only to
+	// provide a safe 60 Hz startup/menu fallback until XR cadence is live.
+	extern Setting<bool> VREnabled;
+	extern Setting<int> VRFrameCadenceMode;
+
 	Setting<int> FramerateLimit{ "Performance", "FramerateLimit", 0,
 		"Valid values are 0 (unlimited/vsync), 60 (vanilla), or values above 60. "
 		"Framerates above 60 will duplicate frames, unless FramerateInterpolation is also enabled." };
@@ -308,9 +318,37 @@ class ReplaceGameUpdateLoop : public Hook
 		}
 #endif
 
-		// Skip framelimiter during load screens to help reduce load times
-		bool skipFrameLimiter = Settings::FramerateLimit == 0;
-		if (Settings::FramerateFastLoad > 0 && !skipFrameLimiter)
+		// When R35/R36 OpenXR cadence is active, xrWaitFrame is the render
+		// limiter. Keep the 60 Hz simulation clock below, but never stack the
+		// legacy Tweaks limiter on top of the XR clock.
+		const bool xrCadencePacing =
+			OutRunVRRenderer::IsCadencePacingActive();
+		const bool vrCadenceFallback =
+			Settings::VREnabled && Settings::VRFrameCadenceMode > 0 &&
+			!xrCadencePacing;
+		const bool renderUnlock =
+			Settings::FramerateUnlockExperimental || xrCadencePacing;
+		const int effectiveFramerateLimit =
+			vrCadenceFallback ? 60 : Settings::FramerateLimit.get();
+
+		// VR must fail safe before the host publishes a valid cadence token.
+		// With FramerateLimit=0 + immediate Present the menu/load loop can run
+		// thousands of Presents per second and never advance out of the white
+		// startup screen. Hold 60 Hz until XR pacing is actually active.
+		static bool vrCadenceFallbackLogged = false;
+		if (vrCadenceFallback && !vrCadenceFallbackLogged)
+		{
+			vrCadenceFallbackLogged = true;
+			spdlog::info(
+				"VR CADENCE FALLBACK: host cadence inactive; software render limiter held at 60 Hz until a valid XR request token is accepted");
+		}
+
+		// Fast-load uncapping is unsafe while VR is waiting for its first valid
+		// host cadence token, so keep the fallback limiter authoritative.
+		bool skipFrameLimiter =
+			effectiveFramerateLimit == 0 || xrCadencePacing;
+		if (Settings::FramerateFastLoad > 0 && !skipFrameLimiter &&
+			!vrCadenceFallback)
 		{
 			if (Settings::FramerateFastLoad != 3)
 			{
@@ -361,12 +399,14 @@ class ReplaceGameUpdateLoop : public Hook
 			double timeCurrent = 0;
 			LARGE_INTEGER counter;
 
-			const double FramelimiterTargetFrametime = 1000.0 / double(Settings::FramerateLimit);
+			const double FramelimiterTargetFrametime =
+				1000.0 / double(effectiveFramerateLimit);
 			const double deadline = FramelimiterPrevCounter + FramelimiterTargetFrametime;
 
 			for (;;)
 			{
-				if (Settings::FramerateFastLoad == 3)
+				if (Settings::FramerateFastLoad == 3 &&
+					!vrCadenceFallback)
 					PumpFileLoader(deadline);
 
 				QueryPerformanceCounter(&counter);
@@ -382,7 +422,8 @@ class ReplaceGameUpdateLoop : public Hook
 					continue;
 				}
 
-				if (Settings::FramerateFastLoad == 3)
+				if (Settings::FramerateFastLoad == 3 &&
+					!vrCadenceFallback)
 					remaining = min(remaining, FramelimiterFastLoadSleepMs);
 
 				// PreciseSleep returns right on the deadline, having spun out
@@ -415,7 +456,7 @@ class ReplaceGameUpdateLoop : public Hook
 		// when running above 60FPS CalcNumUpdatesToRun would return 0 since game was running fast, for it to skip the current update, but game would still force it to update
 		// if FrameUnlockExperimental is set then we'll allow 0 updates to run, allowing it to skip updating when game is running fast
 
-		int minUpdates = Settings::FramerateUnlockExperimental ? 0 : 1;
+		int minUpdates = renderUnlock ? 0 : 1;
 
 		if (numUpdates < minUpdates)
 			numUpdates = minUpdates;
@@ -465,6 +506,9 @@ class ReplaceGameUpdateLoop : public Hook
 			Game::LinkControlReceive();
 			Game::ModeControl();
 			Game::EventControl();
+			// Also runs when no player-car Ctrl is dispatched (menus/restarts).
+			void WheelFFB_ServiceSafety();
+			WheelFFB_ServiceSafety();
 			Game::GhostCarExecServer();
 			Game::fn4666A0();
 
@@ -473,7 +517,7 @@ class ReplaceGameUpdateLoop : public Hook
 
 		// Keeps tick-drawn UI present on frames that skip a tick. Must sit after
 		// the last tick and before the render path queues any draw of its own.
-		if (Settings::FramerateUnlockExperimental)
+		if (renderUnlock)
 			SumoUISpriteReplay::update(numUpdates);
 
 		// Re-run the display-matrix builders with a fractional alpha. Must be
@@ -483,7 +527,7 @@ class ReplaceGameUpdateLoop : public Hook
 		// Only meaningful when the experimental unlock is on - otherwise
 		// numUpdates is clamped to >=1, alpha sits near 0, and we would render
 		// a frame behind rather than smoothly between frames.
-		if (Settings::FramerateUnlockExperimental && Settings::FramerateInterpolation)
+		if (renderUnlock && Settings::FramerateInterpolation)
 			Interp::AfterTicks(FramelimiterFrequency);
 	}
 

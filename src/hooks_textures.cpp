@@ -7,9 +7,20 @@
 #include <ddraw.h>
 #include <unordered_set>
 #include <array>
+#include <new>
+#include <intrin.h>
+
+namespace OutRunVRHudInspector
+{
+    void TracePutSprite(SPRARGS* sprargs, float priority,
+        const void* returnAddress);
+    void TracePutSprite2(SPRARGS2* sprargs, float priority,
+        const void* returnAddress);
+}
 
 namespace Settings
 {
+	extern Setting<bool> VREnabled;
 	Setting<std::string> TextureBaseFolder{ "Graphics", "TextureBaseFolder", "textures",
 		"The base folder for texture replacements. Replacements are loaded from [TextureBaseFolder]/load/, and vanilla "
 		"textures are extracted to [TextureBaseFolder]/dump/." };
@@ -33,6 +44,7 @@ namespace Settings
 }
 
 #define MAX_TEXTURE_CACHE_SIZE_MB (1024 + 256)
+#define VR_MAX_TEXTURE_CACHE_SIZE_MB 64
 
 #define DDS_MAGIC 0x20534444  // "DDS "
 struct DDS_FILE
@@ -303,13 +315,20 @@ private:
 	std::unordered_map<std::filesystem::path, CacheEntry> cache;
 	std::list<std::filesystem::path> lru_list;
 
-	void evict()
+	void evictToFit(std::size_t incoming = 0)
 	{
-		while (!lru_list.empty() && current_cache_size > max_cache_size)
+		if (incoming > max_cache_size)
+			incoming = max_cache_size;
+		while (!lru_list.empty() &&
+			current_cache_size > max_cache_size - incoming)
 		{
 			std::filesystem::path lru_file = lru_list.back();
-			current_cache_size -= cache[lru_file].data.size();
-			cache.erase(lru_file);
+			auto found = cache.find(lru_file);
+			if (found != cache.end())
+			{
+				current_cache_size -= found->second.data.size();
+				cache.erase(found);
+			}
 			lru_list.pop_back();
 		}
 	}
@@ -320,6 +339,13 @@ private:
 
 public:
 	FileDataCache(std::size_t maxCacheSize) : max_cache_size(maxCacheSize), current_cache_size(0) {}
+
+	void setMaxCacheSize(std::size_t bytes)
+	{
+		std::lock_guard _(mtx1);
+		max_cache_size = std::max<std::size_t>(bytes, 16 * 1024 * 1024);
+		evictToFit();
+	}
 
 	void cacheFolder(std::filesystem::path folder)
 	{
@@ -352,27 +378,61 @@ public:
 		std::ifstream file(filename, std::ios::binary | std::ios::ate);
 		if (!file)
 		{
-			throw std::runtime_error("Unable to open file: " + filename.string());
+			spdlog::warn("Texture cache: unable to open {}", filename.string());
+			return;
 		}
 
-		std::streamsize size = file.tellg();
+		const std::streamsize streamSize = file.tellg();
+		if (streamSize <= 0)
+			return;
+		const std::size_t size = static_cast<std::size_t>(streamSize);
+		if (size > max_cache_size)
+		{
+			spdlog::warn(
+				"Texture cache: skipping {} ({} MiB) because it exceeds the {} MiB cache budget",
+				filename.string(), size / (1024 * 1024),
+				max_cache_size / (1024 * 1024));
+			return;
+		}
+
+		// R35.1: make address-space room before allocating the incoming DDS.
+		// The old code allocated first and evicted afterwards, allowing a
+		// 32-bit process to throw std::bad_alloc even while the configured LRU
+		// budget would eventually have been respected.
+		evictToFit(size);
 		file.seekg(0, std::ios::beg);
 
-		std::vector<uint8_t> buffer(size);
-		if (!file.read(reinterpret_cast<char*>(buffer.data()), size))
+		try
 		{
-			throw std::runtime_error("Error reading file: " + filename.string());
-		}		
-		else
-		{
-			current_cache_size += size;
-			evict();
-
-			if (size > max_cache_size)
-				throw std::runtime_error("File size exceeds maximum cache size");
+			std::vector<uint8_t> buffer(size);
+			if (!file.read(reinterpret_cast<char*>(buffer.data()),
+				static_cast<std::streamsize>(size)))
+			{
+				spdlog::warn("Texture cache: error reading {}", filename.string());
+				return;
+			}
 
 			lru_list.push_front(filename);
-			cache[filename] = { std::move(buffer), lru_list.begin() };
+			try
+			{
+				cache[filename] = { std::move(buffer), lru_list.begin() };
+				current_cache_size += size;
+			}
+			catch (...)
+			{
+				lru_list.pop_front();
+				throw;
+			}
+		}
+		catch (const std::bad_alloc&)
+		{
+			// Texture replacement is optional. Under 32-bit VR memory pressure,
+			// failing this cache entry must not terminate the game; a cache miss
+			// falls back to the normal/original texture path.
+			spdlog::warn(
+				"Texture cache: allocation failed for {} ({} MiB); skipping cache entry to keep the 32-bit game alive",
+				filename.string(), size / (1024 * 1024));
+			return;
 		}
 	}
 
@@ -557,6 +617,7 @@ class TextureReplacement : public Hook
 	inline static SafetyHookInline put_sprite_ex2 = {};
 	static int __cdecl put_sprite_ex2_dest(SPRARGS2* a1, float a2)
 	{
+		OutRunVRHudInspector::TracePutSprite2(a1, a2, _ReturnAddress());
 		int xstnum = a1->xstnum_0;
 
 		if (a1->d3dtexture_ptr_C == prevTexture && sprite_scales.contains(prevTextureId))
@@ -590,6 +651,7 @@ class TextureReplacement : public Hook
 	inline static SafetyHookInline put_sprite_ex = {};
 	static int __cdecl put_sprite_ex_dest(SPRARGS* a1, float a2)
 	{
+		OutRunVRHudInspector::TracePutSprite(a1, a2, _ReturnAddress());
 		int xstnum = a1->xstnum_0;
 		if (sprite_scales.contains(xstnum))
 		{
@@ -830,7 +892,22 @@ class TextureReplacement : public Hook
 		OutputDebugStringA(msg.c_str());
 #endif
 
-		FileData.cacheFolder(folderPath);
+		try
+		{
+			FileData.cacheFolder(folderPath);
+		}
+		catch (const std::exception& e)
+		{
+			spdlog::warn(
+				"Texture cache: background preload failed for {}: {}",
+				folderPath.string(), e.what());
+		}
+		catch (...)
+		{
+			spdlog::warn(
+				"Texture cache: background preload failed for {} with an unknown exception",
+				folderPath.string());
+		}
 
 		isComplete = true;
 	}
@@ -894,6 +971,16 @@ public:
 		
 		XmtDumpPath = textureBaseDir / "dump";
 		XmtLoadPath = textureBaseDir / "load";
+
+		if (Settings::VREnabled)
+		{
+			FileData.setMaxCacheSize(
+				static_cast<std::size_t>(VR_MAX_TEXTURE_CACHE_SIZE_MB) *
+				1024 * 1024);
+			spdlog::info(
+				"VR texture cache: capped at {} MiB to preserve 32-bit address space for D3D9Ex stereo/shadow resources",
+				VR_MAX_TEXTURE_CACHE_SIZE_MB);
+		}
 
 		// Startup texture cache, causes game to take a while to boot, disabled for now...
 #if 0

@@ -1,0 +1,22 @@
+OutRun2006Tweaks VR - Third-party GPL notice
+
+This VR branch contains an adapted D3D9 shader bytecode fingerprint helper:
+  src/vr/d3d9/shader_fingerprint_gpl.hpp
+
+The FNV-1 64-bit hashing routine and the technique of identifying D3D9 shaders
+from shader bytecode rather than COM object addresses are adapted from:
+  3Dmigoto by the 3Dmigoto contributors
+  Upstream: https://github.com/bo3b/3Dmigoto
+  Upstream files referenced by the adaptation include util.h and
+  DirectX9/Direct3DDevice9Functions.h.
+
+3Dmigoto is distributed under GNU GPL version 3. The adapted helper is marked:
+  SPDX-License-Identifier: GPL-3.0-only
+
+The corresponding adapted source is distributed in this repository and is also
+copied into test packages under SOURCE_GPL/3dmigoto-adapted/.
+The upstream GPL text is included as LICENSE-3DMIGOTO-GPL-3.0.txt.
+
+The shader fingerprint path is compiled into the D3D9 VR renderer. Diagnostic
+hash logging is enabled by setting:
+  OUTRUN_VR_SHADER_FINGERPRINT=1

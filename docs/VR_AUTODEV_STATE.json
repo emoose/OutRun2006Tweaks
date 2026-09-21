@@ -1,0 +1,150 @@
+{
+  "schemaVersion": 1,
+  "updatedUtc": "2026-09-20T18:36:00Z",
+  "branch": "vr-unified-backends",
+  "publicationMode": "github-fast-forward-cas",
+  "frozen": true,
+  "freezeReason": "runtime-recovery-candidate-built-after-safe-transport-policy-sync-and-dx12-device-create-fix",
+  "frozenCommit": "803144005c0e45352602917a2f51804ec6b18ae6",
+  "buildMatrixId": "VRM-20260920-803144005c0e",
+  "components": {
+    "d3d9": "803144005c0e45352602917a2f51804ec6b18ae6",
+    "dxvkGameHost": "5e58ee35e14636dbfad3ad3744d350aa09859992",
+    "dxvkProvider": "5bb301ab22f7b41d68a879bf84c1e3d10ae0c473",
+    "multiviewPatcher": "0ef3253da1738b07e67358a027311c7bcedaa001",
+    "dx12": "ab8e00ab4a21e4ebb23fbc4046abda51e885bcb6"
+  },
+  "ci": {
+    "buildRunId": 35514339665,
+    "unifiedRunId": 35514339728,
+    "artifactId": 10606816032,
+    "artifactSha256": "1517890fd2efe90f9c5fe8f345d7fd695b534b33de5ad1937441836f386e6cca",
+    "innerZipSha256": "e48b1648ce80f7027e3cdea3bbb13192cc56c5bd99628ee886759e6d8916e065"
+  },
+  "availableVariants": [
+    "CONTROL_2D",
+    "A_CONTROL",
+    "E_DXVK_SAFE",
+    "E_DXVK_MULTIVIEW",
+    "F_DX12_STRICT"
+  ],
+  "runtimeEvidence": {
+    "previousCandidate": "5f9028deb7ee93aa5733cfdf4acf5c872f15298e",
+    "observed": {
+      "control2D": "normal startup",
+      "d3d9Safe": "normal startup; gameplay showed enlarged/cropped left half with no stereo",
+      "dxvkSafe": "same enlarged/cropped flat image",
+      "dx12Strict": "device creation failed"
+    },
+    "diagnosis": [
+      "SAFE settings had DirectGpuOnly=false but game-side R9 transport policy read stale CRT environment values and remained direct-only, suppressing SBS fallback and publishing zero completed stereo frames",
+      "host recovery theater cropped the left half even when the desktop source was full-width mono",
+      "DX12 Direct3DCreate9On12Ex succeeded but CreateDeviceEx returned D3DERR_INVALIDCALL; strict branch now preserves legacy CreateDevice semantics with one bounded presentation-parameter retry"
+    ],
+    "quest3VdxrRequired": true
+  },
+  "fixes": {
+    "d3d9Safe": "R9DirectOnlyTransport reads Settings::VRDirectGpuOnly directly; host crops only completed SBS frames",
+    "dxvkSafe": "same transport-policy fix and host crop guard synchronized to vr-dxvk-poc",
+    "dx12Strict": "legacy D3D9On12 CreateDevice semantics plus bounded compatibility retry; host crop guard synchronized"
+  },
+  "validation": {
+    "unifiedWorkflow": "success",
+    "zipIntegrity": "passed",
+    "requiredFiles": "passed",
+    "branchShaSync": "passed",
+    "skyGlowFactor": 1
+  },
+  "nextAction": "Continue from unified commit ad14ed6c6757634233ec79b71f42be53c563edb7 with T0-debug commit 365b294b6a96c98ada434b439a982725e1ba542c as the build-validated DX9Ex reference input. Next hourly work should port bounded fingerprint telemetry and the narrow S6/S7 lens-flare candidate into the D3D9Ex path only, fail closed, without broad WVP/WorldBillboard promotion; then prepare no more than six runtime candidates. Do not mark Position HUD, white overlays, or T5 fast-path correctness fixed without runtime evidence.",
+  "integrationHead": "ad14ed6c6757634233ec79b71f42be53c563edb7",
+  "activeDevelopment": true,
+  "dx9exWorkingBase": {
+    "branch": "vr-d3d9ex-t0-debug",
+    "buildValidatedCommit": "365b294b6a96c98ada434b439a982725e1ba542c",
+    "branchHead": "7298d1f2426da9134aca17b83f23076a495fd788",
+    "ciRunId": 35526213136,
+    "artifactId": 10609747550,
+    "artifactSha256": "7cf2cc7a8ed762a07bcc3bb474e9d37bb0980ac0320b944a1999d61f23612a4f",
+    "innerZipSha256": "b034553ac0b919a9d7944ee11168a6e5dd3f868221a047585b3a8da7cfe8ed0d",
+    "buildValidation": "host/game/package success",
+    "runtimeEvidence": [
+      "T0-derived world/sky/loading behavior is the stability reference",
+      "stage loading reached gameplay normally in the latest T0-family runtime tests",
+      "persistent last-good stereo projection removed the full-screen solid/empty-color stall symptom",
+      "S6/S7-family narrow alpha+flat-WVP behavior collapsed duplicated lens flare to one in runtime tests, but camera-relative correctness remains unconfirmed"
+    ],
+    "unresolved": [
+      "Position HUD 6th/6 remains duplicated/oversized and is not confirmed fixed",
+      "white rank/score and exit YES/NO remain split",
+      "T5/R29 fast path improves frame rate somewhat but corrupts sky/world and is performance evidence only"
+    ]
+  },
+  "reviewBatches": {
+    "RB01": {
+      "status": "complete",
+      "completedUtc": "2026-09-20T17:55:25Z",
+      "inputs": {
+        "unifiedHeadBefore": "fc71a50a10ddcccb6e38e6a41fba8e3f7fc3d74f",
+        "t0DebugBuild": "365b294b6a96c98ada434b439a982725e1ba542c",
+        "t0DebugBranchHead": "7298d1f2426da9134aca17b83f23076a495fd788"
+      },
+      "lenses": [
+        "architecture/build/backend boundary",
+        "resource/state/lifetime/synchronization",
+        "stereo HUD/sky/effects/recenter/menu correctness",
+        "performance draw amplification/copies/XR pacing",
+        "adversarial regression/fail-closed review"
+      ],
+      "result": "Do not wholesale-merge diverged T0 branch. Port only validated behaviors in bounded changes."
+    }
+  },
+  "currentRun": {
+    "type": "manual-hourly-equivalent",
+    "sourceCommit": "ad14ed6c6757634233ec79b71f42be53c563edb7",
+    "change": "Port T0 loading bootstrap and persistent last-good gameplay projection guards into the current unified host without changing HUD/effect classifiers.",
+    "buildRunId": 35527017219,
+    "unifiedRunId": 35527017201,
+    "unifiedArtifactId": 10609683851,
+    "artifactSha256": "a5e21693ae74d51ea0ba7b2483ef133fbfde9517068993a5e8796f6b5bc37243",
+    "innerZipSha256": "12088212f8ec4af2f92cdc6280e785f51112b9e50945c10b8fe9fb4f1dd08780",
+    "validation": "Build success; D3D9 SAFE, DXVK game/host, DXVK provider, multiview patcher, DX12 and package all success; runtime validation pending."
+  },
+  "coordination": {
+    "initializedKst": "2026-09-21T03:36:00+09:00",
+    "baselineSourceCommit": "ad14ed6c6757634233ec79b71f42be53c563edb7",
+    "protocol": "docs/VR_AUTODEV_PROTOCOL.md",
+    "queue": "docs/VR_WORK_QUEUE.json",
+    "runtimeFeedback": "docs/VR_RUNTIME_FEEDBACK.json",
+    "handoffs": {
+      "review": "docs/autodev/REVIEW_HANDOFF.json",
+      "fix": "docs/autodev/FIX_HANDOFF.json",
+      "validation": "docs/autodev/VALIDATION_HANDOFF.json"
+    },
+    "authorities": {
+      "productionSourceWriter": "FIX",
+      "centralQueueWriter": "INTEGRATION_PLANNER",
+      "reviewSourceMode": "read-only",
+      "validationSourceMode": "read-only"
+    },
+    "invariants": [
+      "Do not repeat completed work for unchanged input hashes without a new review lens or runtime evidence.",
+      "Two materially different failed fixes move a finding to BLOCKED.",
+      "Runtime/HMD correctness requires Quest 3 + VDXR evidence.",
+      "No more than six meaningful runtime candidates; never fabricate identical variants."
+    ],
+    "setupCommits": [
+      "73c58c45082a8c3b7b62299f4b3ef1242f1f9795",
+      "24822d28d371f39c2a3d261590f93ebf24746a19",
+      "5f0a3dcca342542ccbaf2e2c72ed322719f20ce0",
+      "27380e8ba4b8d168e81a9ed1fc44582779f2a0f4",
+      "c8daa9ac86d922a73469a9b10705d0dff16a7640",
+      "ce6bb0de5755179d4cf104aa00efe81c5b8de0a3"
+    ],
+    "validation": {
+      "script": "tools/Validate-VRAutodevState.ps1",
+      "workflow": ".github/workflows/vr-autodev-state.yml",
+      "scope": "coordination-state-only",
+      "fullBackendBuildOnStateOnlyChanges": false
+    }
+  }
+}

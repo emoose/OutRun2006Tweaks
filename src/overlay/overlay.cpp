@@ -565,6 +565,9 @@ static void render_first_run_intro()
 	ImGui::TextUnformatted("Controller vibration is supported, but disabled by default as some Bluetooth controllers can have framerate issues. (configure it in Controls settings)");
 
 	ImGui::Bullet();
+	ImGui::TextWrapped("Wheel users: configure steering, pedals, buttons and menu controls in Input Bindings (Controller Configuration or Settings > Controls). Force feedback is selected and tuned separately in the Force Feedback tab.");
+
+	ImGui::Bullet();
 	ImGui::TextUnformatted("Online play and leaderboards are back! Create an account from the game's menus to "
 		"race online, download ghosts to run against, and post times.");
 	ImGui::Indent();

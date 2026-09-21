@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "updatedKst": "2026-09-21T03:36:00+09:00",
+  "lastConsumedByPlanner": null,
+  "sessions": [],
+  "notes": [
+    "Append normalized Quest 3/VDXR observations here only when they are tied to BuildMatrixId, VariantId and SessionId.",
+    "CI success alone is not runtime evidence."
+  ]
+}

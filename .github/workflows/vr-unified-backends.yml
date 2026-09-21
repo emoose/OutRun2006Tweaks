@@ -1,0 +1,411 @@
+name: Unified VR Backend Test Package
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ vr-unified-backends ]
+    paths:
+      - 'tools/Select-OutRunVRBackend.*'
+      - 'tools/OutRunVR-Backend-Selector.*'
+      - 'tools/Collect-OutRunVRLogs.*'
+      - 'tools/Run-OutRunVRTest.*'
+      - 'THIRD_PARTY_GPL_NOTICES.txt'
+      - 'LICENSE-3DMIGOTO-GPL-3.0.txt'
+      - 'src/vr/**'
+      - 'src/hooks_framerate.cpp'
+      - 'src/hooks_graphics.cpp'
+      - 'vrhost/**'
+      - 'CMakeLists.txt'
+      - 'OutRun2006Tweaks.ini'
+      - 'docs/VR_UNIFIED_TEST_SCENARIO.md'
+      - '.github/workflows/vr-unified-backends.yml'
+
+concurrency:
+  group: vr-unified-backends-package
+  cancel-in-progress: true
+
+jobs:
+  d3d9-safe:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: vr-unified-backends
+          submodules: recursive
+      - name: Configure Win32 D3D9 safe game
+        shell: pwsh
+        run: |
+          Remove-Item Env:CI -ErrorAction SilentlyContinue
+          cmake -S . -B build-game -G "Visual Studio 17 2022" -A Win32 -DOUTRUN_VR_SAFE_DRAW_COMPARE=ON
+      - name: Apply VC2022 dependency workarounds
+        shell: pwsh
+        run: |
+          (Get-Content build-game/_deps/safetyhook-build/src/safetyhook.vcxproj) -replace 'ZYCORE_STATIC_BUILD', '_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR;ZYCORE_STATIC_BUILD' | Set-Content build-game/_deps/safetyhook-build/src/safetyhook.vcxproj
+          (Get-Content build-game/_deps/zydis-build/Zydis.vcxproj) -replace 'ZYCORE_STATIC_BUILD', '_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR;ZYCORE_STATIC_BUILD' | Set-Content build-game/_deps/zydis-build/Zydis.vcxproj
+          (Get-Content build-game/_deps/zydis-build/zycore/Zycore.vcxproj) -replace 'ZYCORE_STATIC_BUILD', '_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR;ZYCORE_STATIC_BUILD' | Set-Content build-game/_deps/zydis-build/zycore/Zycore.vcxproj
+          Set-Content -Path build-game/_deps/sdl-src/src/joystick/gdk/SDL_gameinputjoystick.c -Value ""
+          (Get-Content build-game/_deps/sdl-build/include-config-release/build_config/SDL_build_config.h) -replace '#define SDL_JOYSTICK_GAMEINPUT 1', '/* #undef SDL_JOYSTICK_GAMEINPUT */' | Set-Content build-game/_deps/sdl-build/include-config-release/build_config/SDL_build_config.h
+      - name: Build game
+        run: cmake --build build-game --config Release --target outrun2006tweaks
+      - name: Build x64 D3D11 OpenXR host
+        run: |
+          cmake -S vrhost -B build-host -G "Visual Studio 17 2022" -A x64
+          cmake --build build-host --config Release --target outrun-vr-host
+      - name: Stage D3D9 safe payload
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force stage | Out-Null
+          $dll = Get-ChildItem build-game -Recurse -Filter dinput8.dll | Where-Object { $_.FullName -match '\\bin\\' } | Select-Object -First 1
+          if (-not $dll) { throw "D3D9 dinput8.dll missing" }
+          Copy-Item $dll.FullName stage/dinput8.dll
+          Copy-Item build-host/bin/outrun-vr-host.exe stage/outrun-vr-host.exe
+          git rev-parse HEAD | Set-Content stage/SOURCE_SHA.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: unified-d3d9-safe
+          path: stage/
+          if-no-files-found: error
+
+  dx12:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: vr-dx12-poc
+          submodules: recursive
+      - name: Configure Win32 DX12 strict game
+        shell: pwsh
+        run: |
+          Remove-Item Env:CI -ErrorAction SilentlyContinue
+          cmake -S . -B build-game -G "Visual Studio 17 2022" -A Win32 -DOUTRUN_VR_SAFE_DRAW_COMPARE=ON
+      - name: Apply VC2022 dependency workarounds
+        shell: pwsh
+        run: |
+          (Get-Content build-game/_deps/safetyhook-build/src/safetyhook.vcxproj) -replace 'ZYCORE_STATIC_BUILD', '_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR;ZYCORE_STATIC_BUILD' | Set-Content build-game/_deps/safetyhook-build/src/safetyhook.vcxproj
+          (Get-Content build-game/_deps/zydis-build/Zydis.vcxproj) -replace 'ZYCORE_STATIC_BUILD', '_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR;ZYCORE_STATIC_BUILD' | Set-Content build-game/_deps/zydis-build/Zydis.vcxproj
+          (Get-Content build-game/_deps/zydis-build/zycore/Zycore.vcxproj) -replace 'ZYCORE_STATIC_BUILD', '_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR;ZYCORE_STATIC_BUILD' | Set-Content build-game/_deps/zydis-build/zycore/Zycore.vcxproj
+          Set-Content -Path build-game/_deps/sdl-src/src/joystick/gdk/SDL_gameinputjoystick.c -Value ""
+          (Get-Content build-game/_deps/sdl-build/include-config-release/build_config/SDL_build_config.h) -replace '#define SDL_JOYSTICK_GAMEINPUT 1', '/* #undef SDL_JOYSTICK_GAMEINPUT */' | Set-Content build-game/_deps/sdl-build/include-config-release/build_config/SDL_build_config.h
+      - name: Build strict DX12 game DLL
+        run: cmake --build build-game --config Release --target outrun2006tweaks
+      - name: Build native x64 D3D12 OpenXR host
+        run: |
+          cmake -S vrhost -B build-host -G "Visual Studio 17 2022" -A x64
+          cmake --build build-host --config Release --target outrun-vr-host-dx12
+      - name: Stage DX12 payload
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force stage | Out-Null
+          $dll = Get-ChildItem build-game -Recurse -Filter dinput8.dll | Where-Object { $_.FullName -match '\\bin\\' } | Select-Object -First 1
+          if (-not $dll) { throw "DX12 game dinput8.dll missing" }
+          Copy-Item $dll.FullName stage/dinput8.dll
+          Copy-Item build-host/bin/outrun-vr-host-dx12.exe stage/outrun-vr-host.exe
+          git rev-parse HEAD | Set-Content stage/SOURCE_SHA.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: unified-dx12
+          path: stage/
+          if-no-files-found: error
+
+  dxvk-game-host:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: vr-dxvk-poc
+          submodules: recursive
+      - name: Configure Win32 DXVK-aware game
+        shell: pwsh
+        run: |
+          Remove-Item Env:CI -ErrorAction SilentlyContinue
+          cmake -S . -B build-game -G "Visual Studio 17 2022" -A Win32 -DOUTRUN_VR_SAFE_DRAW_COMPARE=ON
+      - name: Apply VC2022 dependency workarounds
+        shell: pwsh
+        run: |
+          (Get-Content build-game/_deps/safetyhook-build/src/safetyhook.vcxproj) -replace 'ZYCORE_STATIC_BUILD', '_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR;ZYCORE_STATIC_BUILD' | Set-Content build-game/_deps/safetyhook-build/src/safetyhook.vcxproj
+          (Get-Content build-game/_deps/zydis-build/Zydis.vcxproj) -replace 'ZYCORE_STATIC_BUILD', '_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR;ZYCORE_STATIC_BUILD' | Set-Content build-game/_deps/zydis-build/Zydis.vcxproj
+          (Get-Content build-game/_deps/zydis-build/zycore/Zycore.vcxproj) -replace 'ZYCORE_STATIC_BUILD', '_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR;ZYCORE_STATIC_BUILD' | Set-Content build-game/_deps/zydis-build/zycore/Zycore.vcxproj
+          Set-Content -Path build-game/_deps/sdl-src/src/joystick/gdk/SDL_gameinputjoystick.c -Value ""
+          (Get-Content build-game/_deps/sdl-build/include-config-release/build_config/SDL_build_config.h) -replace '#define SDL_JOYSTICK_GAMEINPUT 1', '/* #undef SDL_JOYSTICK_GAMEINPUT */' | Set-Content build-game/_deps/sdl-build/include-config-release/build_config/SDL_build_config.h
+      - name: Build DXVK-aware game DLL
+        run: cmake --build build-game --config Release --target outrun2006tweaks
+      - name: Build x64 OpenXR host
+        run: |
+          cmake -S vrhost -B build-host -G "Visual Studio 17 2022" -A x64
+          cmake --build build-host --config Release --target outrun-vr-host
+      - name: Stage DXVK game and host
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force stage | Out-Null
+          $dll = Get-ChildItem build-game -Recurse -Filter dinput8.dll | Where-Object { $_.FullName -match '\\bin\\' } | Select-Object -First 1
+          if (-not $dll) { throw "DXVK game dinput8.dll missing" }
+          Copy-Item $dll.FullName stage/dinput8.dll
+          Copy-Item build-host/bin/outrun-vr-host.exe stage/outrun-vr-host.exe
+          git rev-parse HEAD | Set-Content stage/SOURCE_SHA.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: unified-dxvk-game-host
+          path: stage/
+          if-no-files-found: error
+
+  dxvk-provider:
+    runs-on: ubuntu-latest
+    container: archlinux/archlinux:base-devel
+    steps:
+      - name: Install build dependencies
+        run: pacman -Syu --needed --noconfirm git meson ninja mingw-w64-gcc glslang python
+      - uses: actions/checkout@v4
+        with:
+          ref: vr-dxvk-poc
+      - name: Build OutRun DXVK provider
+        run: |
+          git init dxvk-src
+          git -C dxvk-src remote add origin https://github.com/Detegr/dxvk-openRBRVR.git
+          git -C dxvk-src fetch --depth 1 origin 5bb301ab22f7b41d68a879bf84c1e3d10ae0c473
+          git -C dxvk-src checkout --detach FETCH_HEAD
+          cd dxvk-src
+          git submodule update --init --recursive --depth 1
+          python3 ../dxvk-fork/apply_openrbrvr_layer_switch.py
+          meson setup --cross-file build-win32.txt --buildtype release --prefix "$GITHUB_WORKSPACE/dxvk-install" build.w32
+          cd ..
+          ninja -C dxvk-src/build.w32 install
+          mkdir -p stage
+          p=$(find dxvk-install -type f -iname d3d9.dll | head -n 1)
+          test -n "$p"
+          cp "$p" stage/d3d9.dll
+          cp dxvk-src/LICENSE stage/LICENSE-DXVK-openRBRVR.txt
+          git -C dxvk-src rev-parse HEAD > stage/SOURCE_SHA.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: unified-dxvk-provider
+          path: stage/
+          if-no-files-found: error
+
+  multiview-patcher:
+    runs-on: windows-2022
+    steps:
+      - name: Build multiview patcher
+        shell: pwsh
+        run: |
+          git init patcher-src
+          git -C patcher-src remote add origin https://github.com/Detegr/RBR-spirvpatcher.git
+          git -C patcher-src fetch --depth 1 origin 0ef3253da1738b07e67358a027311c7bcedaa001
+          git -C patcher-src checkout --detach FETCH_HEAD
+          git -C patcher-src submodule update --init --recursive --depth 1
+          Push-Location patcher-src/spirv-tools
+          python utils/git-sync-deps
+          Pop-Location
+          cmake -S patcher-src -B patcher-build -A Win32 -DCMAKE_BUILD_TYPE=Release
+          cmake --build patcher-build --config Release
+          New-Item -ItemType Directory -Force stage | Out-Null
+          Copy-Item patcher-build/src/Release/multiviewpatcher.dll stage/multiviewpatcher.dll
+          Copy-Item patcher-src/LICENSE stage/LICENSE-RBR-spirvpatcher-MPL-2.0.txt
+          git -C patcher-src rev-parse HEAD | Set-Content stage/SOURCE_SHA.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: unified-multiview-patcher
+          path: stage/
+          if-no-files-found: error
+
+  package:
+    runs-on: windows-2022
+    needs: [d3d9-safe, dx12, dxvk-game-host, dxvk-provider, multiview-patcher]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: vr-unified-backends
+      - uses: actions/download-artifact@v4
+        with:
+          name: unified-d3d9-safe
+          path: payload/d3d9
+      - uses: actions/download-artifact@v4
+        with:
+          name: unified-dx12
+          path: payload/dx12
+      - uses: actions/download-artifact@v4
+        with:
+          name: unified-dxvk-game-host
+          path: payload/dxvk
+      - uses: actions/download-artifact@v4
+        with:
+          name: unified-dxvk-provider
+          path: payload/dxvk-extra
+      - uses: actions/download-artifact@v4
+        with:
+          name: unified-multiview-patcher
+          path: payload/dxvk-patcher
+      - name: Assemble unified test package
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force package/backends/d3d9 | Out-Null
+          New-Item -ItemType Directory -Force package/backends/dxvk | Out-Null
+          New-Item -ItemType Directory -Force package/backends/dx12 | Out-Null
+
+          Copy-Item payload/d3d9/dinput8.dll package/backends/d3d9/dinput8.dll
+          Copy-Item payload/d3d9/outrun-vr-host.exe package/backends/d3d9/outrun-vr-host.exe
+          Copy-Item payload/d3d9/SOURCE_SHA.txt package/backends/d3d9/SOURCE_SHA.txt
+
+          Copy-Item payload/dxvk/dinput8.dll package/backends/dxvk/dinput8.dll
+          Copy-Item payload/dxvk/outrun-vr-host.exe package/backends/dxvk/outrun-vr-host.exe
+          Copy-Item payload/dxvk/SOURCE_SHA.txt package/backends/dxvk/SOURCE_SHA.txt
+          Copy-Item payload/dxvk-extra/d3d9.dll package/backends/dxvk/d3d9.dll
+          Copy-Item payload/dxvk-extra/SOURCE_SHA.txt package/backends/dxvk/DXVK_PROVIDER_SOURCE_SHA.txt
+          Copy-Item payload/dxvk-patcher/multiviewpatcher.dll package/backends/dxvk/multiviewpatcher.dll
+          Copy-Item payload/dxvk-patcher/SOURCE_SHA.txt package/backends/dxvk/MULTIVIEW_PATCHER_SOURCE_SHA.txt
+
+          Copy-Item payload/dx12/dinput8.dll package/backends/dx12/dinput8.dll
+          Copy-Item payload/dx12/outrun-vr-host.exe package/backends/dx12/outrun-vr-host.exe
+          Copy-Item payload/dx12/SOURCE_SHA.txt package/backends/dx12/SOURCE_SHA.txt
+
+          Copy-Item OutRun2006Tweaks.ini package/OutRun2006Tweaks.ini
+          Copy-Item OutRun2006Tweaks.lods.ini package/OutRun2006Tweaks.lods.ini
+          Copy-Item tools/Select-OutRunVRBackend.ps1 package/Select-OutRunVRBackend.ps1
+          Copy-Item tools/OutRunVR-Backend-Selector.ps1 package/OutRunVR-Backend-Selector.ps1
+          Copy-Item tools/OutRunVR-Backend-Selector.cmd package/OutRunVR-Backend-Selector.cmd
+          Copy-Item tools/Collect-OutRunVRLogs.ps1 package/Collect-OutRunVRLogs.ps1
+          Copy-Item tools/Collect-OutRunVRLogs.cmd package/Collect-OutRunVRLogs.cmd
+          Copy-Item tools/Run-OutRunVRTest.ps1 package/Run-OutRunVRTest.ps1
+          Copy-Item tools/Run-OutRunVRTest.cmd package/Run-OutRunVRTest.cmd
+          Copy-Item docs/VR_UNIFIED_TEST_SCENARIO.md package/VR_UNIFIED_TEST_SCENARIO.md
+
+          # The tester ZIP is intentionally runtime-only. License notices and
+          # corresponding source are assembled into a separate compliance ZIP
+          # so the test folder stays uncluttered.
+
+          $ini = Get-Content package/OutRun2006Tweaks.ini -Raw
+          $ini = [regex]::Replace($ini, '(?m)^SkyGlowFactor\s*=.*$', 'SkyGlowFactor = 1')
+          Set-Content package/OutRun2006Tweaks.ini $ini -Encoding UTF8
+
+          Copy-Item package/backends/d3d9/dinput8.dll package/dinput8.dll
+          Copy-Item package/backends/d3d9/outrun-vr-host.exe package/outrun-vr-host.exe
+          $short = $env:GITHUB_SHA.Substring(0,12)
+          $matrix = "VRM-$((Get-Date).ToUniversalTime().ToString('yyyyMMdd'))-$short"
+          Set-Content package/BUILD_MATRIX_ID.txt $matrix -Encoding ascii
+          [ordered]@{
+            SchemaVersion = 1
+            BuildMatrixId = $matrix
+            IntegrationSha = $env:GITHUB_SHA
+            D3D9Sha = (Get-Content payload/d3d9/SOURCE_SHA.txt -Raw).Trim()
+            DXVKGameHostSha = (Get-Content payload/dxvk/SOURCE_SHA.txt -Raw).Trim()
+            DXVKProviderSha = (Get-Content payload/dxvk-extra/SOURCE_SHA.txt -Raw).Trim()
+            MultiviewPatcherSha = (Get-Content payload/dxvk-patcher/SOURCE_SHA.txt -Raw).Trim()
+            DX12Sha = (Get-Content payload/dx12/SOURCE_SHA.txt -Raw).Trim()
+            WorkflowRunId = $env:GITHUB_RUN_ID
+          } | ConvertTo-Json | Set-Content package/BUILD_INPUTS.json -Encoding UTF8
+          Set-Content package/ACTIVE_VR_BACKEND.txt ("backend=d3d9`nvariant=A_CONTROL`nmatrix=$matrix") -Encoding ascii
+
+          # Keep compliance material outside the tester ZIP.
+          New-Item -ItemType Directory -Force compliance/SOURCE_GPL/3dmigoto-adapted | Out-Null
+          Copy-Item THIRD_PARTY_GPL_NOTICES.txt compliance/THIRD_PARTY_GPL_NOTICES.txt
+          Copy-Item LICENSE-3DMIGOTO-GPL-3.0.txt compliance/LICENSE-3DMIGOTO-GPL-3.0.txt
+          Copy-Item src/vr/d3d9/shader_fingerprint_gpl.hpp compliance/SOURCE_GPL/3dmigoto-adapted/shader_fingerprint_gpl.hpp
+          Copy-Item payload/dxvk-extra/LICENSE-DXVK-openRBRVR.txt compliance/LICENSE-DXVK-openRBRVR.txt
+          Copy-Item payload/dxvk-patcher/LICENSE-RBR-spirvpatcher-MPL-2.0.txt compliance/LICENSE-RBR-spirvpatcher-MPL-2.0.txt
+          Copy-Item package/BUILD_INPUTS.json compliance/BUILD_INPUTS.json
+          Copy-Item package/BUILD_MATRIX_ID.txt compliance/BUILD_MATRIX_ID.txt
+          Compress-Archive -Path compliance/* -DestinationPath "OutRun2_VR_COMPLIANCE_$short.zip"
+
+          # Keep only files directly needed to select, launch, test, collect,
+          # identify, and compare the five runtime modes.
+          $required = @(
+            'dinput8.dll',
+            'outrun-vr-host.exe',
+            'OutRun2006Tweaks.ini',
+            'OutRun2006Tweaks.lods.ini',
+            'Select-OutRunVRBackend.ps1',
+            'OutRunVR-Backend-Selector.ps1',
+            'OutRunVR-Backend-Selector.cmd',
+            'Collect-OutRunVRLogs.ps1',
+            'Collect-OutRunVRLogs.cmd',
+            'Run-OutRunVRTest.ps1',
+            'Run-OutRunVRTest.cmd',
+            'VR_UNIFIED_TEST_SCENARIO.md',
+            'BUILD_INPUTS.json',
+            'BUILD_MATRIX_ID.txt'
+          )
+          foreach ($file in $required) { if (-not (Test-Path (Join-Path package $file))) { throw "Required package file missing: $file" } }
+
+          # Do not put release/compliance clutter or the obsolete duplicate CLI
+          # selector wrapper into the tester ZIP.
+          $forbiddenPaths = @(
+            'Select-OutRunVRBackend.cmd',
+            'THIRD_PARTY_GPL_NOTICES.txt',
+            'LICENSE-3DMIGOTO-GPL-3.0.txt',
+            'SOURCE_GPL'
+          )
+          foreach ($file in $forbiddenPaths) {
+            if (Test-Path (Join-Path package $file)) { throw "Tester package contains forbidden release-only file: $file" }
+          }
+          $releaseOnlyFiles = Get-ChildItem package -Recurse -File | Where-Object {
+            $_.Name -match '^(LICENSE|COPYING|NOTICE|THIRD_PARTY)'
+          }
+          if ($releaseOnlyFiles) {
+            throw "Tester package contains release-only license/notice files: $($releaseOnlyFiles.FullName -join ', ')"
+          }
+          if (Test-Path package/d3d9.dll) { throw 'D3D9 control package root unexpectedly contains d3d9.dll' }
+          if (Test-Path package/multiviewpatcher.dll) { throw 'D3D9 control package root unexpectedly contains multiviewpatcher.dll' }
+
+          Get-ChildItem package -Recurse -File | Get-FileHash -Algorithm SHA256 | ForEach-Object {
+            "$($_.Hash)  $([IO.Path]::GetRelativePath((Resolve-Path package), $_.Path))"
+          } | Set-Content package/SHA256SUMS.txt
+
+          Compress-Archive -Path package/* -DestinationPath "OutRun2_VR_UNIFIED_$short.zip"
+      - name: Validate packaged selectors, INI round trips, and ZIP contents
+        shell: pwsh
+        run: |
+          Copy-Item package package-smoke -Recurse
+          Set-Content package-smoke/OutRun2006Tweaks-session.log 'old-before-session'
+          foreach ($mode in @('2d','d3d9','dxvk-safe','dxvk','dx12')) {
+            & package-smoke/Select-OutRunVRBackend.ps1 -Backend $mode
+            $active = Get-Content package-smoke/ACTIVE_VR_BACKEND.txt -Raw
+            if ($active -notmatch "(?m)^backend=$([regex]::Escape($mode))\r?$") { throw "ACTIVE_VR_BACKEND mismatch for $mode" }
+            $iniText = Get-Content package-smoke/OutRun2006Tweaks.ini -Raw
+            if ($iniText -notmatch '(?m)^\[VR\]\s*$' -or $iniText -match '(?m)^\[VR\]\\') { throw "VR INI section corrupted for $mode" }
+            switch ($mode) {
+              '2d' { if (Test-Path package-smoke/outrun-vr-host.exe) { throw '2D mode retained VR host' } }
+              'd3d9' { if ((Test-Path package-smoke/d3d9.dll) -or (Test-Path package-smoke/multiviewpatcher.dll)) { throw 'D3D9 mode retained DXVK files' } }
+              'dxvk-safe' { if (-not (Test-Path package-smoke/d3d9.dll) -or (Test-Path package-smoke/multiviewpatcher.dll)) { throw 'DXVK SAFE file contract failed' } }
+              'dxvk' { if (-not (Test-Path package-smoke/d3d9.dll) -or -not (Test-Path package-smoke/multiviewpatcher.dll)) { throw 'DXVK MULTIVIEW file contract failed' } }
+              'dx12' { if ((Test-Path package-smoke/d3d9.dll) -or (Test-Path package-smoke/multiviewpatcher.dll)) { throw 'DX12 STRICT retained DXVK files' } }
+            }
+            if (-not (Test-Path package-smoke/CURRENT_VR_SESSION.json)) { throw "Session identity missing for $mode" }
+            $sessionStateBefore = Get-Content package-smoke/CURRENT_VR_SESSION.json -Raw | ConvertFrom-Json
+            Add-Content package-smoke/OutRun2006Tweaks-session.log "new-$mode"
+            Set-Content package-smoke/OR2006C2C_d3d9.log "dxvk-$mode"
+            & package-smoke/Collect-OutRunVRLogs.ps1
+            $sessionDir = Join-Path package-smoke ("logs/{0}/{1}/{2}" -f $sessionStateBefore.BuildMatrixId,$sessionStateBefore.VariantId,$sessionStateBefore.SessionId)
+            $collectedLog = Join-Path $sessionDir 'OutRun2006Tweaks-session.log'
+            $collectedDxvk = Join-Path $sessionDir 'OR2006C2C_d3d9.log'
+            if (-not (Test-Path $collectedLog)) { throw "Collected session log missing for $mode" }
+            if (-not (Test-Path $collectedDxvk)) { throw "Collected DXVK log missing for $mode" }
+            $sessionText = Get-Content $collectedLog -Raw
+            $dxvkText = Get-Content $collectedDxvk -Raw
+            if ($sessionText -notmatch "new-$mode" -or $sessionText -match 'old-before-session') { throw "Session log isolation failed for $mode" }
+            if ($dxvkText -notmatch "dxvk-$mode") { throw "DXVK log content mismatch for $mode" }
+            if (Test-Path package-smoke/OutRun2006Tweaks-session.log) { throw "Root session log was not sealed for $mode" }
+            if (Test-Path package-smoke/OR2006C2C_d3d9.log) { throw "Root DXVK log was not sealed for $mode" }
+            $sessionStateAfter = Get-Content package-smoke/CURRENT_VR_SESSION.json -Raw | ConvertFrom-Json
+            if ($sessionStateAfter.SessionId -eq $sessionStateBefore.SessionId) { throw "Next session was not prepared for $mode" }
+          }
+          $zip = Get-ChildItem OutRun2_VR_UNIFIED_*.zip | Select-Object -First 1
+          Expand-Archive $zip.FullName zip-verify
+          foreach ($file in @('OutRunVR-Backend-Selector.cmd','OutRunVR-Backend-Selector.ps1','Select-OutRunVRBackend.ps1','Collect-OutRunVRLogs.ps1','Collect-OutRunVRLogs.cmd','Run-OutRunVRTest.ps1','Run-OutRunVRTest.cmd','BUILD_INPUTS.json','BUILD_MATRIX_ID.txt','SHA256SUMS.txt','VR_UNIFIED_TEST_SCENARIO.md')) {
+            if (-not (Test-Path (Join-Path zip-verify $file))) { throw "ZIP content missing: $file" }
+          }
+          foreach ($file in @('Select-OutRunVRBackend.cmd','THIRD_PARTY_GPL_NOTICES.txt','LICENSE-3DMIGOTO-GPL-3.0.txt','SOURCE_GPL')) {
+            if (Test-Path (Join-Path zip-verify $file)) { throw "Lean tester ZIP contains release-only/duplicate file: $file" }
+          }
+          $zipReleaseOnly = Get-ChildItem zip-verify -Recurse -File | Where-Object {
+            $_.Name -match '^(LICENSE|COPYING|NOTICE|THIRD_PARTY)'
+          }
+          if ($zipReleaseOnly) { throw "Lean tester ZIP contains license/notice files." }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: OutRun2-VR-UNIFIED-${{ github.sha }}
+          path: OutRun2_VR_UNIFIED_*.zip
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: OutRun2-VR-COMPLIANCE-${{ github.sha }}
+          path: OutRun2_VR_COMPLIANCE_*.zip
+          if-no-files-found: error

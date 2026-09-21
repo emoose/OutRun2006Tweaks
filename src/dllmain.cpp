@@ -7,6 +7,7 @@
 #include "resource.h"
 #include "plugin.hpp"
 #include "game_addrs.hpp"
+#include "vr/ipc/shadow_lifetime_bridge.hpp"
 
 void InitExceptionHandler(); // hooks_exceptions.cpp
 
@@ -112,6 +113,15 @@ void Plugin_Init()
 		} 
 	}
 
+	if (Settings::UseNewInput)
+	{
+		spdlog::info("Wheel input: multi-device SDL raw input enabled; legacy DirectInput helpers remain inactive fallback");
+	}
+	else if (Settings::WheelInputCompatibility)
+	{
+		spdlog::info("Wheel input: legacy DirectInput compatibility fallback enabled");
+	}
+
 	Settings::to_log();
 
 	Game::StartupTime = std::chrono::system_clock::now();
@@ -157,6 +167,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, int ul_reason_for_call, LPVOID lpReserved
 	}
 	else if (ul_reason_for_call == DLL_PROCESS_DETACH)
 	{
+		OutRunVR::IpcV3::RequestRegisteredShadowBridgeStop();
 		proxy::on_detach();
 	}
 

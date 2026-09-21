@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "producer": "VALIDATION",
+  "generation": 0,
+  "queueItemId": null,
+  "sourceCommit": null,
+  "status": "IDLE",
+  "checks": [],
+  "buildRunId": null,
+  "workflowRunId": null,
+  "artifactId": null,
+  "artifactSha256": null,
+  "runtimeRequired": false,
+  "completedKst": null
+}

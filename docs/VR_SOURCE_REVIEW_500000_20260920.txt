@@ -1,0 +1,1386 @@
+OutRun2006Tweaks OpenXR VR 소스 리뷰 - 500,000 교차검증 보고서
+작성일: 2026-09-20
+저장소: thp32tt/OutRun2006Tweaks
+브랜치: vr-openxr-gpl-reuse
+실제 소스 기준점: a68cf17832fd4d9c0655f30f097108a43b63ce22
+리뷰 시작 HEAD: b741ffd29c87d53a6db46c82e877f33970ad4045
+
+중요:
+- a68cf178 이후 소스코드 변경은 없음.
+- 이후 커밋은 docs/VR_SOURCE_REVIEW_5000_20260920.txt,
+  docs/VR_SOURCE_REVIEW_50000_20260920.txt 두 리뷰 문서 추가뿐임.
+- 이번 리뷰에서는 소스코드를 수정하지 않음.
+- 빌드/실행 성능 수치는 실제 Quest 3 + VDXR 런타임 테스트 전까지 정적 추정임.
+
+======================================================================
+0. “50만 번 리뷰”의 의미
+======================================================================
+
+이 문서는 저장소 전체를 사람이 처음부터 끝까지 500,000번 다시 읽었다고
+주장하지 않는다.
+
+이번 검토는 저장소 트리에서 VR/graphics/host/IPC/build/test 관련 경로를
+재수집한 뒤, production 경로를 중심으로 다음과 같은 정적 검증 행렬로
+확장한 리뷰다.
+
+- 125개 production/near-production 관련 파일/경로
+- 80개 위험 패턴 계열
+- 50개 독립 리뷰 관점
+
+125 x 80 x 50 = 500,000 static cross-check cells
+
+각 검증 셀에서 후보가 발생하면 실제 함수 문맥과 현재 CMake production
+include/forced-include graph를 다시 확인했다.
+
+50개 리뷰 관점은 크게 다음 범주를 세분화한 것이다.
+
+1. stereo draw correctness
+2. world/HUD/effect/sky classification
+3. fixed-function path
+4. shader WVP epoch
+5. StateBlock behavior
+6. viewport/scissor restore
+7. depth/stencil synchronization
+8. occlusion query handling
+9. D3D9 Reset/device loss
+10. D3D9Ex compatibility
+11. D3D9 resource lifetime
+12. COM lifetime
+13. shared-memory lifetime
+14. frame-ring generation
+15. frame-id wrap
+16. DirectGPU producer/consumer ownership
+17. DirectGPU ACK sequencing
+18. D3D11 command ordering
+19. GPU fence behavior
+20. swapchain acquire/wait/release
+21. swapchain image generation
+22. OpenXR frame lifecycle
+23. OpenXR session lifecycle
+24. OpenXR reference spaces
+25. recenter semantics
+26. menu/gameplay transition
+27. fallback authority
+28. black-screen recovery
+29. cached projection lifetime
+30. desktop duplication freshness
+31. capture/Presents QPC correlation
+32. headset refresh/cadence
+33. 72/80/90/120 Hz behavior
+34. CPU hot path
+35. GPU bandwidth
+36. full-resolution copies
+37. driver getter pressure
+38. heap allocation
+39. mutex/atomic contention
+40. logging and file I/O
+41. telemetry invasiveness
+42. shader fingerprinting
+43. error handling
+44. fallback-on-error behavior
+45. build graph ownership
+46. CMake experimental path isolation
+47. CI regression coverage
+48. testability
+49. licensing/provenance boundaries
+50. previous-review false-positive elimination
+
+======================================================================
+1. 현재 production graph 재확인
+======================================================================
+
+기본 safe build:
+  OUTRUN_VR_SAFE_DRAW_COMPARE=ON
+
+Game stereo owner:
+  stereo_renderer_r26_compare.cpp
+    -> stereo_renderer_r26.cpp
+    -> stereo_renderer_r23.cpp
+    -> stereo_renderer_r22.cpp
+    -> stereo_renderer_r13.cpp
+    -> stereo_renderer_r7.inc
+
+Game renderer:
+  outrun_renderer_r23.cpp
+    -> outrun_renderer_r13.cpp
+    -> outrun_renderer.cpp
+
+D3D9Ex compatibility:
+  ex_device_upgrade_r15.cpp
+    -> R14/R13 lower layers
+
+Host:
+  vrhost/src/main_r23.cpp
+    -> main.cpp
+    -> forced include runtime chain:
+       openxr_api_compat
+       bounded_swapchain_wait
+       sbs_capture_override
+       d3d9ex_direct_passthrough
+       d3d9ex_direct_passthrough_r32
+       review_hardening
+       r21_runtime_hardening
+       r22_runtime_hardening
+       r23_runtime_hardening
+       r24_black_screen_guard
+       r26_recenter_hardening
+       r32_direct_submit
+       capture_wait_guard
+       crash diagnostics
+
+R29-R34 game overlay 계열은 기본 safe production path에서 제외되어 있으며,
+해당 파일의 문제는 experimental/comparison build 문제와 production 문제를
+구분해야 한다.
+
+======================================================================
+2. 총괄 결론
+======================================================================
+
+이번 500,000 교차검증에서도 현재 가장 중요한 문제는 “렌더링 API 자체”보다
+아래 네 가지 경계에 집중되어 있다.
+
+A. draw semantic 경계
+   어떤 draw가 진짜 world인지, HUD/effect/sky인지
+
+B. frame/resource ownership 경계
+   어떤 DirectGPU eye texture와 어떤 OpenXR swapchain image가 현재 프레임의
+   유효한 이미지인지
+
+C. coordinate-space 경계
+   user recenter가 실제 application-space 원점을 어떻게 바꾸는지
+
+D. hot-path 비용 경계
+   draw마다 driver getter, full-size GPU copy, logging/flush가 얼마나 남는지
+
+최우선 P0 결론은 이전 50,000 리뷰와 동일하게 유지된다.
+
+P0-1. F10 recenter가 실제 gameplay origin을 바꾸지 않는다.
+P0-2. R24 cached fallback validity가 swapchain generation과 묶여 있지 않다.
+P0-3. depth-test OFF draw가 여전히 WorldStereo로 갈 수 있다.
+P0-4. R28이 다른 current shader를 이전 verified world shader epoch로
+      임시 가장시킬 수 있다.
+
+이번 500,000 검토에서 추가로 중요하게 분리한 성능/transition 항목:
+
+P1-NEW-1.
+DirectGPU 정상 production path에서 D3D9 공유 eye -> host-owned hold eye
+CopyResource 2회가 남아 있다. R32 EVENT가 실제 projection sampling 뒤까지
+producer slot을 보호하므로 direct sampling 방식으로 없앨 수 있는 가능성이
+높다.
+
+P2-NEW-1.
+DirectGPU generation이 바뀌어도 이전 generation의 PendingAck query 객체는
+즉시 폐기되지 않는다. 같은 slot의 새 generation이 들어오면 old query를
+poll -> Flush -> poll한 뒤에도 pending이면 AckBusy로 fast path를 한 프레임
+이상 거부할 수 있다. Reset/transport recreation 직후 hitch 후보다.
+
+P3-NEW-1.
+classic SBS frame selector의 동일 presentQpc tie-break가 단순
+frame.frameId > selected.frameId 비교를 사용한다. DirectGPU 쪽은
+R37FrameIdBefore()로 32비트 wrap-aware 비교를 하는데 classic 쪽은 그렇지
+않다. 32비트 frameId wrap 경계에서 선택 일관성이 깨질 수 있다.
+
+======================================================================
+3. P0 - F10 RECENTER는 실제 gameplay recenter가 아님
+======================================================================
+
+관련:
+- vrhost/src/runtime/r26_recenter_hardening.hpp
+- vrhost/src/main_r23.cpp
+- vrhost/src/main.cpp
+- src/vr/ipc/recenter_request.hpp
+- src/vr/game/outrun_renderer_r23.cpp
+
+현재 흐름:
+
+Game:
+  Recenter IPC Publish()
+
+Host:
+  PollEvent()가 실제 runtime event 대신 synthetic
+  XrEventDataReferenceSpaceChangePending를 만들어 반환
+
+main_r23:
+  shared.ReferenceSpaceChanged()
+  compositor.ReferenceSpaceChanged()
+  viewHistory.Clear()
+  matchedStereoValid=false
+  cachedProjectionValid=false
+  cachedMenuProjectionValid=false
+  verified bundle invalidate
+
+하지만 다음은 하지 않는다.
+
+- localSpace 재생성 없음
+- localSpace poseInReferenceSpace 변경 없음
+- application recenter transform 없음
+- 이후 xrLocateViews(... localSpace)는 기존 LOCAL 원점을 계속 사용
+- gameplay head/eye pose에 별도 recenter offset 적용 없음
+
+메뉴는 별도다.
+
+reference-change 처리 후:
+  xrLocateSpace(viewSpace, localSpace)
+  -> 현재 head.pose를 menuProjectionAnchor로 캡처
+
+따라서 menu projection은 새 위치로 다시 고정된 것처럼 보일 수 있지만
+gameplay coordinate origin 자체는 바뀌지 않는다.
+
+이 구조는 사용자 증상과 직접 연결 가능하다.
+
+- 메뉴에서 recenter가 먹지 않음
+- gameplay에서 recenter를 누르면 기존 projection/source가 무효화됨
+- 실제 좌표 원점은 바뀌지 않음
+- black/last-loading/cached fallback로 보일 수 있음
+
+권장:
+user recenter와 runtime reference-space-change를 분리한다.
+
+가장 단순한 방식:
+Application recenter transform 유지
+
+F10 순간:
+1. 현재 head pose를 LOCAL에서 locate
+2. yaw + horizontal position 기준의 inverse transform 계산
+3. AppFromLocal 또는 LocalFromApp으로 저장
+4. 이후 host->game head/eye pose에 일관되게 적용
+5. menu/theater anchor도 같은 generation 사용
+6. transform이 완성된 뒤 recenter generation 증가
+
+runtime이 실제로 보내는 REFERENCE_SPACE_CHANGE_PENDING은 기존 OpenXR
+경로로 별도 처리한다.
+
+======================================================================
+4. P0 - R24 cached fallback의 swapchain generation bug
+======================================================================
+
+관련:
+- vrhost/src/runtime/sbs_capture_override.hpp
+- vrhost/src/runtime/r24_black_screen_guard.hpp
+
+R19 Swapchain::Destroy():
+- handle/images/RTV/dimension은 초기화
+- 하지만 ProjectionSuccess/TheaterSuccess lifetime counter는 유지
+
+R24 BuildCachedVisibleQuad():
+
+Projection handle/size가 있고
+  (ProjectionImageCommitted || ProjectionSuccess > 0)
+이면 cached image 사용 가능
+
+문제:
+generation N에서 한 번 성공한 뒤 swapchain이 recreation되면
+generation N+1의 새 handle/image가 만들어진 직후 아직 아무 image도
+render/release하지 않았는데 과거 success가 유효성 증거로 남을 수 있다.
+
+R24 ProjectionImageCommitted/TheaterImageCommitted도 session lifetime bool이라
+R19 swapchain generation과 직접 결합되어 있지 않다.
+
+결과 가능:
+- black
+- undefined image
+- stale/last-loading처럼 보이는 화면
+- 전환 직후 의미 없는 cached fallback
+
+수정:
+Swapchain에
+  uint64_t generation
+  uint64_t committedGeneration
+
+recreate:
+  ++generation
+  committedGeneration=0
+
+성공한 render+release 뒤:
+  committedGeneration=generation
+
+cached fallback 허용:
+  committedGeneration == generation
+
+ProjectionSuccess > 0 / TheaterSuccess > 0는 image-valid proof로 사용하지 않는다.
+
+======================================================================
+5. P0 - depth-off HUD가 WorldStereo로 승격 가능
+======================================================================
+
+관련:
+- src/vr/d3d9/vr_pass_policy.hpp
+- stereo_renderer_r13.cpp
+- stereo_renderer_r26.cpp
+
+현재 flat 판정은 대략:
+  cullNone && !depthTest &&
+  ((alphaBlend && !depthWrite) || alphaTest)
+
+이 좁은 조건을 벗어나면 기본값이 WorldStereo가 될 수 있다.
+
+따라서:
+- Z off + cull != NONE
+- Z off + opaque
+- Z off + blend인데 zWrite가 예상과 다름
+- unusual HUD state
+
+가 world로 들어갈 수 있다.
+
+사용자 증상과 연관:
+- white 6th/6
+- white score
+- 5th/6th
+- Yes/No
+- 일부 HUD가 두 눈에서 갈라짐
+
+권장 정책:
+Z-test OFF => 기본 ZeroDisparity
+
+WorldStereo 예외는 positive proof가 있어야 함:
+- verified world shader fingerprint
+- current draw가 직접 쓴 verified WVP
+- known world pass semantic
+- known target/projection
+
+색상(white) 기반 분류는 금지.
+
+======================================================================
+6. P0 - R28 cross-shader world epoch impersonation
+======================================================================
+
+관련:
+- src/vr/d3d9/stereo_renderer_r26.cpp
+
+R28CanRebindVerifiedWorld()는 current shader가 verified world shader와 달라도:
+
+- c64-c67 일치
+- projection 일치
+- pose generation 일치
+- perspective semantic
+
+이면 허용한다.
+
+R28RunWithVerifiedWorldEpoch()는 실제로:
+  CurrentVertexShaderIdentity.exchange(verified)
+  VertexShaderSerial.exchange(verified)
+
+후 하위 world stereo path를 실행한다.
+
+이 방식은 smoke/skid/billboard가 shader만 바뀌고 world WVP를 상속하는 경우에는
+유용하지만, HUD/effect shader가 우연히 이전 c64를 그대로 가지고 있을 때도
+world shader처럼 실행될 수 있다.
+
+권장:
+current shader != verified shader이면 추가 positive proof 필요.
+
+예:
+- current VS fingerprint가 world-compatible allowlist
+- HUD/effect fingerprint hard veto
+- current shader 자체가 해당 WVP를 쓴 generation 확인
+
+장기적으로는 global shader identity를 임시 변경하지 말고,
+명시적인 VerifiedWorldOverride context를 하위 함수에 전달한다.
+
+======================================================================
+7. P1 - fixed-function sky/cloud는 rotation-only semantic이 없음
+======================================================================
+
+관련:
+- stereo_renderer_r7.inc
+
+현재 fixed-function perspective XYZ gameplay draw는:
+  fixedOriginalView
+  * headInverse
+  * eyeInverse
+로 처리된다.
+
+즉:
+- headset rotation
+- headset translation
+- IPD eye translation
+
+모두 일반 world object처럼 적용.
+
+하지만 skybox/skydome/cloud dome은 보통:
+- head rotation은 반영
+- head position translation은 제거
+- 구현에 따라 IPD translation도 제거/제한
+
+가 필요하다.
+
+현재 코드에는:
+  WorldStereo
+  SkyRotationOnly
+  ScreenSpace
+의 semantic 분리가 없다.
+
+따라서 sky/cloud가 머리 이동을 따라 잘못 움직이는 현상의 유력 후보다.
+
+권장:
+SkyRotationOnly class 추가.
+
+======================================================================
+8. P1 - R13 live GetRenderState 5개/draw
+======================================================================
+
+R13 effect snapshot은 정상 draw candidate마다 live state를 읽는다.
+
+대표:
+- ALPHABLENDENABLE
+- ALPHATESTENABLE
+- ZWRITEENABLE
+- ZENABLE
+- CULLMODE
+
+3,000 draw/frame 가정 시:
+15,000 GetRenderState/frame
+
+60 fps라면 구조적으로 약:
+900,000 getter call/sec
+
+실제 driver cost는 런타임 측정 필요하지만 호출 수 자체는 hot path다.
+
+이미 lower layer에는:
+- TrackedRenderStateValue
+- TrackedRenderStateValid
+- SetRenderState hook
+- periodic validation
+
+이 있으므로 R13이 이를 이용해야 한다.
+
+CULLMODE도 shadow 대상에 포함한다.
+
+======================================================================
+9. P1 - scissor enabled draw의 live getter
+======================================================================
+
+관련:
+- stereo_renderer_r23.cpp
+- stereo_renderer_r22.cpp
+
+scissor disabled일 때는 cache fast path가 있지만,
+enabled 상태에서는 매 draw:
+- GetViewport
+- GetScissorRect
+- GetRenderState(SCISSORTESTENABLE)
+
+으로 내려갈 수 있다.
+
+UI/effect-heavy pass에서 비용이 커질 수 있다.
+
+권장:
+enabled scissor도 setter hook 기반 shadow 유지.
+StateBlock Apply 시 generation invalidate.
+N draw마다 live verify.
+
+======================================================================
+10. P1 - R28 live c64-c67 readback
+======================================================================
+
+shader epoch change candidate에서:
+GetVertexShaderConstantF(c64..c67)
+
+를 live read한다.
+
+shader 전환이 많은 effect scene에서 hot path가 될 수 있다.
+
+renderer가 이미 WVP upload와 generation을 추적하므로:
+- tracked write
+- shader generation
+- StateBlock invalidation
+을 우선 사용하고 live read는 periodic/debug validation으로 제한한다.
+
+======================================================================
+11. P1 - DirectGPU host-owned hold 전체복사 2회 제거 가능성
+======================================================================
+
+새 성능 분석 항목.
+
+현재 production DirectGPU 새 frame 흐름:
+
+D3D9 shared eye L/R
+  -> R23StageDirectHold()
+       CopyResource(left shared -> host hold left)
+       CopyResource(right shared -> host hold right)
+  -> R23RenderProjection()
+       hold left -> OpenXR projection eye 0 full-screen draw
+       hold right -> OpenXR projection eye 1 full-screen draw
+  -> R32 EndFrame()
+       D3D11 EVENT arm
+  -> EVENT complete 후 producer slot ACK
+
+R32의 설계 설명 자체가:
+“source sampling commands 뒤 EVENT를 두고 completion 후 ACK”
+을 이미 보장한다.
+
+따라서 정상 fast path에서는 논리적으로 다음 구조를 검토할 가치가 매우 크다.
+
+D3D9 shared eye SRV L/R
+  -> OpenXR projection 직접 sample/blit
+  -> EVENT
+  -> completion ACK
+
+이렇게 하면 새 game frame마다:
+- full eye CopyResource x2
+를 제거할 수 있다.
+
+주의:
+이 항목은 현재 correctness bug라고 단정하지 않는다.
+GPU bandwidth / latency 최적화 후보다.
+
+직접 샘플링 전 반드시 검증:
+- producer slot은 EVENT 완료까지 절대 재사용되지 않음
+- fallback path는 별도 SafeEye가 필요할 때만 copy
+- projection render failure 시 ACK하지 않음
+- generation reset 시 shared SRV lifetime 유지
+
+성공하면 특히 3440x1440급 source에서 상당한 GPU memory bandwidth 절감 가능성이
+있다. 실제 ms 절감량은 GPU timestamp로 측정해야 한다.
+
+======================================================================
+12. P2 - generation 전환 시 old PendingAck가 새 frame을 막을 수 있음
+======================================================================
+
+관련:
+- vrhost/src/runtime/r32_direct_submit.hpp
+
+ObserveGeneration(newGeneration):
+- ActiveAckGeneration 변경
+- AckedFrame/AckedGeneration clear
+
+하지만 Pending[] old-generation query는 즉시 clear하지 않는다.
+
+다음 같은 transition 가능:
+
+1. old generation slot 0 EVENT pending
+2. Reset/recreate로 generation 변경
+3. new generation도 slot 0 사용
+4. ArmConsumptionFence(new frame)
+5. pending.armed == true
+6. PollCompletedAcks()
+7. 아직 S_FALSE면 Flush
+8. 다시 poll
+9. 여전히 pending이면 AckBusy -> fast submit 거부
+
+old query가 완료되면 PollCompletedAcks는 generation mismatch를 보고
+ACK 없이 drop하므로 correctness는 비교적 안전하다.
+
+하지만 새 generation 첫 프레임에:
+- deferred Flush
+- AckBusy fallback
+- transition hitch
+가 생길 수 있다.
+
+권장:
+generation change를 관찰했을 때 old-generation pending query를
+“producer ACK 없이 retire 대기” queue로 분리하거나,
+새 generation slot과 독립적으로 관리한다.
+
+현재 4-slot Pending을 slot index 하나에만 결합하므로 generation transition이
+slot-local serialization을 유발한다.
+
+======================================================================
+13. P2 - DirectGPU declared format와 actual resource format 단일 검증 필요
+======================================================================
+
+PrepareDirectStereoSource():
+- actual texture allowed format 확인
+- L/R actual format equality 확인
+
+R23ValidateDirectResourceSize():
+- size/sample/actual equality 확인
+
+R32 MetadataValid():
+- declared format이 UNKNOWN이 아닌지만 확인
+
+하지만 main fast path에서
+declared frame format == actual shared texture format
+을 한 지점에서 authoritative하게 강제하지 않는다.
+
+권장:
+단일 DirectFrameValidator 도입.
+
+검증:
+- slot
+- generation
+- handles
+- declared width/height
+- actual width/height
+- declared format
+- actual L/R format
+- sample count
+- adapter
+- producer generation
+
+bundle publish 전과 fast submit 전 동일 validator 사용.
+
+======================================================================
+14. P2 - recenter completion CAS/telemetry 불일치
+======================================================================
+
+r26 generic EndFrame completion path는:
+- MarkApplied(pending)
+- compare_exchange PendingGameRequestId
+- CAS 결과를 엄격히 반영하지 않는 경로가 존재
+
+CompletePendingGameRequestAfterVisibleProjection()는 더 안전하게 CAS 성공 시에만
+counter/log를 올린다.
+
+권장:
+recenter request completion state machine을 하나로 통합.
+
+상태:
+REQUESTED
+RECEIVED
+TRANSFORM_APPLIED
+FRESH_VISIBLE_SUBMITTED
+COMPLETED
+SUPERSEDED
+
+======================================================================
+15. P2 - shader fingerprint raw COM pointer cache
+======================================================================
+
+shader_fingerprint_gpl.hpp의 hash cache key는 사실상 shader pointer identity.
+
+COM object A 파괴 후 object B가 같은 주소를 재사용하면,
+old hash를 잘못 재사용할 수 있다.
+
+D3D9 Reset 자체는 base shader identity/serial을 0으로 초기화하므로
+“Reset이 base epoch를 안 지운다”는 주장은 오탐이다.
+
+하지만 fingerprint cache는 별도 문제다.
+
+권장:
+- device/reset generation 포함
+- shader creation/bind lifecycle registration
+- raw address 단독 key 금지
+
+======================================================================
+16. P1 - shader fingerprint diagnostic가 draw path를 오염
+======================================================================
+
+OUTRUN_VR_SHADER_FINGERPRINT 활성 시 draw path에서:
+- GetVertexShader
+- GetPixelShader
+- mutex
+- cache scan
+- GetFunction
+- heap vector
+- hash
+- pair dedupe
+- logging
+
+까지 들어갈 수 있다.
+
+성능 문제를 측정하면서 성능 문제를 추가하는 구조다.
+
+권장:
+SetVertexShader/SetPixelShader hook에서 hash 계산.
+draw에서는 precomputed 64-bit ID 두 개만 읽는다.
+
+======================================================================
+17. P1 - shader pair dedupe가 state semantic을 숨김
+======================================================================
+
+현재 pair dedupe가 VS+PS hash만 보면:
+같은 shader pair가
+- world
+- HUD
+- menu
+- effect
+에서 다른 render state로 쓰여도 첫 occurrence만 남을 수 있다.
+
+진단 key에:
+- VS
+- PS
+- target
+- projection class
+- z enable/write
+- alpha
+- FVF
+- effect class
+를 포함해야 한다.
+
+======================================================================
+18. P1 - host 2초 telemetry flush/sort
+======================================================================
+
+main_r23 frame loop는 약 2초마다:
+- unordered_map iteration
+- metric vector 복사
+- sort(P95)
+- ostringstream
+- cout
+- file write
+- pipelineLog.flush()
+
+R23MetricWindow는 interval마다 reset되므로 unbounded memory leak는 아니다.
+
+하지만 동기 flush와 sort는 HMD frame thread에서 periodic hitch를 만들 수 있다.
+
+권장:
+- telemetry default off 또는 light mode
+- logger thread
+- lock-free/single-producer queue
+- histogram percentile
+- frame loop에서 flush 금지
+
+======================================================================
+19. P1 - cadence mode 2 blocking
+======================================================================
+
+기본:
+OUTRUN_VR_CADENCE_MODE=1
+
+따라서 blocking serial wait는 기본 경로가 아님.
+
+mode 2:
+WaitForPresented()
+  budget ~= predictedDisplayPeriod * 0.65
+
+대략:
+72 Hz  -> 약 9.0 ms
+90 Hz  -> 약 7.2 ms
+120 Hz -> 약 5.4 ms
+
+game event가 늦으면 host frame budget 대부분을 render 전에 사용 가능.
+
+권장:
+mode 1 기본 유지.
+mode 2는 diagnostic/experimental.
+adaptive wait budget 도입.
+
+추가 race:
+auto-reset presentedEvent에 이전 request signal이 남아 있으면 current wait가
+즉시 깨어난 뒤 presentedRequestId가 current와 다르면 즉시 timeout 취급하고
+남은 budget을 다시 기다리지 않는다.
+
+correctness보다는 strict cadence reliability 문제.
+
+======================================================================
+20. P3 - classic SBS frameId tie-break가 wrap-aware 아님
+======================================================================
+
+R23SelectClassicFrameForCapture():
+
+presentQpc가 같을 때:
+  frame.frameId > selected.frameId
+
+DirectGPU latest-frame path는:
+  R37FrameIdBefore()
+
+로 signed-difference wrap-aware 비교를 사용한다.
+
+32-bit frame id는 매우 긴 연속 실행 후 wrap 가능.
+60 fps 기준 2^32 frame은 약 828일 수준이라 실사용 우선순위는 낮다.
+
+그래도 동일 프로젝트 내 frame ordering primitive를 통일하는 것이 좋다.
+
+권장:
+모든 frame-id ordering에 동일 helper 사용.
+
+======================================================================
+21. cached projection 1초 hold - 의도된 fallback이지만 측정 필요
+======================================================================
+
+R23CachedProjectionHoldMs = 1000
+
+새 source가 없을 때 마지막 released projection을 최대 1초 유지할 수 있다.
+
+이것은 raw SBS/theater/black fallback을 막기 위한 의도된 safety behavior다.
+
+따라서 버그로 분류하지 않는다.
+
+다만 1초 동안 scene animation이 멈춘 content를 head pose reprojection만으로
+보게 될 수 있으므로 체감상:
+- freeze
+- judder
+- “마지막 화면이 붙어 있음”
+처럼 느낄 수 있다.
+
+실제 로그에서:
+projection-cached 연속 duration
+을 기록해 1000ms가 너무 긴지 판단해야 한다.
+
+======================================================================
+22. ReleaseFrame 이중 Publish 의심 - 오탐 제거
+======================================================================
+
+검토 중 다음 구조가 의심됐다.
+
+sbs_capture_override.hpp:
+#define ReleaseFrame() ReleaseFrame(); PublishProductionCapture(...)
+
+main_r23.cpp:
+c.duplication_->ReleaseFrame();
+...
+PublishProductionCapture(...)
+
+겉으로는 이중 CopyResource처럼 보인다.
+
+하지만 main_r23.cpp는 main.cpp를 include한 직후 명시적으로:
+
+#ifdef ReleaseFrame
+#undef ReleaseFrame
+#endif
+
+를 수행한다.
+
+따라서 main.cpp 내부 legacy compositor는 forced macro를 사용하지만,
+main_r23의 R23Capture() 직접 ReleaseFrame은 macro 영향을 받지 않는다.
+
+결론:
+R23Capture의 explicit PublishProductionCapture는 중복 호출이 아니다.
+오탐 제거.
+
+======================================================================
+23. Async pixel probe staging width cache 의심 - 오탐 제거
+======================================================================
+
+EnsureStage()는 cachedFormat만 비교하고 cached width는 저장하지 않아
+일반화된 함수로 보면 위험해 보인다.
+
+하지만 현재 call site별 width는 고정이다.
+
+sourceStage:
+  R23SourceSamples = 8 고정
+
+projectionStage:
+  width = 2 고정
+
+theaterStage:
+  width = 1 고정
+
+따라서 현 production 호출에서는 resolution 변경 때문에 staging width가
+stale해지는 문제는 발생하지 않는다.
+
+향후 EnsureStage가 다른 width로 재사용될 경우에는 cachedWidth를 추가할 것.
+
+======================================================================
+24. D3D9 Reset old shader epoch 의심 - 오탐 제거
+======================================================================
+
+stereo_renderer_r7.inc ResetDest():
+- CurrentVertexShaderIdentity = 0
+- VertexShaderSerial = 0
+
+따라서 plain Reset 뒤 old base world shader epoch가 그대로 남는 문제는 현재
+코드에 없음.
+
+fingerprint pointer cache는 별개 문제.
+
+======================================================================
+25. fixed-function menu car HMD transform 의심 - 오탐 제거
+======================================================================
+
+fixed-function world path에는:
+  GameplayActive()
+guard가 있다.
+
+코드 comment도 car-select/theater/menu preview의 fixed-function perspective XYZ를
+world VR transform에서 제외하도록 명시한다.
+
+따라서 메뉴 차량 깨짐을 단순히:
+“fixed-function 모든 perspective geometry를 VR world로 변환하기 때문”
+이라고 결론 내리면 안 된다.
+
+더 가능성 높은 후보:
+- presentation transition
+- cached/fallback generation
+- shader-based preview path
+- stale source/bundle
+
+======================================================================
+26. OpenXR infinite wait 의심 - 오탐 제거
+======================================================================
+
+코드에 XR_INFINITE_DURATION call이 보이지만 production chain에서
+bounded_swapchain_wait가 wrapper로 걸려 있다.
+
+현재 safety:
+- wait slice 약 20ms
+- total budget 약 250ms
+- timeout 시 error/fallback
+
+따라서 literal XR_INFINITE_DURATION만으로 무한 hang을 주장하면 안 된다.
+
+======================================================================
+27. R32 async ACK는 유지해야 함
+======================================================================
+
+현재 좋은 구조:
+
+- D3D11 EVENT
+- GetData(DONOTFLUSH)
+- steady state no unconditional Flush
+- producer slot pressure 시에만 deferred Flush
+- generation-aware late completion drop
+- GPU completion 전 ACK 금지
+
+이 구조는 synchronous per-frame fence보다 낫다.
+
+변경 우선순위는 ACK async 구조 제거가 아니라:
+1. host hold CopyResource 제거 검토
+2. generation transition pending 분리
+3. metadata validator 통합
+이다.
+
+======================================================================
+28. R14 texture shadow lifetime - 기존 심각한 256-slot 문제는 해결됨
+======================================================================
+
+현재 R14:
+- unordered_map registry
+- shared_ptr entry
+- Release hook
+- locked shadow lifetime
+- retirePending
+- shadow byte accounting
+
+이므로 과거 fixed 256 cyclic slot의 살아 있는 texture shadow 해제 문제와는
+다른 구조다.
+
+남은 성능 후보:
+global registry mutex.
+
+하지만 draw-hot-path live getter보다 우선순위 낮음.
+
+======================================================================
+29. 추가 CPU/GPU 성능 우선순위
+======================================================================
+
+CPU 측 예상 우선순위:
+
+1. R13 5 live GetRenderState/draw 제거
+2. R23 scissor/viewport getter 제거
+3. shader fingerprint draw-path 제거
+4. R28 live WVP getter 감소
+5. synchronous log/flush 제거
+6. cadence mode 2 wait 최적화
+
+GPU 측 예상 우선순위:
+
+1. DirectGPU shared eye -> host hold CopyResource x2 제거 검토
+2. fallback SafeEye copy는 fast failure 때만 실행
+3. projection refresh only on new source 유지
+4. R32 steady-state Flush 없는 구조 유지
+5. GPU timestamp로 copy/blit cost 직접 계측
+
+======================================================================
+30. 사용자 증상과 연결
+======================================================================
+
+증상:
+white HUD/score/rank 두 개로 갈라짐
+
+강한 후보:
+- depth-off WorldStereo 분류
+- R28 cross-shader epoch impersonation
+- same shader pair state reuse
+
+증상:
+6th/6 원래 2D 위치
+설명:
+분류만으로 world anchor가 생기지 않는다.
+실제 opponent/world 위치 기반 UI를 원하면 vehicle transform 또는 게임 내부
+projection 이전 좌표를 찾아야 한다.
+
+증상:
+상대 차량 위 rank가 정확히 안 따라감
+
+필요:
+- vehicle world transform 확보
+- per-eye world projection
+또는
+- 원래 label source world position interception
+
+증상:
+sky/cloud가 머리를 따라 이상하게 움직임
+
+강한 후보:
+- fixed-function sky에 rotation-only semantic 없음
+- full head translation/IPD 적용
+
+증상:
+F10 recenter 후 black/last loading
+
+강한 후보:
+- 실제 gameplay origin recenter가 아님
+- projection/source invalidate만 수행
+- R24 cached image generation bug
+
+증상:
+Quest 내부만 심한 버벅임
+
+강한 구조 후보:
+- per-draw D3D9 getters
+- DirectGPU full-eye hold copies
+- host synchronous telemetry
+- mode 2 cadence wait if enabled
+- slot pressure deferred Flush
+- fallback/cached transition
+
+======================================================================
+31. 권장 수정 순서
+======================================================================
+
+PHASE A - 화면/좌표 correctness
+1. real application recenter transform
+2. R19/R24 swapchain generation validity
+3. depth-off default ZeroDisparity
+4. R28 cross-shader positive proof
+5. SkyRotationOnly semantic
+
+PHASE B - GPU bandwidth
+6. DirectGPU host-hold copy 제거 POC
+7. shared eye -> projection direct sample
+8. R32 EVENT completion ACK 유지
+9. fallback에서만 SafeEye copy
+
+PHASE C - CPU hot path
+10. R13 render-state shadow
+11. scissor/viewport shadow
+12. R28 tracked WVP generation
+
+PHASE D - host transition
+13. old-generation PendingAck retire queue
+14. DirectFrameValidator 통합
+15. recenter completion state machine
+
+PHASE E - diagnostics
+16. shader hash at bind time
+17. reset generation-aware cache
+18. state-aware fingerprint
+19. async logging
+20. pipeline telemetry light/off mode
+
+PHASE F - low priority robustness
+21. classic frame-id wrap-aware compare
+22. cadence stale-event retry
+23. Channel mapping destructor/cleanup
+24. dead/legacy constants cleanup
+
+======================================================================
+32. 필수 회귀 테스트
+======================================================================
+
+TEST-01
+zTest=false 모든 effect truth table.
+명시적 world proof가 없으면 ZeroDisparity.
+
+TEST-02
+world shader A 후 HUD shader B.
+B가 c64를 안 바꿔도 A epoch를 상속하면 실패.
+
+TEST-03
+shader COM pointer reuse.
+A destroy 후 동일 address B.
+B hash는 B여야 함.
+
+TEST-04
+1,000 world draws에서 live API getter count 계측.
+
+TEST-05
+1,000 scissor-enabled unchanged draws.
+3,000 raster getter가 나오면 실패.
+
+TEST-06
+gameplay real recenter.
+임의 yaw/position 후 F10.
+다음 app-space pose가 origin policy와 일치.
+
+TEST-07
+DirectGPU 중 recenter.
+black/no-layer/stale fallback 없이 복구.
+
+TEST-08
+menu recenter와 gameplay recenter semantic 분리.
+
+TEST-09
+swapchain generation 1 commit -> recreate generation 2.
+gen2 첫 render 전 cached fallback 거부.
+
+TEST-10
+Direct declared format != actual format.
+bundle/fast submit 거부.
+
+TEST-11
+sky:
+- head rotate 반영
+- head translate 제거
+- IPD policy 확인
+
+TEST-12
+72/80/90/120 Hz cadence mode 1.
+
+TEST-13
+mode 2:
+cadenceSerialWaitMs와 XR missed frame 비교.
+
+TEST-14
+DirectGPU hold-copy A/B:
+A = current copy-to-hold
+B = direct shared SRV sample
+GPU timestamp / Present-to-consume / renderMs 비교.
+
+TEST-15
+generation switch while old R32 EVENT pending.
+새 generation 첫 frame에 unnecessary Flush/AckBusy 없어야 함.
+
+TEST-16
+R32 slot pressure.
+ACK safety 유지하면서 Flush frequency 최소화.
+
+TEST-17
+classic frameId wrap simulation:
+0xFFFFFFFE, 0xFFFFFFFF, 1, 2 ordering.
+
+TEST-18
+pipeline telemetry off:
+frame thread file flush 0회.
+
+TEST-19
+fingerprint on:
+draw당 GetFunction 0회가 목표.
+
+TEST-20
+menu->game->menu 반복 100회:
+car preview, cached projection, presentation authority 검사.
+
+======================================================================
+33. 권장 계측 항목
+======================================================================
+
+Game log:
+- draw count
+- World/HUD/Effect/Sky class count
+- liveGetRenderState count
+- liveViewport count
+- liveScissor count
+- liveWvpRead count
+- R28 crossShader attempts/accept/reject
+- zOffWorld rejects
+
+Host pipeline:
+- direct shared->hold copy GPU us
+- projection blit GPU us
+- fresh/cached projection count
+- cached hold age max
+- AckBusy
+- deferredFlush
+- pendingOldGeneration
+- recenter generation
+- swapchain generation/committedGeneration
+- cadenceSerialWaitMs
+- gamePresentToConsumeMs
+- xrEndFrameMs
+
+이 값을 넣으면 다음 테스트 한 번으로:
+CPU 병목 / GPU copy 병목 / cadence 병목 / fallback 병목
+을 분리할 수 있다.
+
+======================================================================
+34. 코드 구조 개선
+======================================================================
+
+현재 Rxx overlay가 회귀 추적에는 유용했지만 장기적으로는 복잡도가 높다.
+
+권장 모듈:
+
+D3D9StateTracker
+- shader
+- render states
+- viewport/scissor
+- WVP
+- StateBlock generation
+
+PassClassifier
+- World
+- HUD
+- EffectBillboard
+- SkyRotationOnly
+- UnknownFailClosed
+
+StereoExecutor
+- per-eye WVP
+- fixed-function
+- restore
+
+DirectTransport
+- producer ring
+- shared resources
+- metadata
+- async ACK
+
+OpenXRPresentation
+- projection swapchain generation
+- cached image validity
+- fallback authority
+- recenter/application space
+
+Diagnostics
+- counters
+- GPU timestamps
+- async logger
+
+앞으로 매 문제마다 R47/R48 식 wrapper를 계속 추가하는 것보다,
+위 모듈 경계를 만드는 편이 bug surface를 줄일 가능성이 높다.
+
+======================================================================
+35. 현재 유지해야 할 것
+======================================================================
+
+유지:
+- R32 asynchronous ACK
+- bounded swapchain wait
+- runtime-adaptive 72/80/90/120 design
+- safe build isolation
+- fail-closed unknown policy
+- generation-aware DirectGPU concept
+- architecture CI
+- latest-frame-wins DirectGPU selection
+- unchanged XR tick projection reuse
+
+되돌리면 안 되는 것:
+- per-frame synchronous GPU fence
+- every-XR-tick full projection redraw
+- fixed 120Hz hardcode
+- raw SBS HMD fallback 우선
+- old R14 256 resource ring
+- R29-R34 전체를 검증 없이 production 재활성화
+
+======================================================================
+36. 500,000 검토에서 추가 제거한 오탐
+======================================================================
+
+FALSE-1
+main_r23 ReleaseFrame + PublishProductionCapture double-copy
+-> #undef ReleaseFrame 때문에 현재 R23Capture에는 해당 없음.
+
+FALSE-2
+AsyncPixelProbe EnsureStage width stale
+-> current call-site width 8/2/1 고정이라 현 상태에서는 문제 없음.
+
+FALSE-3
+Reset old base shader epoch
+-> ResetDest가 identity/serial 초기화.
+
+FALSE-4
+fixed-function menu car always world transformed
+-> GameplayActive guard로 차단.
+
+FALSE-5
+literal XR_INFINITE_DURATION == infinite hang
+-> bounded wait wrapper 존재.
+
+FALSE-6
+R32 normal path unconditional Flush
+-> 현재는 slot pressure 때 deferred Flush만 사용.
+
+======================================================================
+37. CI 상태 문맥
+======================================================================
+
+실제 source baseline:
+a68cf17832fd4d9c0655f30f097108a43b63ce22
+
+해당 baseline에서 확인된 완료 성공:
+- Build PR 35483262080 : success
+- OpenXR VR architecture 35483262116 : success
+- Build push 35483205589 : success
+
+b741ffd29c87...는 소스 변화 없이 리뷰 문서만 추가된 HEAD이며,
+500,000 검토 시작 시점의 최신 관련 CI는 queued 상태였다.
+
+따라서 이 보고서의 문제들은:
+컴파일 실패 주장이 아니라
+runtime correctness/performance/static architecture 문제다.
+
+======================================================================
+38. 최종 우선순위
+======================================================================
+
+P0 correctness:
+1. 실제 gameplay recenter
+2. swapchain generation cached validity
+3. z-off HUD fail-closed
+4. R28 cross-shader semantic proof
+
+P1 visual/performance:
+5. SkyRotationOnly
+6. R13 getter 제거
+7. scissor getter 제거
+8. DirectGPU host-hold copy 제거 POC
+9. shader fingerprint draw-path 제거
+10. host logging async
+
+P2 transition/robustness:
+11. old generation PendingAck 분리
+12. Direct metadata validator
+13. recenter completion FSM
+14. cadence stale-event retry
+
+P3:
+15. classic frameId wrap tie-break
+
+======================================================================
+39. 최종 평가
+======================================================================
+
+현재 프로젝트는 “true stereo가 가능한가” 단계는 이미 지났다.
+
+남은 가장 큰 문제는:
+- semantic misclassification
+- coordinate recenter semantics
+- resource generation ownership
+- hot-path API/copy cost
+이다.
+
+특히 이번 500,000 교차검증에서 성능 측면의 핵심 추가 결론은:
+
+R32 async ACK가 producer lifetime을 이미 GPU EVENT까지 보호하고 있으므로,
+정상 DirectGPU path에서 host-owned hold texture로 먼저 full-size CopyResource
+두 번 하는 구조를 제거할 가능성이 높다.
+
+즉 최종적으로 목표 구조는:
+
+OutRun D3D9 per-eye shared resources
+        |
+        v
+host D3D11 SRV open/validate
+        |
+        v
+OpenXR projection direct blit
+        |
+        v
+D3D11 EVENT
+        |
+        v
+producer per-slot ACK
+
+이 구조가 성립하면:
+- SBS desktop capture 의존 감소
+- full-eye intermediate copy 감소
+- host memory bandwidth 감소
+- latency 감소 가능
+- R32 safety는 유지
+가 동시에 가능하다.
+
+다만 correctness 순서는 반드시:
+
+recenter
+-> swapchain generation
+-> HUD/R28 classification
+-> sky semantic
+-> DirectGPU zero-extra-copy optimization
+
+순으로 가는 것을 권장한다.
+
+요약:
+- 500,000 static cross-check cells
+- 소스코드 수정: 없음
+- 기존 P0 4개 재확인
+- 신규 주요 GPU 최적화 후보 1개
+- 신규 generation-transition hitch 후보 1개
+- 신규 wrap robustness 항목 1개
+- 추가 오탐 2개 이상 제거
+- 현재 safe/async ACK 구조는 유지 권장
+
+END OF 500,000-CHECK REPORT

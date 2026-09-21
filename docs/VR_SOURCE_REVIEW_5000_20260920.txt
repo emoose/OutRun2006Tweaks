@@ -1,0 +1,618 @@
+OutRun2006Tweaks OpenXR VR Source Review - 5,000-check report
+Date: 2026-09-20
+Repository: thp32tt/OutRun2006Tweaks
+Branch reviewed: vr-openxr-gpl-reuse
+Review base commit: a68cf17832fd4d9c0655f30f097108a43b63ce22
+Production-safe build mode: OUTRUN_VR_SAFE_DRAW_COMPARE=ON
+Production stereo owner: stereo_renderer_r26_compare.cpp -> stereo_renderer_r26.cpp -> R23/R22/R13/R9
+Production renderer owner: outrun_renderer_r23.cpp
+D3D9Ex final owner: ex_device_upgrade_r15.cpp
+Host entry: vrhost/src/main_r23.cpp
+
+======================================================================
+1. REVIEW METHOD
+======================================================================
+
+"5,000회"를 동일 파일을 사람 눈으로 5,000번 반복해서 읽었다고 과장하지 않았다.
+이번 검토는 다음과 같이 정확히 5,000개의 독립 검증 셀을 구성했다.
+
+- VR/그래픽/Host/IPC/CI 관련 파일: 100개
+- 파일당 위험 패턴/성능/동기화 검증 항목: 50개
+- 총 자동 정적 검증 셀: 100 x 50 = 5,000개
+- 이후 후보 항목은 실제 함수 문맥, 호출 체인, 현재 CMake 빌드 그래프를 다시 읽어
+  production 경로 / 비교 경로 / 진단 전용 경로를 분리하고 오탐을 제거했다.
+
+50개 검증군에는 TODO/FIXME, 예외 삼킴, Sleep/무한 대기, D3D9 live getter,
+GetVertexShaderConstantF, viewport/scissor getter, COM shader getter,
+GetFunction, mutex/heap/vector, QPC/tick, texture/query/stateblock 생성,
+SetRenderTarget/Depth/Viewport/Scissor/WVP, StretchRect/LockRect,
+D3D11 Map/Copy/Flush/GetData, OpenXR acquire/wait/release/end-frame 등을 포함했다.
+
+이 보고서는 실행 프로파일러 측정이 아니라 소스 정적 검토 결과다.
+따라서 성능 항목에서 실제 ms 개선량은 새 실행 로그/프로파일로 검증해야 한다.
+
+======================================================================
+2. EXECUTIVE SUMMARY
+======================================================================
+
+현재 default safe R26 경로는 과거 R29-R34 fast/HUD 체인보다 안전하지만,
+아직 두 종류의 핵심 문제가 남아 있다.
+
+A. 렌더 정확성
+- depth-test가 꺼진 2D/HUD 계열 draw가 특정 상태 조합에서 WorldStereo로
+  분류될 수 있는 논리 구멍이 있다.
+- R28 shader-epoch rebind는 "현재 shader가 다른데 c64/projection이 같음"을
+  world pass로 승격할 수 있다. 현재 흰색 순위/스코어/HUD가 양안으로 갈라지는
+  증상과 연결될 가능성이 높다.
+
+B. 성능
+- 현재 safe 경로에서도 draw마다 5개의 GetRenderState를 실행한다.
+- scissor enabled 상태에서는 추가로 GetViewport + GetScissorRect +
+  GetRenderState가 draw마다 발생할 수 있다.
+- shader epoch 변경 시 GetVertexShaderConstantF(c64-c67) readback도 추가된다.
+즉 "fast path를 끈 안전 빌드"가 정확성은 높였지만 CPU/driver call 비용은 상당히 크다.
+
+새 3Dmigoto GPL shader fingerprint 기능 자체에도 두 문제가 있다.
+- COM 포인터 주소만 cache key로 사용해 포인터 재사용 시 잘못된 hash를 돌려줄 수 있다.
+- 진단을 켜면 draw마다 COM getter + mutex + 256-entry 선형검색을 수행하므로
+  성능 문제를 측정하는 과정 자체가 프레임을 더 악화시킬 수 있다.
+
+CI는 review base commit에서 모두 성공했다.
+- Build PR run 35483262080: SUCCESS
+- OpenXR VR architecture run 35483262116: SUCCESS
+- Build push run 35483205589: SUCCESS
+
+따라서 아래 결함은 "컴파일 실패"가 아니라 런타임 정확성/성능 설계 문제다.
+
+======================================================================
+3. HIGH PRIORITY CORRECTNESS FINDINGS
+======================================================================
+
+[HIGH-01] Depth-disabled draw가 WorldStereo로 분류될 수 있음
+Files:
+- src/vr/d3d9/vr_pass_policy.hpp
+- src/vr/d3d9/stereo_renderer_r13.cpp
+- src/vr/d3d9/stereo_renderer_r26.cpp
+
+현재 ClassifyEffectStereo():
+
+    const bool depthDisabledFlatEffect =
+        cullNone && !depthTestEnabled &&
+        ((alphaBlendEnabled && !depthWriteEnabled) || alphaTestEnabled);
+
+이 조건에 맞는 경우에만 ZeroDisparity이며 나머지는 기본 WorldStereo다.
+
+따라서 다음 상태는 depth test가 꺼져도 WorldStereo가 된다.
+- cullNone == false 인 2D draw
+- alpha blend가 꺼진 depth-disabled draw
+- alpha blend가 켜졌지만 z-write가 true인 draw
+- 기타 상태가 위 좁은 flat 조건에 걸리지 않는 draw
+
+R13CaptureDrawTimeEffect()는 이 결과를 그대로 R13EffectClass::World/Flat으로 사용한다.
+R27GuardWorldEffect()의 R37DepthDisabledFragileOverlay()는 classification == World이면
+zEnabled == false여도 즉시 "fragile overlay 아님"으로 처리한다.
+
+결과:
+실제로는 HUD/순위/score/menu overlay인 draw가 perspective projection 또는 남아있는
+world state와 결합될 경우 양안 world replay로 들어갈 수 있다.
+
+사용자 관측과의 연관성:
+- 흰색 6th/6이 두 개로 보임
+- 흰색 score가 양안 분리됨
+- 일부 순위표시/overlay가 world/HUD 경계에서 잘못 보임
+이 증상과 매우 잘 맞는 후보다.
+
+권장 수정:
+1) depthTestEnabled == false면 기본값을 Flat/ZeroDisparity로 바꾼다.
+2) depth-off draw를 world로 올리려면 별도의 강한 증거가 있어야 한다.
+   예: 검증된 shader fingerprint + world WVP write + projection semantic.
+3) cull mode/alpha state는 보조 증거로만 사용한다.
+4) 모든 boolean 조합을 테스트하는 unit test matrix를 추가한다.
+
+
+[HIGH-02] R28 shader-epoch rebind가 "다른 shader"를 이전 world shader로 가장할 수 있음
+File:
+- src/vr/d3d9/stereo_renderer_r26.cpp
+
+R28CanRebindVerifiedWorld()은 다음을 확인한다.
+- main target / stereo state
+- 최근 verified c64-c67
+- pose generation
+- 현재 c64-c67 값이 verified 값과 동일
+- projection이 verified projection과 동일
+- renderer semantic이 perspective world
+
+하지만 "현재 shader 자체가 이전 verified world shader와 같은 종류인지"는 요구하지 않는다.
+오히려 current shader epoch가 stored shader epoch와 달라야 이 경로가 의미가 있다.
+
+그 뒤 R28RunWithVerifiedWorldEpoch()은:
+
+    CurrentVertexShaderIdentity.exchange(verifiedShaderIdentity)
+    VertexShaderSerial.exchange(verifiedShaderSerial)
+
+로 현재 shader identity/serial을 일시적으로 이전 world shader epoch로 바꾸고 R9 draw를 실행한다.
+
+의도:
+world WVP를 상속하는 smoke/skid/decal shader가 shader switch만 한 경우 world stereo 유지.
+
+위험:
+HUD/effect shader가 c64/projection을 새로 쓰지 않고 이전 world 값을 그대로 둔 경우에도
+"이전 world shader인 것처럼" 승격될 수 있다.
+
+이 역시 흰색 HUD/순위/효과의 양안 분리 후보다.
+
+권장 수정:
+- 새 GPL shader fingerprint를 단순 로그가 아니라 "world-compatible shader evidence"로 사용.
+- 최소한 current VS fingerprint가 known-world 계열인지 확인하기 전에는 epoch를 강제 치환하지 않는다.
+- shader가 달라진 경우 WVP 동일성만으로 world 승격하지 않는다.
+- HUD/effect fingerprint는 명시적으로 zero-disparity 정책으로 보낸다.
+
+
+[HIGH-03] 같은 shader pair가 상태에 따라 다른 역할을 해도 fingerprint 로그가 첫 상태만 남음
+File:
+- src/vr/d3d9/shader_fingerprint_gpl.hpp
+
+RememberPair()의 dedupe key는:
+    (vertexHash, pixelHash)
+
+뿐이다.
+
+문제:
+같은 VS/PS pair가
+- 한 pass에서는 z-on world
+- 다른 pass에서는 z-off HUD/effect
+로 재사용되면 첫 번째 상태만 로그에 남고 두 번째 상태는 사라진다.
+
+이는 현재 우리가 찾으려는 "같은 shader인데 상태에 따라 HUD/world가 달라지는" 경우를
+숨길 수 있다.
+
+권장 수정:
+dedupe/transition key에 최소 다음을 포함:
+- VS hash
+- PS hash
+- effect classification
+- zEnabled
+- projection class
+- target class(main/offscreen)
+- primitive/FVF 또는 XYZRHW 여부
+필요하면 viewport/scissor class도 포함한다.
+
+======================================================================
+4. HIGH PRIORITY PERFORMANCE FINDINGS
+======================================================================
+
+[HIGH-PERF-01] R13 effect snapshot이 draw마다 5개의 live GetRenderState 실행
+File:
+- src/vr/d3d9/stereo_renderer_r13.cpp
+
+R13CaptureDrawTimeEffect()은 매 호출마다:
+- D3DRS_ALPHABLENDENABLE
+- D3DRS_ALPHATESTENABLE
+- D3DRS_ZWRITEENABLE
+- D3DRS_ZENABLE
+- D3DRS_CULLMODE
+
+총 5번 GetRenderState()를 호출한다.
+
+현재 production R26의 R27GuardWorldEffect()가 네 Draw entry 모두에서
+R13CaptureDrawTimeEffect()를 호출하므로 사실상 main draw hot path다.
+
+예시:
+3,000 draw/frame이면 약 15,000개의 D3D9 render-state getter/frame.
+60fps면 약 900,000 getter/sec 수준이다.
+이는 정확한 실제 draw 수에 따라 달라지지만 구조 자체가 비싸다는 점은 확정이다.
+
+이미 base stereo_renderer_r7.inc에는:
+- TrackedRenderStateValue
+- TrackedRenderStateValid
+- TrackedRenderStateReads
+- SetRenderState hook
+- ReadTrackedRenderState()
+가 있으며 16회 단위 live validation도 구현되어 있다.
+
+즉 R13은 이미 존재하는 state shadow를 쓰지 않고 live getter를 다시 호출한다.
+
+권장 수정:
+R13CaptureDrawTimeEffect()을 tracked state 기반으로 교체.
+StateBlock::Apply 또는 의심 세대에서만 강제 live resync.
+정확성 때문에 필요한 periodic validation은 유지하되 per-draw 5 getter는 제거.
+
+
+[HIGH-PERF-02] scissor enabled 상태에서는 viewport/scissor 3 getter가 매 draw 발생 가능
+Files:
+- src/vr/d3d9/stereo_renderer_r23.cpp
+- src/vr/d3d9/stereo_renderer_r22.cpp
+
+R23BeforeTopLevelDraw()은 모든 game draw 전에:
+    R23CaptureActualGameState(..., force=false)
+
+를 호출한다.
+
+R23CaptureActualGameState() cache fast path는:
+- same Present
+- shadow valid
+- scissor disabled
+- 16 draw 미만
+일 때만 작동한다.
+
+즉 R22ShadowState.enabled == true이면 cache를 사용하지 않고 매 draw:
+- GetViewport
+- GetScissorRect
+- GetRenderState(SCISSORTESTENABLE)
+를 수행한다.
+
+HUD/menu/clip rectangle가 많은 구간에서 매우 비싸질 수 있다.
+
+권장 수정:
+- enabled scissor도 세대 기반 cache 허용.
+- StateBlock Apply generation을 별도로 추적.
+- SetViewport/SetScissorRect/SetRenderState hook으로 shadow 갱신.
+- N draw마다 또는 StateBlock generation 변경 시만 authoritative live validation.
+
+
+[MED-PERF-03] shader epoch mismatch 때 GetVertexShaderConstantF(c64-c67) readback
+File:
+- src/vr/d3d9/stereo_renderer_r26.cpp
+
+R28CanRebindVerifiedWorld()은 shader epoch가 바뀐 후보마다:
+    GetVertexShaderConstantF(OutRunWvpRegister, ...)
+
+를 수행한다.
+
+effect shader switch가 많은 장면이면 driver readback 성격의 getter가 반복된다.
+
+이미 renderer는 game WVP write를 추적하는 구조를 갖고 있으므로,
+가능하면 "마지막 game upload shadow"와 generation을 사용하고 실제 device getter는
+주기적 검증/디버그 모드로 제한하는 것이 좋다.
+
+
+[LOW-PERF-04] R27 Present timing QPC가 telemetry off여도 항상 실행
+File:
+- src/vr/d3d9/stereo_renderer_r26.cpp
+
+PresentDestR27()은 Settings::VRTelemetry 여부와 관계없이
+Present 전/후 QueryPerformanceCounter를 호출한다.
+
+비용은 작지만 telemetry를 끈 production path에서는 불필요하다.
+QPC 측정 자체를 VRTelemetry 또는 profiling mode에 묶을 수 있다.
+
+
+[LOW-PERF-05] QueryPerformanceFrequency를 반복 호출하는 경로
+File:
+- src/vr/d3d9/stereo_renderer_r23.cpp
+
+R23DiagnoseHostFreshness()에서 Present마다 QueryPerformanceFrequency 호출 가능.
+frequency는 프로세스 실행 중 고정이므로 한 번 cache하는 편이 낫다.
+
+======================================================================
+5. GPL SHADER FINGERPRINT REVIEW
+======================================================================
+
+[HIGH-DIAG-01] COM pointer만 cache key로 사용 -> pointer reuse 시 stale hash 가능
+File:
+- src/vr/d3d9/shader_fingerprint_gpl.hpp
+
+HashBytecodeCached():
+    identity = reinterpret_cast<uintptr_t>(shader)
+    cache에서 identity만 찾아 기존 hash 반환
+
+cache invalidation이 Reset/shader destruction과 연결되어 있지 않다.
+
+COM object가 파괴된 뒤 같은 주소에 새로운 shader가 할당되면
+새 shader bytecode를 읽지 않고 이전 hash를 반환할 수 있다.
+
+이 문제는 렌더 결과를 깨지는 않지만 diagnostic classification을 잘못 만들 수 있다.
+
+권장 수정:
+가장 좋은 구조:
+- SetVertexShader/SetPixelShader hook에서 binding 변경 시 한 번만 hash 계산.
+- Reset/device generation 변화 시 cache invalidate.
+- current VS/PS hash를 atomic/current-state로 보관.
+- draw hot path에서는 hash 계산/COM query 없이 현재 hash만 읽는다.
+
+
+[HIGH-DIAG-02] diagnostic ON 시 per-draw 오버헤드가 너무 큼
+Files:
+- src/vr/d3d9/shader_fingerprint_gpl.hpp
+- src/vr/d3d9/stereo_renderer_r26.cpp
+
+현재 R46TraceShaderFingerprint()은 R27GuardWorldEffect()마다 호출된다.
+
+CaptureCurrent():
+- GetVertexShader
+- GetPixelShader
+- mutex
+- VS cache 최대 256 선형검색
+- PS cache 최대 256 선형검색
+- cache miss 시 GetFunction size
+- vector heap allocation
+- GetFunction bytecode
+- FNV hash
+그 뒤 RememberPair():
+- 두 번째 mutex
+- 최대 256 pair 선형검색
+
+진단을 켠 상태에서는 성능 원인을 관측하면서 동시에 큰 새 hot-path 비용을 넣게 된다.
+따라서 stutter 수치를 비교하는 용도로는 현재 방식이 부적합하다.
+
+권장 수정:
+hash는 shader binding/creation 시점에만 계산하고 draw에서는 zero-allocation O(1) 조회.
+로그 역시 state transition이나 처음 보는 fingerprint 조합에서만 발생하도록 한다.
+
+
+[MED-DIAG-03] 256-slot cache 정책은 진단 규모가 커질 경우 churn 가능
+현재 shader cache/pair seen table이 모두 256 entries다.
+OutRun 자체 shader 수가 이보다 적다면 충분할 수 있으나,
+wrapper/overlay/mod가 개입하면 eviction과 재hash가 늘어날 수 있다.
+
+고정 table을 유지하려면 open-addressed hash table 또는 generation-tagged map이 적합하다.
+
+======================================================================
+6. HOST / DIRECTGPU PERFORMANCE AND SYNCHRONIZATION
+======================================================================
+
+[GOOD-01] R32 steady DirectGPU path는 과거의 동기 WaitForCopyFence보다 개선됨
+File:
+- vrhost/src/runtime/r32_direct_submit.hpp
+
+현재 fast path:
+- EVENT query
+- GetData(... D3D11_ASYNC_GETDATA_DONOTFLUSH)
+- producer slot pressure가 실제 발생할 때만 Flush
+- 같은 frame pending EVENT는 재사용
+- steady frame에서 redundant SafeEye copy + second projection을 피함
+
+이 방향은 유지해야 한다.
+과거 d3d9ex_direct_passthrough.hpp의:
+    End(query) -> Flush -> GetData spin
+방식으로 steady path를 되돌리면 안 된다.
+
+
+[MED-HOST-01] ring pressure 시 Flush + fallback 전환은 여전히 hitch 가능
+File:
+- vrhost/src/runtime/r32_direct_submit.hpp
+
+slot이 아직 armed 상태면:
+- PollCompletedAcks
+- 완료 안 됐고 flushIssued=false면 Context->Flush()
+- 다시 Poll
+- 여전히 pending이면 AckBusy -> fallback
+
+이는 안전한 failover지만 GPU가 밀리는 순간 CPU/driver hitch가 더 커질 수 있다.
+
+권장:
+- telemetry에서 ackSlotBusy / deferredFlush 발생과 HMD frame spike를 함께 상관 분석.
+- ring depth 확대는 메모리/latency trade-off를 보고 결정.
+- 무조건 Flush 확대는 금지.
+
+
+[MED-HOST-02] Host detailed pipeline telemetry가 allocation/sort를 사용
+File:
+- vrhost/src/main_r23.cpp
+
+R23MetricWindow:
+- std::vector<double>
+- P95()에서 vector 복사
+- std::sort
+Pipeline window:
+- unordered_map<string,uint64_t>
+- ostringstream formatting
+
+frame마다 Note()가 누적되고 주기적 telemetry 시 문자열/정렬 비용이 생긴다.
+
+권장:
+- production에서는 VRTelemetry/diagnostic flag로 상세 telemetry gate.
+- percentile은 고정 histogram 또는 ring-buffer selection으로 바꿀 수 있다.
+- 로그 생성은 render-critical thread에서 최소화.
+
+
+[LOW-HOST-03] std::cerr 기반 주기 로그
+Files:
+- vrhost/src/runtime/r32_direct_submit.hpp
+- 여러 runtime hardening headers
+
+5초 주기 또는 첫 이벤트 로그는 큰 문제는 아니지만 std::cerr formatting/flush 동작은
+실시간 렌더 thread에서 완전히 공짜가 아니다.
+가능하면 비동기 logger 또는 lock-free telemetry queue 사용.
+
+======================================================================
+7. OPENXR WAIT / SWAPCHAIN REVIEW
+======================================================================
+
+[GOOD-02] XR_INFINITE_DURATION이 소스에 보여도 실제 infinite hang으로 단정하면 안 됨
+Files:
+- vrhost/src/runtime/bounded_swapchain_wait.hpp
+- vrhost/src/runtime/sbs_capture_override.hpp
+
+bounded_swapchain_wait.hpp는 xrWaitSwapchainImage를 wrapper로 치환한다.
+XR_INFINITE_DURATION 요청을:
+- 20ms slice
+- 총 250ms budget
+으로 제한하고 초과 시 XR_ERROR_RUNTIME_FAILURE로 반환한다.
+
+sbs_capture_override는 wait 실패 시 acquiredImage를 보존하여
+OpenXR acquire/wait/release 순서를 깨지 않도록 설계돼 있다.
+
+따라서 자동 스캔에서 잡힌 XR_INFINITE_DURATION은 현재 production host에서
+"무한 black-screen hang" 확정 결함이 아니다.
+현재 bounded 구조는 유지하는 것이 맞다.
+
+======================================================================
+8. D3D9EX / RESOURCE LIFETIME REVIEW
+======================================================================
+
+[GOOD-03] R14 CPU shadow lifetime의 이전 256-slot eviction 문제는 현재 구조에서 해결됨
+File:
+- src/vr/d3d9/ex_device_upgrade_r14.cpp
+
+현재:
+- unordered_map<IDirect3DTexture9*, shared_ptr<R14ShadowEntry>>
+- texture Release hook에서 erase
+- locked resource는 retirePending으로 Unlock까지 생존
+- R14ShadowEntry destructor에서 cpu/device Release
+- shadowBytes accounting 존재
+- R14DetachShadowLocked()가 bytes를 0으로 만든 뒤 destructor double-subtract 방지
+
+이번 검토에서는 명백한 double-release / shadow budget leak을 확인하지 못했다.
+
+
+[LOW-PERF-06] R14 registry mutex는 resource hook 호출마다 contention 가능
+R14Find()는 global R14RegistryMutex를 잡는다.
+LockRect/GetSurfaceLevel 등의 resource API가 매우 자주 호출되는 workload라면 병목 후보지만,
+일반 draw hot path와는 거리가 있다.
+
+현재 우선순위는 R13/R23 per-draw getter 제거보다 낮다.
+
+======================================================================
+9. COMPARISON / NON-PRODUCTION PATH TECHNICAL DEBT
+======================================================================
+
+현재 default safe build에서는 R29-R34 stereo overlay 및 renderer R29가 제외된다.
+따라서 아래는 "현재 증상의 직접 원인"으로 취급하지 않는다.
+
+다만 향후 다시 활성화할 경우 위험도가 높다.
+
+특히:
+- stereo_renderer_r30.cpp: 약 3,102 lines
+- stereo_renderer_r30_r26_safe.cpp: 약 3,676 lines
+- R31/R32/R33/R34 layered wrappers
+
+이 경로에는:
+- mutex
+- state block
+- live getters
+- heap/vector
+- render target/depth switching
+- viewport manipulation
+- multiple fallback paths
+가 한 계층에 겹쳐 있다.
+
+구조적 문제:
+.cpp 파일이 다음 .cpp 파일을 include하는 chain이 매우 깊다.
+Host main_r23.cpp도 private/public macro로 main.cpp 구현을 include한다.
+
+CI가 현재 ODR/source-graph 문제를 강하게 검사하므로 빌드는 통과하지만,
+수정 하나가 여러 계층의 숨은 전역 상태를 바꿀 수 있어 regression 위험이 높다.
+
+향후 재설계 권장:
+- state tracker
+- pass classifier
+- stereo executor
+- transport publisher
+- diagnostics
+를 실제 header/interface + 독립 TU로 분리.
+Rxx 번호 overlay를 계속 쌓는 방식은 종료하는 것이 좋다.
+
+======================================================================
+10. TEST COVERAGE GAPS
+======================================================================
+
+[TEST-01] Effect policy boolean matrix 누락
+현재 static_assert에는 대표 조합만 있다.
+다음 케이스를 반드시 추가:
+- depth=false, cull!=none, opaque
+- depth=false, cull!=none, alpha blend
+- depth=false, cull!=none, alpha test
+- depth=false, alpha blend + zwrite=true
+이들은 현재 WorldStereo가 될 수 있다.
+
+
+[TEST-02] Different shader + identical c64/projection test 누락
+조건:
+- shader A에서 verified world WVP 생성
+- shader B로 switch
+- c64/projection은 그대로
+- shader B는 HUD/effect
+기대:
+- B를 A world epoch로 승격하지 않아야 함.
+
+
+[TEST-03] Shader COM pointer reuse test 누락
+- shader A hash
+- destroy/reset
+- 동일 주소를 재사용하는 shader B
+- B hash가 A cache에서 나오면 실패
+
+
+[TEST-04] Getter-count performance regression test 필요
+가짜 D3D9 device 또는 counters로 1,000 draw 시:
+- GetRenderState 호출 수
+- GetViewport
+- GetScissorRect
+- GetVertexShaderConstantF
+상한을 CI에서 검증하도록 하면 hot-path 회귀를 막을 수 있다.
+
+
+[TEST-05] Scissor-enabled stress
+scissor가 계속 enabled인 1,000 draw에서 live raster getter가 3,000회 발생하는 현재 구조를
+검출하는 benchmark/test 필요.
+
+======================================================================
+11. RECOMMENDED FIX ORDER
+======================================================================
+
+Priority 1 - 화면 오류를 먼저 잡기
+1. depth-disabled draw 기본 zero-disparity화
+2. R28 shader-epoch rebind에 shader fingerprint/강한 semantic proof 추가
+3. 흰 HUD/score/rank fingerprint를 수집해 explicit HUD/effect policy 작성
+
+Priority 2 - 게임측 CPU hot path 줄이기
+4. R13 5x GetRenderState를 tracked state shadow로 전환
+5. R23 scissor-enabled per-draw live raster getter 제거
+6. R28 c64 device readback을 tracked WVP write shadow 중심으로 변경
+
+Priority 3 - 진단기를 관측 비침습적으로 만들기
+7. shader hash 계산을 SetVertexShader/SetPixelShader 또는 shader creation 시점으로 이동
+8. pointer-only cache 제거 / Reset generation 도입
+9. fingerprint log key에 state/projection/target class 포함
+
+Priority 4 - Host jitter 정리
+10. detailed pipeline telemetry runtime gate
+11. periodic vector copy/sort 제거
+12. std::cerr hot-path 로그 최소화
+
+Priority 5 - 구조 정리
+13. Rxx .cpp include overlay chain을 독립 모듈로 단계적 분해
+14. comparison build를 별도 experimental targets로 격리
+
+======================================================================
+12. WHAT SHOULD NOT BE CHANGED YET
+======================================================================
+
+- R32 DirectGPU async ACK를 다시 synchronous Flush+Wait 경로로 되돌리지 말 것.
+- bounded OpenXR swapchain wait를 제거하지 말 것.
+- R14 lifetime-bound texture shadow를 과거 fixed-capacity eviction 구조로 되돌리지 말 것.
+- 현재 stable vr-openxr에 이 리뷰 결과를 한 번에 대량 merge하지 말 것.
+- 먼저 vr-openxr-gpl-reuse에서 P1 수정 -> CI -> 실제 Quest/VDXR test 순서로 진행할 것.
+
+======================================================================
+13. FINAL ASSESSMENT
+======================================================================
+
+현재 가장 중요한 결론은 "Host가 느려서만 버벅인다"가 아니다.
+
+현재 production-safe R26 game-side draw path 자체에:
+- draw당 다수의 D3D9 live state getter
+- scissor enabled 시 추가 live getter
+- shader epoch mismatch 시 WVP device readback
+이 남아 있어 CPU/driver overhead가 충분히 크다.
+
+동시에 렌더 분류 측면에서는:
+- depth-disabled overlay의 기본 WorldStereo 가능성
+- 다른 shader를 이전 verified world epoch로 승격하는 R28 rebind
+두 항목이 현재 흰 HUD/score/rank 양안 분리의 가장 강한 소스 후보다.
+
+따라서 다음 수정은 "새 렌더러를 더 얹는 것"보다:
+1) pass 분류를 보수적으로 정확하게 만들고
+2) state/shader/WVP 정보를 hook 시점에 shadow/cache하며
+3) draw hot path에서는 O(1) 읽기만 하도록 만드는 것
+이 우선이다.
+
+Review result classification:
+- Confirmed logic/cost defects: 8
+- Medium/low optimization/diagnostic issues: 8+
+- Explicitly reviewed non-issues/positive safeguards: DirectGPU async ACK,
+  bounded swapchain wait, R14 lifetime registry, current CI/source-graph guards
+- Current build status at review base: Build + OpenXR architecture CI SUCCESS
+
+END OF REPORT

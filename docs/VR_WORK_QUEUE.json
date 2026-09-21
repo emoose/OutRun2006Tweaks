@@ -1,0 +1,100 @@
+{
+  "schemaVersion": 1,
+  "branch": "vr-unified-backends",
+  "sourceBaseline": "ad14ed6c6757634233ec79b71f42be53c563edb7",
+  "updatedKst": "2026-09-21T03:36:00+09:00",
+  "owner": "INTEGRATION_PLANNER",
+  "policy": {
+    "maxSourceAttemptsPerFinding": 2,
+    "maxRuntimeCandidates": 6,
+    "sourceWriteWorker": "FIX",
+    "runtimeTruthRequiresHmd": true,
+    "skipUnchangedCompletedInputs": true
+  },
+  "items": [
+    {
+      "id": "VR-FINGERPRINT-001",
+      "priority": 10,
+      "status": "READY",
+      "worker": "FIX",
+      "sourceArea": "D3D9Ex/DX9Ex draw classification telemetry",
+      "hypothesis": "Bounded cached shader/decl/stride/texture/render-state fingerprints can identify the Position HUD draw without broad WVP ownership.",
+      "requiredEvidence": "build/static first; HMD/log evidence before any behavior-changing classifier is accepted",
+      "mergePolicy": "telemetry-only-first",
+      "attempts": 0,
+      "dependsOn": []
+    },
+    {
+      "id": "VR-LENS-002",
+      "priority": 9,
+      "status": "READY",
+      "worker": "FIX",
+      "sourceArea": "D3D9Ex narrow S6/S7 lens-flare classification",
+      "hypothesis": "Small alpha + live flat-WVP discriminator can collapse duplicate flare without broad world/sky corruption.",
+      "requiredEvidence": "candidate-only build plus Quest 3 runtime confirmation",
+      "mergePolicy": "fail-closed-candidate-only",
+      "attempts": 0,
+      "dependsOn": []
+    },
+    {
+      "id": "VR-POSITIONHUD-001",
+      "priority": 8,
+      "status": "NEED_HMD_TEST",
+      "worker": "INTEGRATION_PLANNER",
+      "sourceArea": "Position HUD 6th/6",
+      "hypothesis": "Exact fingerprint evidence is required before placement/scale correction.",
+      "requiredEvidence": "fingerprint telemetry log tied to a runtime session",
+      "mergePolicy": "no-broad-primitive-or-WVP-rules",
+      "attempts": 0,
+      "dependsOn": ["VR-FINGERPRINT-001"]
+    },
+    {
+      "id": "VR-WHITEOVERLAY-001",
+      "priority": 8,
+      "status": "NEED_HMD_TEST",
+      "worker": "INTEGRATION_PLANNER",
+      "sourceArea": "white rank/score and exit YES/NO overlays",
+      "hypothesis": "These remain split and require exact semantic/fingerprint evidence rather than generic depth-off promotion.",
+      "requiredEvidence": "runtime fingerprint plus eye-disparity observation",
+      "mergePolicy": "fail-closed",
+      "attempts": 0,
+      "dependsOn": ["VR-FINGERPRINT-001"]
+    },
+    {
+      "id": "VR-PERF-002",
+      "priority": 6,
+      "status": "BLOCKED",
+      "worker": "INTEGRATION_PLANNER",
+      "sourceArea": "T5/R29 fast path / mono backup removal",
+      "hypothesis": "Removing steady mono replay can improve frame rate, but current classifier corrupts sky/world.",
+      "requiredEvidence": "correctness-preserving classifier gate before performance adoption",
+      "mergePolicy": "performance-after-correctness",
+      "attempts": 1,
+      "dependsOn": ["VR-FINGERPRINT-001"]
+    },
+    {
+      "id": "VR-DX12-001",
+      "priority": 5,
+      "status": "NEED_HMD_TEST",
+      "worker": "INTEGRATION_PLANNER",
+      "sourceArea": "DX12 STRICT D3D9On12 device creation",
+      "hypothesis": "Legacy CreateDevice semantics plus bounded retry may clear the previous D3DERR_INVALIDCALL boundary.",
+      "requiredEvidence": "runtime startup/device-creation log",
+      "mergePolicy": "strict-no-native-d3d9-fallback",
+      "attempts": 0,
+      "dependsOn": []
+    },
+    {
+      "id": "CI-LEGACY-001",
+      "priority": 2,
+      "status": "READY",
+      "worker": "FIX",
+      "sourceArea": "generic DXVK/DX12 branch CI checks",
+      "hypothesis": "Reserved PowerShell $Host usage and stale verifier markers can be repaired without changing runtime payload behavior.",
+      "requiredEvidence": "generic branch CI success",
+      "mergePolicy": "non-runtime-maintenance",
+      "attempts": 0,
+      "dependsOn": []
+    }
+  ]
+}

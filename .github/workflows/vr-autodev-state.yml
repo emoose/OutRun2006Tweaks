@@ -1,0 +1,27 @@
+name: VR Autodev State Validation
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ vr-unified-backends ]
+    paths:
+      - 'docs/VR_AUTODEV_STATE.json'
+      - 'docs/VR_WORK_QUEUE.json'
+      - 'docs/VR_RUNTIME_FEEDBACK.json'
+      - 'docs/VR_AUTODEV_PROTOCOL.md'
+      - 'docs/autodev/**'
+      - 'tools/Validate-VRAutodevState.ps1'
+      - '.github/workflows/vr-autodev-state.yml'
+
+concurrency:
+  group: vr-autodev-state
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate durable autodev state
+        shell: pwsh
+        run: ./tools/Validate-VRAutodevState.ps1

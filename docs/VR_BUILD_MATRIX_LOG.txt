@@ -1,0 +1,189 @@
+# OutRun VR Build Matrix Log
+
+Persistent cumulative record for unified-backend review/build/test matrices. Append future runs; do not replace with per-run reports.
+
+======================================================================
+RUN 0001 - UNIFIED BACKEND PACKAGE VALIDATION
+======================================================================
+Date: 2026-09-20
+Reviewed integration HEAD: 35aef3ecd59d69fe22813778dc23c0f2ad47fc6f
+Previous review baseline: f6df045ecf17150b20ef8fa2296e4b0da35da7ac
+Delta: 5 commits ahead; integration delta is packaging/selector/workflow/docs only. No common renderer source was modified in this interval.
+
+Deep structural milestones:
+- Cell #1: baseline architecture conclusions remain valid: R26/R23 safe owner; backend boundary must precede device creation; recenter/semantic/frame metadata stay backend-neutral; DirectGPU generation/ACK remains common transport contract.
+- Cell #1,000,000: second independent architecture reconstruction did not justify downgrading any baseline P0. New workflow packages backends side-by-side rather than stacking competing runtime hooks, which is consistent with the baseline integration safety requirement.
+
+Current package architecture:
+- D3D9 safe payload is built from vr-unified-backends.
+- DX12 payload is built from vr-dx12-poc and uses native x64 D3D12 OpenXR host target.
+- DXVK-aware game/host is built from vr-dxvk-poc.
+- DXVK provider and multiview patcher are separately built and then staged into the unified package.
+- Selector scripts switch installed payloads; D3D9 remains the initially staged active backend.
+- SkyGlowFactor is normalized to 1 in the packaged INI.
+
+CI validation:
+- Unified VR Backend Test Package workflow run 35497556772: SUCCESS, attempt 2.
+- Generic Build workflow for the same integration HEAD 35497556693: SUCCESS.
+
+Artifacts produced by unified workflow:
+- OutRun2-VR-UNIFIED-35aef3ecd59d69fe22813778dc23c0f2ad47fc6f
+  artifact id: 10601692327
+  digest: sha256:1287aba2ab26900ffba52ee7c56908cdb25ab541c69a460a937047136f0d9233
+- unified-d3d9-safe
+  artifact id: 10600612846
+  digest: sha256:7473b12e7f841493c757029c94d6d4c78b9188dc6eb9f1b5807106b878502c5b
+- unified-dx12
+  artifact id: 10601647144
+  digest: sha256:bb486b130ac0a620c3339596b5fe843e0cc27bedc08e21993f780c6ec5cc66d4
+- unified-dxvk-game-host
+  artifact id: 10601313010
+  digest: sha256:b4a91fef9107aebb44b9754a36222ff1456cf28dda95c84702e2395bdf3499b5
+- unified-dxvk-provider
+  artifact id: 10600667356
+  digest: sha256:156f338b27f94fa7caa63313a1712790c9c942e2bb1987ffc7068a3de25ff87b
+- unified-multiview-patcher
+  artifact id: 10601352227
+  digest: sha256:de5e831062d347d8d20e561eb0304322332e4367eacfdcedf2e2a81635ef5f2f
+
+Matrix status for this run:
+A CONTROL = D3D9 safe payload: AVAILABLE / CI built.
+B CORRECTNESS = NOT GENERATED. No new isolated correctness source patch was safely applied in this run.
+C PERFORMANCE = NOT GENERATED. No new isolated performance source patch was safely applied in this run.
+D DIRECTGPU/OPENXR = NOT GENERATED. No new isolated DirectGPU/OpenXR source patch was safely applied in this run.
+E DXVK = AVAILABLE through unified DXVK game/host + provider + multiview patcher payloads.
+F DX12 = AVAILABLE through unified DX12 payload.
+
+Reason B/C/D were not fabricated:
+The current integration delta contains no new renderer correctness/performance/DirectGPU source changes. Creating nominally different packages with identical binaries would not provide diagnostic value and violates the matrix policy.
+
+Persistent baseline defects still requiring implementation before they can become meaningful B/C/D variants:
+P0: real application-space recenter.
+P0: swapchain-generation-scoped cached image validity.
+P0: depth-disabled draw fail-closed to zero disparity unless positively proven world.
+P0: R28 changed-shader verified-world epoch impersonation.
+P1: SkyRotationOnly semantic.
+P1: live D3D9 getter/state-shadow hot paths.
+P1: DirectGPU full-eye hold-copy optimization candidate.
+P1: synchronous host pipeline telemetry.
+
+Important limitation discovered during this run:
+The unified packaging workflow currently provides backend payload selection, but it does not yet implement the requested per-variant A/B/C/D/E/F runtime log identity, per-session diagnostic directories, TEST_RESULT template, variant_manifest.json, or one-click log collector. Therefore uploaded runtime logs from this package are not yet guaranteed to be self-identifying by matrix variant. This must be implemented before claiming the upload-friendly diagnostic requirement is complete.
+
+User runtime test recommendation for currently available package:
+1. D3D9 safe control first.
+2. DXVK second using identical HMD refresh/render-scale settings.
+3. DX12 third using identical settings.
+4. Do not interpret CI success as proof of VR correctness; compare HMD smoothness, stereo correctness, HUD/rank/score, sky/cloud head behavior, smoke/skid placement, menu car rendering, recenter behavior, and exit Yes/No alignment.
+
+RUN 0001 RESULT:
+- Review: completed against current integration delta plus two structural milestones.
+- Source fixes: none applied; existing P0/P1 defects are baseline-known and this connector run cannot honestly claim runtime validation.
+- Unified backend CI: successful.
+- Meaningful artifacts: A/D3D9, E/DXVK, F/DX12 available.
+- B/C/D: intentionally not fabricated.
+- Next highest-value integration work: implement self-identifying per-variant runtime logging/collector, then implement isolated P0 correctness patches to populate B, performance patches to populate C, and DirectGPU/OpenXR patch to populate D.
+
+======================================================================
+RUN 0002 - SELECTOR HARDENING + DIAGNOSTIC COLLECTION FOUNDATION
+======================================================================
+Date: 2026-09-20
+Reviewed integration HEAD at start: ec1f051324879ad7a052b91cb2358756f14ca0e5
+Previous matrix HEAD: 35aef3ecd59d69fe22813778dc23c0f2ad47fc6f
+Delta: 10 commits ahead. Changed integration files are workflow/selector/docs only; no common stereo renderer, OpenXR host render loop, DirectGPU transport, or semantic classifier source changed in this delta.
+
+Deep structural milestones:
+- Cell #1: full integration reconstruction confirms the backend seam is now materially safer. Selector supports 2d/d3d9/dxvk-safe/dxvk/dx12, checks running game/host before switching, removes conflicting root d3d9.dll/multiviewpatcher.dll for non-DXVK modes, and deterministically maps RenderBackend values.
+- Cell #1,000,000: second reconstruction found no reason to downgrade the baseline P0 correctness defects. The new selector is control-plane work and does not fix gameplay recenter, swapchain-generation validity, depth-off semantic fail-closed behavior, or R28 verified-world epoch reuse.
+- Changed assumption cleared: INT-1 from the original baseline ('no unified backend exists yet') is no longer true at packaging/selection level. A unified selectable package now exists. It is still not a single common renderer implementation; backend payloads are staged from integration/DXVK/DX12 branches.
+
+Validation before new changes:
+- Generic Build run 35499870481 at ec1f0513: SUCCESS.
+- Unified VR Backend Test Package run 35499870485 at ec1f0513: SUCCESS.
+- Unified artifact: OutRun2-VR-UNIFIED-ec1f051324879ad7a052b91cb2358756f14ca0e5, artifact id 10602081123, sha256 5eb8e20de57bc0b405aed52bedd9aabea3b13058e333ca4f02fc8480b14d92d4.
+- D3D9 artifact id 10602320824; DXVK game/host 10601084372; DXVK provider 10601841536; multiview patcher 10602285788; DX12 10602245916.
+
+Source/tool improvements applied this run:
+1. Added tools/Collect-OutRunVRLogs.ps1.
+   - derives VariantId from ACTIVE_VR_BACKEND.txt
+   - creates logs/<BuildMatrixId>/<VariantId>/<SessionId>/
+   - copies game/host/pipeline/watchdog/backend logs, dump metadata, INI, active backend state
+   - emits MANIFEST.txt, variant_manifest.json, TEST_RESULT.txt
+   - creates per-variant upload ZIP or matrix ZIP with -All
+2. Added tools/Collect-OutRunVRLogs.cmd as one-click launcher.
+3. Updated Select-OutRunVRBackend.cmd to explicitly direct the tester to the collector after backend selection.
+
+Variant mapping implemented by collector:
+- d3d9 -> A_CONTROL
+- dxvk-safe -> E_DXVK_SAFE
+- dxvk -> E_DXVK
+- dx12 -> F_DX12
+- 2d -> CONTROL_2D
+
+Important limitation retained honestly:
+- The collector files have been added to the repository, but the current unified package workflow does not yet copy those new collector files into the packaged artifact. The selector change triggers a fresh unified workflow, but until packaging is updated and validated, do not claim the downloadable unified ZIP contains the collector.
+- Runtime producers still use their existing log filenames; the collector separates/captures them after each test. Native per-process A/B/C/D/E/F identity headers and normalized high-frequency counters remain future work.
+- B/C/D remain ungenerated because there are still no isolated correctness/performance/DirectGPU source variants. No fake duplicate binaries were produced.
+
+CI after this run's changes:
+- New Build and Unified VR Backend Test Package runs were triggered by selector changes and were still in progress when this entry was written. Successful prior ec1f0513 artifacts remain the known-good downloadable control set.
+
+RUN 0002 RESULT:
+- Material update: yes.
+- Integration selector: improved and previously successful at ec1f0513.
+- Upload-friendly diagnostics: repository-side collector foundation implemented; package inclusion still pending validation.
+- Persistent P0 set: unchanged.
+- Stable vr-openxr: untouched.
+- Next action: package the collector scripts, validate them in CI, then implement isolated P0 correctness changes for B before moving to C/D performance/DirectGPU variants.
+
+======================================================================
+RUN 0003 - IMMUTABLE EVENING MATRIX FREEZE
+======================================================================
+Date: 2026-09-20
+BuildMatrixId: VRM-20260920-cbec700a30c4
+Frozen integration/D3D9 SHA: cbec700a30c44a85292f396d37d6e24a77ed0b47
+DXVK game/host SHA: 88e891f9cb4533700d64c25f544561c1cda3f7ff
+DXVK provider SHA: 5bb301ab22f7b41d68a879bf84c1e3d10ae0c473
+Multiview patcher SHA: 0ef3253da1738b07e67358a027311c7bcedaa001
+DX12 game/host SHA: 4eb469238e6caa2f2c6aa8825db7502f42c522db
+
+Implemented and verified:
+- collector scripts are included in the actual unified ZIP;
+- selector prepares unique SessionId/VariantId/BuildMatrixId and allowed config snapshot before launch;
+- collection filters by session start and extracts only appended bytes from pre-existing logs;
+- TEST_RESULT.txt is preserved on repeat/matrix collection;
+- every external/provider component SHA is pinned and packaged;
+- selector CI covers 2d, d3d9, dxvk-safe, dxvk, dx12, exact root DLL presence/absence,
+  ACTIVE_VR_BACKEND, [VR] header round trips, session identity and old-log exclusion;
+- downloaded ZIP inventory contains the GUI/command selectors, collectors, build inputs,
+  checksums, test scenario, all three backend payloads and both DXVK extras.
+
+Final CI:
+- Build run 35504498714: SUCCESS.
+- Unified run 35504498726: SUCCESS.
+- Unified artifact id 10603562638; artifact digest
+  sha256:1ab18b99ebb5be4cd4dd4e0457407314040b7be89e906132835b9348bf244fd6.
+- Inner evening ZIP sha256:2e6c7fba2fcc5a775bac1c6130f6e1d6b6c7555cc80115fe581df6d6c13a8661.
+- SHA256SUMS.txt entries independently recalculated: 29; failures: 0.
+
+Frozen candidates:
+- CONTROL_2D: available (smoke-only, VR disabled).
+- A_CONTROL / D3D9 SAFE: available; comparison control, not newly user-validated.
+- B_CORRECTNESS: excluded; no isolated renderer patch with adequate verifier was frozen.
+- C_PERFORMANCE: excluded; no isolated performance patch was frozen.
+- D_DIRECTGPU_OPENXR: excluded; no isolated transport/timing patch was frozen.
+- E_DXVK_SAFE: available; D3D9-safe game DLL + pinned local DXVK provider, patcher absent.
+- E_DXVK_MULTIVIEW: available; same DXVK game/host plus pinned provider and patcher; experimental.
+- F_DX12_STRICT: available; DXVK d3d9.dll and multiviewpatcher absent by selector contract.
+
+Evening test order:
+1. 2D ORIGINAL quick launch/exit smoke only.
+2. A_CONTROL D3D9 SAFE short startup screen, then menu car/recenter and identical short race scene.
+3. E_DXVK_SAFE with identical VDXR refresh/render scale and scene.
+4. If clean, choose E_DXVK_MULTIVIEW or F_DX12_STRICT as the one most informative alternative.
+5. Run Collect-OutRunVRLogs.cmd after each tested mode and `Collect-OutRunVRLogs.cmd -All`
+   once at the end; upload the one matrix ZIP.
+
+Runtime limitation:
+Quest 3/VDXR stereo correctness, HMD pacing, recenter, white rank/score, sky/effects,
+menu car and exit Yes/No remain user-runtime-required. CI success is not runtime proof.

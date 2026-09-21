@@ -3,6 +3,7 @@
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
 #include <algorithm>
+#include <cmath>
 #include <filesystem>
 #include <format>
 #include <stdexcept>
@@ -124,6 +125,7 @@ namespace Settings
 				size_t pos = 0;
 
 				double parsed = std::stod(s, &pos);
+				if (!std::isfinite(parsed)) return false;
 				if (pos != s.size())
 					return false;
 
@@ -154,7 +156,10 @@ namespace Settings
 		// The three-argument Get hands back the value it was given when the key
 		// isn't in the file, so a setting missing from one INI keeps whatever an
 		// earlier INI or its own default left it at.
-		value_ = ini.Get<T>(std::string(section()), std::string(key()), value_);
+		const T parsed = ini.Get<T>(std::string(section()), std::string(key()), value_);
+		if constexpr (std::is_floating_point_v<T>)
+			if (!std::isfinite(parsed)) return;
+		value_ = parsed;
 
 		if constexpr (!std::is_same_v<T, std::string>)
 		{

@@ -1,0 +1,1334 @@
+OutRun2006Tweaks OpenXR VR Source Review - 50,000 cross-check report
+Date: 2026-09-20
+Repository: thp32tt/OutRun2006Tweaks
+Branch reviewed: vr-openxr-gpl-reuse
+Source baseline: a68cf17832fd4d9c0655f30f097108a43b63ce22
+Review-head before this report: f10fd52318869b13ea01c82ad8eb8aa2220885a4
+Note: f10fd523 differs from a68cf178 only by the previous 5,000-check text report.
+No source-code modification was made as part of this review.
+
+======================================================================
+0. IMPORTANT INTERPRETATION OF "50,000 REVIEWS"
+======================================================================
+
+This report does NOT claim that a human literally reread the complete repository
+from beginning to end 50,000 times.
+
+The review was constructed as 50,000 explicit static verification cells:
+
+- 100 VR/graphics/host/IPC/CI-related files
+- 50 risk/performance/synchronization patterns per file
+- 10 independent review lenses over the same 5,000 base cells
+
+100 x 50 x 10 = 50,000 cross-check cells.
+
+The ten lenses were:
+
+1. Render correctness / stereo classification
+2. CPU/GPU performance / driver-call pressure
+3. Threading / atomics / synchronization
+4. COM/D3D/OpenXR resource lifetime
+5. OpenXR frame/session/swapchain correctness
+6. D3D9 state tracking / StateBlock / viewport/scissor behavior
+7. Reset/recovery/black-screen paths
+8. Input/recenter/menu/gameplay transition behavior
+9. CMake/CI/source-owner graph / regression isolation
+10. GPL diagnostics / observability / test coverage
+
+After the mechanical cross-check, candidate findings were re-read in actual
+function context and against the current CMake production graph. False positives
+and comparison-only code were separated from active production code.
+
+This is a STATIC source review. Runtime timing impact and symptom frequency still
+require Quest 3 / VDXR execution to quantify.
+
+======================================================================
+1. ACTIVE PRODUCTION GRAPH
+======================================================================
+
+Current default safe build:
+
+OUTRUN_VR_SAFE_DRAW_COMPARE=ON
+
+Game stereo owner:
+  stereo_renderer_r26_compare.cpp
+    -> stereo_renderer_r26.cpp
+    -> stereo_renderer_r23.cpp
+    -> stereo_renderer_r22.cpp
+    -> stereo_renderer_r13.cpp
+    -> stereo_renderer_r7.inc / base R9 path
+
+Game renderer owner:
+  outrun_renderer_r23.cpp
+    -> outrun_renderer_r13.cpp
+    -> outrun_renderer.cpp
+
+D3D9Ex compatibility owner:
+  ex_device_upgrade_r15.cpp
+    -> R14/R13 lower layers
+
+Host:
+  vrhost/src/main_r23.cpp
+    -> main.cpp implementation
+    -> runtime hardening chain including R24/R26/R32
+
+R29-R34 stereo overlay chain and renderer R29 are excluded by the default
+safe-draw production option. Findings in those files are technical debt unless
+the comparison/experimental build options are enabled.
+
+======================================================================
+2. EXECUTIVE SUMMARY
+======================================================================
+
+The 50,000-cell review confirms the previous main problems and adds several
+important new ones.
+
+Highest-priority findings:
+
+P0-A. F10 user recenter is not a real gameplay coordinate recenter.
+      It synthesizes an OpenXR LOCAL reference-space-change event and invalidates
+      caches, but does not recreate/offset the gameplay local space or maintain
+      an application recenter transform.
+
+P0-B. R24 cached fallback validity is not tied to the current R19 swapchain
+      generation. A newly recreated, not-yet-rendered swapchain can be accepted
+      as "cached valid" because success/committed state comes from an older
+      swapchain generation.
+
+P0-C. Depth-disabled HUD/2D draws can still fall into WorldStereo because
+      ClassifyEffectStereo() defaults to WorldStereo outside a narrow flat case.
+
+P0-D. R28 can temporarily impersonate a previous verified world shader epoch
+      for a different current shader when c64/projection/pose still match.
+      This can promote HUD/effect shaders into stereo world replay.
+
+P1-A. Current safe R26 hot path still performs excessive live D3D9 getters:
+      five render-state getters per candidate draw, plus up to three viewport/
+      scissor getters on scissor-enabled draws, plus WVP getter on some shader
+      epoch transitions.
+
+P1-B. Fixed-function perspective gameplay draws are all treated as normal
+      translated/IPD world geometry. There is no sky/rotation-only semantic,
+      even though the code explicitly names sky/cloud as a target of this path.
+
+P1-C. GPL shader fingerprint diagnostics are too invasive for performance
+      diagnosis and can return a stale hash if a COM pointer address is reused.
+
+P1-D. Host pipeline logging performs synchronous 2-second file flushes and
+      vector-copy/sort percentile work on the frame loop.
+
+P1-E. Cadence mode 2 can intentionally block the host for a large fraction of
+      each HMD frame period while waiting for the game-present event.
+
+Several suspected problems were explicitly rejected:
+- D3D9 Reset DOES clear CurrentVertexShaderIdentity and VertexShaderSerial.
+- Fixed-function menu/car-selection geometry is explicitly blocked by
+  GameplayActive() before HMD world transforms are applied.
+- R32 steady DirectGPU ACK is asynchronous and should not be reverted to the
+  older synchronous Flush/GetData wait.
+- XR_INFINITE_DURATION in production is wrapped by the bounded wait guard.
+- R14 resource shadows no longer use the old unsafe fixed 256-slot lifetime ring.
+
+======================================================================
+3. P0 - USER RECENTER IS NOT AN ACTUAL GAMEPLAY RECENTER
+======================================================================
+
+Files:
+- vrhost/src/runtime/r26_recenter_hardening.hpp
+- vrhost/src/main_r23.cpp
+- vrhost/src/main.cpp
+- src/vr/ipc/recenter_request.hpp
+- src/vr/game/outrun_renderer_r23.cpp
+
+Observed F10 flow:
+
+Game:
+  Recenter IPC Publish()
+
+Host r26_recenter_hardening PollEvent():
+  WriteSyntheticLocalChange(eventData, XR_NULL_HANDLE)
+  MarkReceived(requestId)
+  PendingGameRequestId = requestId
+  InvalidateFallbackAnchor()
+  return XR_SUCCESS
+
+WriteSyntheticLocalChange() builds:
+  XrEventDataReferenceSpaceChangePending
+  referenceSpaceType = XR_REFERENCE_SPACE_TYPE_LOCAL
+  changeTime = 0
+  poseValid = XR_FALSE
+
+main_r23 receives this event and eventually executes:
+  shared.ReferenceSpaceChanged()
+  compositor.ReferenceSpaceChanged()
+  viewHistory.Clear()
+  matchedStereoValid = false
+  cachedProjectionValid = false
+  cachedMenuProjectionValid = false
+  menuProjectionAnchorValid = false
+  refreshMenuAnchorAfterLocate = true
+  verified bundle invalidation
+
+What these functions actually do:
+
+SharedWriter::ReferenceSpaceChanged():
+  increments referenceGeneration_ only.
+
+StereoCompositor::ReferenceSpaceChanged():
+  theaterAnchorValid_ = false
+  stereoSourceValid_ = false
+  directFrameValid_ = false
+
+What DOES NOT happen:
+- localSpace is not destroyed/recreated.
+- localSpace poseInReferenceSpace is not changed.
+- no application-space recenter transform is created.
+- no yaw/position offset is stored and applied to future xrLocateSpace results.
+- gameplay xrLocateViews(... localSpace) continues to use the same LOCAL origin.
+
+Menu behavior is different:
+after invalidation, main_r23 performs xrLocateSpace(viewSpace, localSpace),
+captures head.pose as menuProjectionAnchor, and later renders the mono menu using
+that anchor. Therefore menu/theater can appear re-anchored without gameplay
+coordinates actually being recentered.
+
+Why this matters:
+The user's reported behavior:
+- recenter does not work in menu reliably,
+- gameplay recenter can switch to black/last loading image,
+- rendering disappears after recenter,
+is consistent with invalidating valid projection/source state while not actually
+establishing a new gameplay coordinate origin.
+
+Classification:
+CONFIRMED DESIGN DEFECT in the current user-recenter implementation.
+Exact visual symptom frequency must still be runtime-tested.
+
+Recommended design:
+
+Option 1 - application-space recenter transform
+- Keep OpenXR LOCAL unchanged.
+- On F10, locate current head pose in LOCAL.
+- Compute a persistent AppFromLocal or LocalFromApp transform.
+- Apply it consistently to:
+  - head pose written to game
+  - per-eye poses
+  - menu/theater anchors
+  - projection-space poses
+- Common policy: reset yaw + horizontal position; define whether vertical
+  position is retained or reset.
+- Increment recenter generation only after the new transform is valid.
+
+Option 2 - dedicated reference space
+- Recreate a dedicated app space with poseInReferenceSpace computed from current
+  head pose.
+- Swap spaces only after successful creation.
+- Keep old space alive until new space is ready if necessary.
+
+Do NOT use a fabricated runtime reference-space-change event as the actual
+recenter mechanism.
+
+Separate two event classes:
+A) real XR runtime reference-space change
+B) user-requested application recenter
+
+Test requirement:
+At arbitrary head pose:
+- press recenter
+- next app-space head yaw/position must become expected origin
+- DirectGPU projection must remain valid or recover in one controlled transition
+- no R24 emergency/cached stale layer may become authoritative.
+
+======================================================================
+4. P0 - CACHED FALLBACK VALIDITY IS NOT SWAPCHAIN-GENERATION SAFE
+======================================================================
+
+Files:
+- vrhost/src/runtime/sbs_capture_override.hpp
+- vrhost/src/runtime/r24_black_screen_guard.hpp
+
+R19 Swapchain::Destroy() resets:
+- handle
+- dimensions
+- images/RTVs
+- acquired/waited state
+
+But it does not reset the global cumulative counters:
+- ProjectionSuccess
+- TheaterSuccess
+
+R19 EnsureSwapchain() can:
+1. Destroy old swapchain.
+2. Create a new swapchain with different width/height/array size.
+3. Return a valid HANDLE before any new image has necessarily been successfully
+   rendered/released.
+
+R24 BuildCachedVisibleQuad() currently accepts projection cache when:
+
+  Projection.handle != XR_NULL_HANDLE
+  && Projection.width
+  && Projection.height
+  && (ProjectionImageCommitted || ProjectionSuccess > 0)
+
+The theater path has the analogous condition.
+
+Problems:
+
+1. ProjectionSuccess/TheaterSuccess are lifetime cumulative counters.
+   Success on generation N is treated as evidence for generation N+1.
+
+2. R24 ProjectionImageCommitted/TheaterImageCommitted are reset in
+   DestroySession(), but there is no generation coupling to R19 EnsureSwapchain()
+   recreation.
+
+3. Therefore:
+   old swapchain rendered successfully
+     -> resolution/size/state change
+     -> old swapchain destroyed
+     -> new swapchain created
+     -> no new image committed yet
+     -> old success/committed evidence remains
+     -> BuildCachedVisibleQuad can submit a new uninitialized/undefined image.
+
+Possible symptoms:
+- black frame
+- stale looking frame
+- last-loading-looking frame
+- transient undefined content during transition/recovery
+- fallback that seems unrelated to current menu/game frame
+
+Classification:
+CONFIRMED GENERATION-VALIDITY BUG in static control flow.
+
+Recommended fix:
+Add generation to each R19 Swapchain:
+
+  uint64_t generation
+  uint64_t committedGeneration
+
+On every destroy/recreate:
+  ++generation
+  committedGeneration = 0
+
+Only after successful render + Release:
+  committedGeneration = generation
+
+R24 may use cached image only when:
+  handle valid
+  committedGeneration == generation
+
+Remove:
+  ProjectionSuccess > 0
+  TheaterSuccess > 0
+as image-validity proof.
+
+Do not let R24 own a boolean that can outlive the resource generation unless it
+also stores the exact generation.
+
+Required regression test:
+1. render/release projection generation 1
+2. force EnsureSwapchain recreation
+3. request cached fallback before any generation-2 render
+4. expected: cached fallback rejected
+5. render/release generation 2
+6. expected: cached fallback accepted
+
+======================================================================
+5. P0 - DEPTH-DISABLED 2D/HUD CAN BE CLASSIFIED AS WORLD STEREO
+======================================================================
+
+Files:
+- src/vr/d3d9/vr_pass_policy.hpp
+- src/vr/d3d9/stereo_renderer_r13.cpp
+- src/vr/d3d9/stereo_renderer_r26.cpp
+
+Current policy:
+
+  const bool depthDisabledFlatEffect =
+      cullNone && !depthTestEnabled &&
+      ((alphaBlendEnabled && !depthWriteEnabled) || alphaTestEnabled);
+
+  if (depthDisabledFlatEffect)
+      ZeroDisparity;
+  else
+      WorldStereo;
+
+Therefore depthTestEnabled == false is NOT sufficient to make a draw flat.
+
+Examples that can remain WorldStereo:
+- depth off + cull not NONE
+- depth off + opaque
+- depth off + alpha blend but z-write unexpectedly true
+- depth off + unusual UI render state
+
+R13CaptureDrawTimeEffect() directly consumes this policy.
+
+R37DepthDisabledFragileOverlay() then contains:
+  if (effect.classification == World)
+      return false;
+
+So a depth-off draw already labeled World escapes the later zEnabled safety
+filter.
+
+This is a strong candidate for:
+- white 6th/6 split
+- white score split
+- some rank/Yes-No UI split
+- HUD elements that unexpectedly receive world stereo
+
+Recommended rule:
+Depth-test OFF should default to ZeroDisparity.
+
+A depth-off draw should enter WorldStereo only with strong positive evidence:
+- known world shader fingerprint or semantic ID
+- verified world WVP write belonging to this draw/shader epoch
+- known world target/projection
+- optional texture/pass evidence
+
+Cull/alpha flags should be supporting evidence, not the primary world decision.
+
+======================================================================
+6. P0 - R28 CAN IMPERSONATE AN OLD WORLD SHADER EPOCH
+======================================================================
+
+File:
+- src/vr/d3d9/stereo_renderer_r26.cpp
+
+R28CanRebindVerifiedWorld() validates:
+- game device/main target
+- stereo state
+- last verified WVP
+- current c64-c67 equals verified WVP
+- current projection equals verified projection
+- pose generation
+- perspective world semantic
+
+It intentionally allows the current shader epoch to differ from the verified
+world shader epoch.
+
+R28RunWithVerifiedWorldEpoch() then temporarily executes:
+
+  CurrentVertexShaderIdentity.exchange(verifiedShaderIdentity)
+  VertexShaderSerial.exchange(verifiedShaderSerial)
+
+and invokes the lower R9 world path.
+
+This solves one legitimate case:
+world smoke/skid/billboard changes shader but inherits the same world WVP.
+
+But it also creates a dangerous alias:
+a HUD/effect shader may inherit c64/projection without rewriting them and can then
+be executed as if it were the previous world shader.
+
+The new GPL fingerprint feature is well suited to fixing this, but currently is
+only diagnostic.
+
+Recommended policy:
+- If current shader != verified shader, require current VS fingerprint to be in
+  a known-world-compatible class before epoch rebind.
+- Known HUD/effect shader fingerprints must hard-veto world rebind.
+- WVP equality alone must not establish world identity.
+
+Longer-term:
+Do not mutate the global shader epoch at all.
+Pass an explicit synthetic "verified world override" context into the stereo
+builder so the true current shader identity remains observable.
+
+======================================================================
+7. P1 - FIXED-FUNCTION SKY/CLOUD HAS NO ROTATION-ONLY SEMANTIC
+======================================================================
+
+File:
+- src/vr/d3d9/stereo_renderer_r7.inc
+
+For fixed-function draws:
+- no shader
+- FVF XYZ/XYZB*
+- perspective projection
+- GameplayActive()
+
+is enough to enter fixedFunctionWorld.
+
+Then for each eye:
+
+  fixedEyeView =
+      fixedOriginalView
+      * headInverse
+      * eyeInverse
+
+This applies:
+- full headset orientation
+- full headset translation
+- eye-local/IPD translation
+
+The code's own log explicitly states:
+  "sky/cloud fixed-function passes no longer stay head-locked"
+
+However, skybox/skydome rendering normally needs a different semantic from nearby
+world geometry. A distant/infinite sky generally should react to head rotation,
+but not to head translation like a nearby object. Depending on the original sky
+implementation, eye translation/IPD may also need to be removed or treated
+specially.
+
+Current code has no:
+- SkyRotationOnly class
+- depth/range/pass-specific sky semantic
+- texture/fingerprint sky classification
+
+Therefore ALL perspective fixed-function gameplay XYZ draws are treated as
+ordinary translated stereo world geometry.
+
+This can contribute to:
+- clouds/sky seeming to move incorrectly with head translation
+- wrong sky parallax
+- sky behaving unlike the rest of world geometry
+
+Recommended:
+Introduce explicit fixed-function semantic:
+- WorldStereo
+- SkyRotationOnly
+- ScreenSpace
+- UnknownFailClosed
+
+SkyRotationOnly should normally:
+- apply head orientation
+- remove head positional translation
+- evaluate whether IPD translation should be zero for this game's sky setup
+- retain per-eye FOV if required
+
+Use actual draw evidence before enabling:
+- shader-less FVF
+- texture ID/hash
+- depth state
+- projection
+- known pass sequence/fingerprint
+
+======================================================================
+8. P1 PERFORMANCE - R13 DOES FIVE LIVE GetRenderState CALLS PER DRAW
+======================================================================
+
+File:
+- src/vr/d3d9/stereo_renderer_r13.cpp
+
+R13CaptureDrawTimeEffect() performs live reads of:
+1. ALPHABLENDENABLE
+2. ALPHATESTENABLE
+3. ZWRITEENABLE
+4. ZENABLE
+5. CULLMODE
+
+Production R26 R27GuardWorldEffect() invokes this on top-level candidate draws.
+
+Illustrative cost:
+3,000 draws/frame
+  -> 15,000 state getters/frame
+at 60 game fps
+  -> ~900,000 getter calls/sec
+
+This is not a measured driver time claim; it is the structural call count.
+
+The project already has a state shadow in stereo_renderer_r7.inc:
+- TrackedRenderStateValue
+- TrackedRenderStateValid
+- TrackedRenderStateReads
+- SetRenderState hook
+- ReadTrackedRenderState()
+- periodic live validation
+
+R13 currently bypasses this existing mechanism.
+
+Recommended:
+- extend tracked set to include CULLMODE if not already tracked
+- R13CaptureDrawTimeEffect reads state shadow
+- StateBlock Apply changes a generation / invalidates shadow
+- periodic live validation remains for safety
+- debug compare mode can force live getters
+
+Target:
+normal draw path should use O(1) memory loads, not five driver getter calls.
+
+======================================================================
+9. P1 PERFORMANCE - SCISSOR-ENABLED DRAW CAN FORCE THREE LIVE GETTERS
+======================================================================
+
+Files:
+- src/vr/d3d9/stereo_renderer_r23.cpp
+- src/vr/d3d9/stereo_renderer_r22.cpp
+
+R23BeforeTopLevelDraw() executes on every game draw:
+  ++R23GameDrawSerial
+  R23CaptureActualGameState(... force=false)
+
+Fast cache path in R23CaptureActualGameState() requires:
+  same Present
+  shadow valid
+  scissor disabled
+  fewer than 16 draws since sample
+
+If scissor is enabled, this fast path is skipped.
+
+R22CaptureGameScissor() then reads:
+- GetViewport
+- GetScissorRect
+- GetRenderState(SCISSORTESTENABLE)
+
+Hence a scissor-heavy UI/menu pass can perform three live D3D9 getters for every
+draw, in addition to R13 effect getters.
+
+Recommended:
+- cache enabled scissor too
+- update cache from setter hooks
+- StateBlock generation invalidates cache
+- authoritative live sample once per N draws / generation transition
+- force-live validation only in compare/debug mode
+
+======================================================================
+10. P1 PERFORMANCE - R28 WVP READBACK ON SHADER EPOCH CHANGES
+======================================================================
+
+File:
+- src/vr/d3d9/stereo_renderer_r26.cpp
+
+R28CanRebindVerifiedWorld() can call:
+  GetVertexShaderConstantF(c64-c67)
+
+for shader-epoch-change candidates.
+
+Effect-heavy scenes can switch shaders frequently.
+
+The renderer already tracks game WVP uploads and verified WVP metadata. Prefer:
+- tracked latest c64-c67 write
+- write generation
+- shader generation
+- StateBlock/unknown invalidation
+
+Use live device constant getter only:
+- periodic verification
+- debugging
+- unknown state recovery
+
+======================================================================
+11. P1 DIAGNOSTICS - GPL SHADER HASH CACHE CAN RETURN STALE HASH
+======================================================================
+
+File:
+- src/vr/d3d9/shader_fingerprint_gpl.hpp
+
+HashBytecodeCached() key:
+  reinterpret_cast<uintptr_t>(shader)
+
+No generation/destruction key is included.
+
+If shader object A is destroyed and shader B later occupies the same COM address,
+the cache can return A's bytecode hash for B.
+
+Important nuance:
+D3D9 Reset itself clears the base stereo shader identity/serial, so the separate
+claim "Reset leaves old CurrentVertexShaderIdentity alive" is FALSE.
+The fingerprint cache is a different cache and still lacks generation-aware
+invalidation.
+
+Recommended:
+- calculate fingerprint on shader binding/creation
+- cache with device/reset generation
+- clear cache at reset/device replacement
+- ideally key from actual object lifetime registration rather than raw address
+
+======================================================================
+12. P1 DIAGNOSTICS - SHADER FINGERPRINT MODE IS TOO EXPENSIVE PER DRAW
+======================================================================
+
+When OUTRUN_VR_SHADER_FINGERPRINT=1:
+
+R46TraceShaderFingerprint() can perform:
+- GetVertexShader
+- GetPixelShader
+- mutex acquisition
+- VS cache linear scan up to 256
+- PS cache linear scan up to 256
+- GetFunction size query on miss
+- vector heap allocation on miss
+- GetFunction bytecode copy
+- FNV hash
+- second mutex
+- seen-pair linear scan up to 256
+- possible synchronous logging
+
+This diagnostic changes the thing being measured.
+
+Recommended architecture:
+At SetVertexShader / SetPixelShader:
+- detect binding transition
+- calculate/cache hash only on a new object/generation
+- store current VS/PS hash in tracked state
+
+At draw:
+- read precomputed pair O(1)
+- update compact counters only
+
+Logging:
+- asynchronous
+- first-seen semantic transition only
+- do not print directly from every render-critical event
+
+======================================================================
+13. P1 DIAGNOSTICS - SHADER PAIR DEDUPE HIDES STATE TRANSITIONS
+======================================================================
+
+File:
+- src/vr/d3d9/shader_fingerprint_gpl.hpp
+
+RememberPair() dedupe key is only:
+  vsHash + psHash
+
+If the same shader pair is reused:
+- world z-on
+- HUD z-off
+- menu
+- special effect
+only the first occurrence is logged.
+
+This is especially dangerous because OutRun can reuse shaders across different
+render states.
+
+Recommended diagnostic key:
+- VS hash
+- PS hash
+- target class
+- projection class
+- depth test
+- depth write
+- alpha mode
+- FVF/XYZRHW class
+- effect classifier result
+
+Log transitions rather than every draw.
+
+======================================================================
+14. P1 HOST PERFORMANCE - SYNCHRONOUS 2-SECOND PIPELINE LOG FLUSH
+======================================================================
+
+File:
+- vrhost/src/main_r23.cpp
+
+The host always creates:
+  outrun-vr-host-pipeline.log
+
+Every ~2 seconds the frame loop:
+- builds ostringstream
+- iterates unordered_map counts
+- copies each metric vector for P95
+- std::sort() on copied vectors
+- prints to std::cout
+- writes pipeline file
+- calls pipelineLog.flush()
+
+R23MetricWindow resets every interval, so this is NOT an unbounded-memory leak.
+That suspected issue is rejected.
+
+But synchronous sort/string/file flush on the frame loop can create periodic
+latency spikes, particularly on Windows when storage/security software delays a
+flush.
+
+Recommended:
+- diagnostic/telemetry flag
+- default production: counters only
+- lock-free queue to logger thread
+- fixed histogram / small selection algorithm for percentiles
+- no synchronous file flush from frame loop
+
+======================================================================
+15. P1 CADENCE MODE 2 CAN CONSUME MOST OF THE XR FRAME HEADROOM
+======================================================================
+
+File:
+- vrhost/src/main_r23.cpp
+
+Default:
+  OUTRUN_VR_CADENCE_MODE default = 1
+
+Therefore the blocking path is NOT default. This is important.
+
+But mode 2 calls WaitForPresented() after xrBeginFrame and waits up to:
+  predictedDisplayPeriod * 0.65
+bounded by configured timeout.
+
+Approximate budget:
+- 72 Hz: 13.89 ms frame -> ~9.0 ms wait
+- 90 Hz: 11.11 ms frame -> ~7.2 ms wait
+- 120 Hz: 8.33 ms frame -> ~5.4 ms wait
+
+If the game misses the event, mode 2 can consume a large fraction of the host's
+render/submission budget before doing the rest of frame work.
+
+This can directly create HMD stutter/latency if strict serialized cadence is
+enabled.
+
+Good:
+- default mode is 1, so this is an optional-path risk.
+- telemetry already exposes cadenceSerialWaitMs / serialTimeout.
+
+Recommended:
+- keep mode 1 default
+- label mode 2 diagnostic/experimental
+- adaptive wait budget based on measured game-present latency
+- preserve compositor safety headroom
+- cache QPC frequency instead of QueryPerformanceFrequency every wait
+
+======================================================================
+16. P2 - DIRECTGPU DECLARED FORMAT IS NOT AUTHORITATIVELY MATCHED TO RESOURCE
+======================================================================
+
+Files:
+- vrhost/src/main.cpp
+- vrhost/src/main_r23.cpp
+- vrhost/src/runtime/r32_direct_submit.hpp
+
+PrepareDirectStereoSource():
+- validates actual texture width/height
+- validates allowed actual formats
+- validates left/right actual format equality
+
+R23ValidateDirectResourceSize():
+- validates dimensions
+- validates left/right actual format equality
+
+But neither requires:
+  actual texture format ==
+  frame.reserved[RenderFrameDirectFormatIndex]
+
+R32 MetadataValid():
+- checks declared format decodes to non-UNKNOWN
+- does not compare declared format to R23DirectHold.format
+
+The fallback SafeEye path has stricter declared/actual checks elsewhere.
+
+Impact:
+Usually the actual SRV format controls rendering, so this is not automatically a
+visible bug. But stale/malformed protocol metadata can still be accepted by the
+main fast path.
+
+Recommended:
+one authoritative DirectGPU metadata validator:
+- slot
+- generation
+- handle
+- width/height
+- declared format
+- actual L/R desc
+- sample count
+- adapter generation
+and use the same validator before bundle publish and fast submit.
+
+======================================================================
+17. P2 - RECENTER APPLIED TELEMETRY CAN CLAIM SUCCESS AFTER FAILED CAS
+======================================================================
+
+File:
+- vrhost/src/runtime/r26_recenter_hardening.hpp
+
+Generic EndFrame recenter completion:
+- MarkApplied(pending)
+- CAS PendingGameRequestId from pending -> 0
+- ignores CAS result
+- increments GameRequestsApplied
+- logs applied
+
+CompletePendingGameRequestAfterVisibleProjection() is better because it increments
+only when CAS succeeds.
+
+Risk is low in current mostly single-threaded host flow, but a superseding request
+can make telemetry/channel state misleading.
+
+Recommended:
+centralize request completion:
+- CAS/ownership validation
+- only MarkApplied/increment/log for request that is actually completed
+- define supersede behavior
+
+Also:
+Recenter IPC Channel does not explicitly unmap/close mapping in a destructor.
+This is process-lifetime leakage rather than a practical per-frame leak, but easy
+to clean up.
+
+======================================================================
+18. P2 - R28 SHADER EPOCH OVERRIDE USES TWO INDEPENDENT ATOMICS
+======================================================================
+
+File:
+- src/vr/d3d9/stereo_renderer_r26.cpp
+
+Synthetic world rebind modifies:
+- CurrentVertexShaderIdentity
+- VertexShaderSerial
+
+as separate atomics.
+
+Restore also uses separate compare_exchange operations.
+
+If a nested setter or a future multithreaded wrapper changes shader state between
+the two operations, identity/serial can temporarily or persistently form an
+inconsistent pair.
+
+Current OutRun D3D9 rendering is effectively render-thread-owned, reducing
+practical risk, so this is not P0.
+
+Recommended:
+- do not mutate global true shader epoch for synthetic policy at all
+- thread_local override context is safer
+or:
+- versioned pair/seqlock containing identity+serial
+
+======================================================================
+19. R32 DIRECTGPU ASYNC ACK - KEEP THIS DESIGN
+======================================================================
+
+File:
+- vrhost/src/runtime/r32_direct_submit.hpp
+
+Good current behavior:
+- EVENT query
+- GetData(D3D11_ASYNC_GETDATA_DONOTFLUSH)
+- no steady-state CPU fence wait
+- same-frame pending EVENT reuse
+- Flush only when actual ring-slot pressure exists
+- generation fault handling
+- ACK only after GPU consumption completion
+
+Do not regress to older:
+  Copy -> End query -> Flush -> spin GetData -> ACK
+on every frame.
+
+Remaining performance risk:
+under slot pressure:
+- poll
+- deferred Flush
+- poll
+- AckBusy fallback
+
+This is a valid safety tradeoff, not a correctness bug.
+Correlate:
+- ackSlotBusy
+- deferredFlush
+- HMD frame-time spikes
+before changing ring depth or policy.
+
+======================================================================
+20. OPENXR BOUNDED WAIT - FALSE POSITIVE REMOVED
+======================================================================
+
+Files:
+- vrhost/src/runtime/bounded_swapchain_wait.hpp
+- vrhost/src/runtime/sbs_capture_override.hpp
+
+Although XR_INFINITE_DURATION appears in callers, the production include chain
+wraps xrWaitSwapchainImage.
+
+Infinite waits are sliced:
+- 20 ms each
+- 250 ms total budget
+
+On total timeout:
+- XR_ERROR_RUNTIME_FAILURE
+
+The acquired image is retained if wait fails, preserving OpenXR acquire/wait/
+release ordering.
+
+Therefore literal XR_INFINITE_DURATION references are NOT sufficient evidence of
+an infinite black-screen hang.
+
+Keep the bounded wait guard.
+
+======================================================================
+21. RESET / SHADER IDENTITY - FALSE POSITIVE REMOVED
+======================================================================
+
+File:
+- src/vr/d3d9/stereo_renderer_r7.inc
+
+ResetDest() explicitly performs:
+  CurrentVertexShaderIdentity.store(0)
+  VertexShaderSerial.store(0)
+
+and resets multiple tracked stereo/resource states.
+
+Therefore:
+"plain D3D9 Reset leaves the old world shader epoch in the base tracker"
+is NOT a current bug.
+
+This does not fix the separate GPL pointer-hash cache generation issue.
+
+======================================================================
+22. FIXED-FUNCTION MENU CAR PATH - FALSE POSITIVE REMOVED
+======================================================================
+
+File:
+- src/vr/d3d9/stereo_renderer_r7.inc
+
+The fixed-function world path requires:
+  GameplayActive()
+
+The code explicitly comments that car-select/theater/menu previews using
+fixed-function perspective XYZ must NOT receive headset transforms.
+
+Therefore the current menu car corruption should NOT be blamed simply on
+"all fixed-function perspective geometry receives VR transforms."
+
+More plausible menu corruption candidates:
+- presentation-state transition/cached frame state
+- stale swapchain/fallback generation
+- game-state whitelist transition
+- source/capture mismatch
+- other shader-based menu path
+
+The fixed-function GameplayActive guard itself is correct.
+
+======================================================================
+23. R14 D3D9EX TEXTURE SHADOW LIFETIME - NO NEW HIGH-SEVERITY BUG FOUND
+======================================================================
+
+File:
+- src/vr/d3d9/ex_device_upgrade_r14.cpp
+
+Current structure:
+- unordered_map texture registry
+- shared_ptr entries
+- Release hook erases resource
+- locked shadow survives until matching Unlock
+- retirePending
+- shadowBytes accounting
+- R14DetachShadowLocked clears accounted bytes before destructor
+- device ref lifetime retained in entry
+
+The old fixed-size 256-slot lifetime eviction bug is not present in this design.
+
+Potential lower-priority performance issue:
+R14Find() uses a global registry mutex.
+This can matter for resource-heavy LockRect/GetSurfaceLevel traffic but is not as
+important as the per-draw R13/R23 getter costs.
+
+======================================================================
+24. SOURCE ARCHITECTURE / MAINTAINABILITY
+======================================================================
+
+The current safe production path is deliberately shorter than R29-R34, which is
+good for regression control.
+
+However the project still has structural debt:
+- .cpp includes .cpp includes .cpp
+- deep Rxx overlay ownership
+- main_r23.cpp includes main.cpp with private/protected visibility macros
+- global/thread_local state distributed across layers
+- policy, state tracking, diagnostics and execution mixed in wrappers
+
+CI currently protects the expected source graph, but compile success does not
+make this structure easy to reason about.
+
+Recommended staged refactor, only after current visual correctness is stable:
+
+Module 1: D3D9StateTracker
+- render states
+- viewport/scissor
+- shader binding
+- WVP uploads
+- StateBlock generation
+
+Module 2: PassClassifier
+- World
+- HUD/Screen
+- Billboard/Effect
+- SkyRotationOnly
+- Unknown/FailClosed
+
+Module 3: StereoExecutor
+- left/right replay
+- fixed-function transforms
+- state restoration
+
+Module 4: DirectTransportPublisher
+- ring slots
+- metadata
+- ACK generation
+
+Module 5: Diagnostics
+- hash/event counters
+- async log queue
+
+Avoid adding R47/R48/R49 wrappers for every new fix if a module can own it
+cleanly.
+
+======================================================================
+25. TEST COVERAGE REQUIRED AFTER THIS REVIEW
+======================================================================
+
+TEST-01 Effect policy truth table
+Exhaust all combinations of:
+- alphaBlend
+- alphaTest
+- zWrite
+- zTest
+- cullNone
+Verify every zTest=false screen candidate fails closed unless explicitly
+world-proven.
+
+TEST-02 Different shader, same WVP
+A = verified world shader.
+Switch B without rewriting c64.
+B is HUD/effect.
+Expected: B must not inherit A's world epoch without explicit B-world evidence.
+
+TEST-03 Shader pointer reuse
+Hash A.
+Destroy A.
+Create B at same address.
+Expected: B gets B hash.
+
+TEST-04 Per-draw getter budget
+Mock/count 1,000 normal world draws.
+Set maximum allowed:
+- GetRenderState
+- GetViewport
+- GetScissorRect
+- GetVertexShaderConstantF
+The future target should be close to zero live getters per ordinary draw.
+
+TEST-05 Scissor-enabled stress
+1,000 draws with enabled scissor but unchanged state.
+Expected: not 3,000 live raster getters.
+
+TEST-06 Real user recenter
+Start with head yaw/position offset.
+Press user recenter.
+Expected application-space pose becomes chosen origin.
+Do not require runtime-generated reference-space event.
+
+TEST-07 Recenter during gameplay DirectGPU
+Press recenter during active stereo.
+Expected:
+- no black frame
+- no last-loading fallback
+- fresh projection returns without stale-generation cache
+
+TEST-08 Recenter in menu
+Expected mono menu anchor recenters independently from gameplay app origin policy.
+
+TEST-09 Swapchain generation cache
+Generation 1 committed.
+Recreate generation 2.
+Before generation-2 render:
+  cached fallback must fail.
+After generation-2 release:
+  cached fallback may succeed.
+
+TEST-10 Direct format mismatch
+Declared frame format != actual shared texture format.
+Expected bundle/fast-submit rejection.
+
+TEST-11 Sky translation
+Classified sky draw:
+- rotate head -> sky rotates correctly
+- translate head -> sky does not translate like nearby world
+- verify intended IPD behavior
+
+TEST-12 Cadence mode 1 vs mode 2
+At 72/90/120 Hz:
+- xrWaitFrame interval
+- cadenceSerialWaitMs
+- gamePresentToConsumeMs
+- xrEndFrameMs
+- HMD dropped/reprojected frames
+Mode 2 must not be enabled by default if serialized waits materially worsen HMD
+frame stability.
+
+TEST-13 Telemetry-off frame loop
+Disable detailed diagnostics.
+Expected:
+- no synchronous 2-second file flush in render-critical path
+- no shader hash COM queries on draws
+- no percentile vector copy/sort
+
+======================================================================
+26. RECOMMENDED FIX ORDER
+======================================================================
+
+PHASE 1 - Correctness first
+1. Implement real application recenter transform / app space.
+2. Add swapchain generation + committedGeneration and fix R24 cache validity.
+3. Make depth-off default ZeroDisparity.
+4. Restrict R28 cross-shader world rebind with fingerprint/semantic proof.
+5. Add SkyRotationOnly semantic.
+
+PHASE 2 - Remove game-side hot-path driver getters
+6. Replace R13 five live render-state getters with tracked-state shadow.
+7. Cache enabled scissor state with StateBlock generation.
+8. Replace R28 live c64 getter with tracked WVP-write generation where safe.
+
+PHASE 3 - Make diagnostics non-invasive
+9. Hash shader at binding/creation, not draw.
+10. Add device/reset generation to hash cache.
+11. State-aware fingerprint transition key.
+12. Async diagnostic logging.
+
+PHASE 4 - Host jitter
+13. Gate/split pipeline telemetry to background writer.
+14. Remove synchronous file flush from frame loop.
+15. Keep cadence mode 1 default; tune mode 2 separately.
+
+PHASE 5 - Protocol/architecture
+16. One DirectGPU metadata validator including declared vs actual format.
+17. Centralize recenter request completion state machine.
+18. Replace global synthetic shader epoch mutation with explicit override context.
+19. Gradually split Rxx .cpp-overlay chain into real modules.
+
+======================================================================
+27. WHAT NOT TO CHANGE
+======================================================================
+
+Do not:
+- revert R32 to synchronous per-frame GPU ACK wait
+- remove bounded swapchain wait protection
+- restore old fixed-size R14 resource shadow ring
+- re-enable R29-R34 fast/HUD path wholesale before current safe path is fixed
+- hardcode 120 Hz for Quest/VDXR
+- treat the monitor SBS frame rate alone as proof of HMD performance
+- make all depth-off effects world just to fix smoke/sky
+- make all transparent effects zero-disparity just to fix HUD
+
+Keep:
+- runtime-adaptive refresh/cadence design
+- fail-closed unknown pass policy
+- generation-aware DirectGPU transport concept
+- safe branch isolation
+- architecture CI
+
+======================================================================
+28. PERFORMANCE PRIORITY ESTIMATE
+======================================================================
+
+Highest likely CPU-side savings:
+1. R13 5x GetRenderState elimination
+2. R23 scissor/viewport live getter elimination
+3. shader fingerprint draw-path removal when diagnostics enabled
+4. R28 c64 readback reduction
+
+Highest likely host jitter savings:
+1. remove synchronous log flush/sort/string work
+2. avoid mode-2 serialized waits unless intentionally testing
+3. minimize deferred Flush events under DirectGPU ring pressure
+
+Highest visual correctness leverage:
+1. real recenter
+2. swapchain cache generation
+3. depth-off HUD policy
+4. R28 cross-shader rebind proof
+5. sky semantic
+
+======================================================================
+29. RELATION TO OBSERVED USER SYMPTOMS
+======================================================================
+
+Symptom:
+white 5th/6th / 6th/6 / white score split into two
+Strong source candidates:
+- depth-disabled classification defaulting to WorldStereo
+- R28 cross-shader epoch rebind
+- same shader reused across state classes and diagnostic dedupe hiding transition
+
+Symptom:
+rank labels not over opponent vehicles
+Important distinction:
+Current shader/draw classification can decide world vs HUD, but cannot magically
+recover a vehicle's world anchor for a fundamentally 2D overlay.
+True car-attached labels may require:
+- identifying game world position/vehicle transform
+- projecting that world position per eye
+or:
+- intercepting the label's source screen-coordinate calculation before draw.
+
+Symptom:
+sky/cloud follows head incorrectly
+Candidate:
+- fixed-function world path has no sky rotation-only class and applies full
+  translation/IPD.
+
+Symptom:
+F10 recenter does not work / produces black or last-loading image
+Strong source candidates:
+- F10 is not a true gameplay origin recenter
+- it invalidates active source/bundle state
+- R24 cached fallback can have stale-generation validity
+
+Symptom:
+menu car model corruption
+Fixed-function GameplayActive guard itself appears correct.
+More likely:
+- menu/gameplay presentation transition
+- cached/fallback generation
+- shader-based path
+- stale source/bundle transition
+
+Symptom:
+HMD severe stutter while monitor can look acceptable
+Strong structural cost candidates:
+- game-side live D3D9 getters
+- diagnostic hashing if enabled
+- host synchronous telemetry flush
+- optional cadence mode 2 serial wait
+- DirectGPU deferred Flush when ring is under pressure
+
+======================================================================
+30. CI / BUILD STATUS CONTEXT
+======================================================================
+
+The source baseline a68cf17832fd4d9c0655f30f097108a43b63ce22 previously passed:
+- Build PR run 35483262080: SUCCESS
+- OpenXR VR architecture run 35483262116: SUCCESS
+- Build push run 35483205589: SUCCESS
+
+The pre-report review HEAD f10fd52318869b13ea01c82ad8eb8aa2220885a4
+contains only the previous documentation file beyond that source baseline.
+Its latest CI jobs were queued at the beginning of this 50,000 review.
+
+Therefore the findings in this report are runtime logic/performance findings,
+not compile-error claims.
+
+======================================================================
+31. FINAL ASSESSMENT
+======================================================================
+
+The project has moved beyond the original "can we make stereo draw at all?"
+problem.
+
+The dominant remaining risks are now state semantics and frame ownership:
+
+1. Which draw truly belongs in world stereo?
+2. Which shader/state transition is allowed to inherit a world WVP?
+3. Which OpenXR/swapchain image generation is genuinely committed?
+4. What does "recenter" mean in the application's coordinate system?
+5. How much driver/API work is still done per game draw?
+6. How much diagnostic work runs on the HMD frame loop?
+
+The most important new conclusion from the 50,000 cross-check is:
+
+Do not solve the remaining bugs by adding another broad replay wrapper.
+
+The next implementation should reduce ambiguity:
+- explicit application recenter transform
+- generation-tagged swapchain validity
+- conservative depth-off HUD policy
+- fingerprint-backed cross-shader semantics
+- rotation-only sky semantic
+- cached D3D9 state instead of per-draw live getters
+
+This should improve correctness and performance at the same time.
+
+Summary classification:
+- P0/high correctness/design findings: 4 core issues
+- P1 major performance/diagnostic/sky findings: 8+ issues
+- P2 protocol/concurrency/telemetry findings: 3+ issues
+- explicitly cleared false positives / safeguards: 6+
+- comparison-only R29-R34 issues kept separate from production findings
+- source code changed by this review: NO
+- documentation report added: YES
+
+END OF 50,000-CHECK REPORT

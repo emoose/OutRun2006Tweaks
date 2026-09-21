@@ -1,5 +1,5 @@
-name: Bug report
-description: Let us know about bugs found with the game/tweaks (for feature requests, please use Discussions tab)
+name: Bug report / 버그 신고
+description: Report bugs found with the game/tweaks / 게임 또는 Tweaks에서 발견한 버그를 알려주세요
 title: "[Bug]: "
 labels: bug
 body:
@@ -7,20 +7,34 @@ body:
     type: markdown
     attributes:
       value: |
-        If you've ran into an issue/bug with the game or tweaks let us know about it here.
-        
-        **For feature requests/suggestions**, please write on the [Suggestions discussion board](https://github.com/emoose/OutRun2006Tweaks/discussions/categories/suggestions).
+        If you've run into an issue or bug with the game or tweaks, let us know about it here.
+        게임 또는 Tweaks 사용 중 문제나 버그를 발견했다면 이 양식으로 알려주세요.
+
+        **For feature requests/suggestions**, please use the Suggestions discussion board.
+        **기능 요청/제안**은 Suggestions 토론 게시판을 이용해 주세요.
+
+        https://github.com/emoose/OutRun2006Tweaks/discussions/categories/suggestions
+
   - id: version
     type: input
     attributes:
-      label: Tweaks version
-      description: Which version of OutRun2006Tweaks were you using? (you can usually find this by looking at the filename of ZIP you downloaded)
-      placeholder: outrun2006tweaks-abcdefghijklmnopqrstuvwxyz
+      label: Tweaks version / Tweaks 버전
+      description: Which version of OutRun2006Tweaks were you using? Include the release/ZIP version if possible. / 사용한 OutRun2006Tweaks 버전을 적어주세요. 가능하면 릴리즈 또는 ZIP 버전도 함께 적어주세요.
+      placeholder: OutRun2006Tweaks Wheel FFB v0.1
     validations:
       required: true
+
+  - id: hardware
+    type: input
+    attributes:
+      label: Wheel hardware / 휠 하드웨어
+      description: Wheel base, pedals, driver and firmware version if relevant. / 관련된 경우 휠베이스, 페달, 드라이버 및 펌웨어 버전을 적어주세요.
+      placeholder: MOZA R3, driver/firmware version
+
   - id: problem
     type: textarea
     attributes:
-      label: Describe your issue here (please attach the OutRun2006Tweaks.log file with your report, you can drag+drop it into the text area)
+      label: Describe the issue / 문제 설명
+      description: Describe what happened, how to reproduce it, and what you expected. Please attach OutRun2006Tweaks.log for input/FFB issues. / 발생한 현상, 재현 방법, 기대한 동작을 적어주세요. 입력/FFB 문제는 가능하면 OutRun2006Tweaks.log를 첨부해 주세요.
     validations:
       required: true

@@ -25,8 +25,28 @@ int VibrationStrength = 10;
 float VibrationLeftMotor = 0.f;
 float VibrationRightMotor = 0.f;
 
+bool WheelFFB_IsOutputOwnerActive();
+
 void SetVibration(int userId, float leftMotor, float rightMotor)
 {
+    // Suppress the independent gamepad-rumble path only while the
+    // DirectInput WheelFFBEngine currently owns an acquired output device.
+    // A configured-but-missing/lost/unacquired wheel must not disable controller rumble.
+    static bool wheelOwnedLastCall = false;
+    if (WheelFFB_IsOutputOwnerActive())
+    {
+        if (!wheelOwnedLastCall)
+        {
+            void InputManager_StopVibration();
+            InputManager_StopVibration();
+            XINPUT_VIBRATION zero{};
+            XInputSetState(Settings::VibrationControllerId, &zero);
+        }
+        wheelOwnedLastCall = true;
+        return;
+    }
+    wheelOwnedLastCall = false;
+
     if (!Settings::VibrationMode)
         return;
     else if (Settings::VibrationMode == 2) // Swap L/R
@@ -57,6 +77,8 @@ extern "C"
     long _ftol2(double);
 }
 
+void __cdecl WheelFFB_UpdateAfterPhysics(EVWORK_CAR* car);
+
 class Vibration : public Hook
 {
     const static int GamePlCar_Ctrl_Addr = 0xA8330;
@@ -64,10 +86,14 @@ class Vibration : public Hook
     inline static SafetyHookInline GamePlCar_Ctrl = {};
     static void GamePlCar_Ctrl_Hook(EVWORK_CAR* car)
     {
+        // Keep legacy/gamepad vibration timing unchanged. Wheel FFB is
+        // intentionally different: sample the car only AFTER its physics Ctrl
+        // returns so body motion/yaw belong to the current simulation tick.
         CalcVibrationValues(car);
         SetVibration(0, VibrationLeftMotor, VibrationRightMotor);
 
         GamePlCar_Ctrl.call(car);
+        WheelFFB_UpdateAfterPhysics(car);
     }
 
 public:

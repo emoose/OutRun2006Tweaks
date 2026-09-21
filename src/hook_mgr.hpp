@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <vector>
 #include <memory>
 #include <functional>
@@ -30,13 +31,11 @@ public:
         init(address, std::move(patched));
     }
 
-    // Replaces the instructions at the address with a run of nops.
     static TogglePatch nop(void* address, size_t size)
     {
         return TogglePatch(address, std::vector<uint8_t>(size, 0x90));
     }
 
-    // For patching a pointer or an immediate rather than instructions.
     template <typename T>
     static TogglePatch value(void* address, const T& v)
     {
@@ -58,8 +57,6 @@ public:
         if (!address_ || enabled == applied_)
             return;
 
-        // Written a byte at a time so the size can be decided at runtime, which
-        // Memory::VP::Patch's initializer_list form can't do.
         const std::vector<uint8_t>& bytes = enabled ? patched_ : original_;
         for (size_t i = 0; i < bytes.size(); i++)
             Memory::VP::Patch<uint8_t>(address_ + i, bytes[i]);
@@ -70,7 +67,6 @@ public:
     bool applied() const { return applied_; }
 };
 
-// Base class for hooks
 class Hook
 {
     friend class HookManager;
@@ -79,44 +75,29 @@ public:
     Hook();
 
     virtual ~Hook() = default;
-
-    // name/description of hook, for debug logging/tracing
     virtual std::string_view description() { return ""; }
-
-    // check if user has enabled this hook, and any prerequisites are satisfied
     virtual bool validate() { return true; }
-
-    // Declares which settings this hook's behaviour depends on, with
-    // Setting::watch for a value it baked in and has to re-do, or
-    // Setting::needs_restart for one it can't pick up while the game runs.
-    //
-    // Called for every hook regardless of validate().
     virtual void declare_settings() {}
-
-    // applies the hook/patch
     virtual bool apply() = 0;
 
-    bool active()
+    bool active() const noexcept
     {
-        return is_active_;
+        return is_active_.load(std::memory_order_acquire);
     }
 
-    bool error()
+    bool error() const noexcept
     {
-        return has_error_;
+        return has_error_.load(std::memory_order_acquire);
     }
 
 private:
-    bool is_active_ = false;
-    bool has_error_ = false;
+    std::atomic<bool> is_active_{false};
+    std::atomic<bool> has_error_{false};
 };
 
-// Static HookManager class
 class HookManager
 {
 public:
-    // Keep hooks vector inside function-local static, to ensure vector actually exists
-    // before Hooks try to register themselves.
     static std::vector<Hook*>& hooks()
     {
         static std::vector<Hook*> s_hooks;
@@ -124,9 +105,14 @@ public:
     }
 
     static void RegisterHook(Hook* hook)
-	{
+    {
         hooks().emplace_back(hook);
     }
 
     static void ApplyHooks();
+
+    // Hooks whose apply() merely starts an installer worker can report their
+    // eventual Ready/Failed result back to the overlay/UI. Atomics keep this
+    // race-free with status readers on the game thread.
+    static void ReportAsyncResult(std::string_view description, bool active);
 };

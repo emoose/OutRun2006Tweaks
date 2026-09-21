@@ -11,6 +11,13 @@
 #include "input_manager.hpp"
 #include "resource.h"
 
+namespace
+{
+	constexpr char UpdateRepoOwner[] = "thp32tt";
+	constexpr char UpdateRepoName[] = "OutRun2006Tweaks";
+	constexpr char UpdateReleasesUrl[] = "https://github.com/thp32tt/OutRun2006Tweaks/releases";
+}
+
 uint64_t VersionToInteger(const std::string& version)
 {
 	std::vector<int> parts;
@@ -36,7 +43,6 @@ bool IsVersionNewer(const std::string& latest, const std::string& current)
 	return VersionToInteger(latest) > VersionToInteger(current);
 }
 
-// Function to check the latest release version
 std::string UpdateCheck_IsNewerAvailable(const std::string& currentVersion, const std::string& repoOwner, const std::string& repoName)
 {
 	std::wstring path = L"/repos/" + std::wstring(repoOwner.begin(), repoOwner.end()) +
@@ -49,7 +55,6 @@ std::string UpdateCheck_IsNewerAvailable(const std::string& currentVersion, cons
 		return "";
 	}
 
-	// Parse JSON response
 	Json::CharReaderBuilder builder;
 	Json::Value root;
 	std::string errs;
@@ -68,7 +73,6 @@ std::string UpdateCheck_IsNewerAvailable(const std::string& currentVersion, cons
 		return "";
 	}
 
-	// Compare versions
 	if (IsVersionNewer(latestVersion, currentVersion))
 	{
 		spdlog::info("UpdateCheck_IsNewerAvailable: newer version {} available, current version {}", latestVersion, currentVersion);
@@ -85,12 +89,15 @@ void UpdateCheck_Thread(const std::string& currentVersion, const std::string& re
 {
 	std::string newerVersion = UpdateCheck_IsNewerAvailable(currentVersion, repoOwner, repoName);
 	if (!newerVersion.empty())
-		Notifications::instance.add(std::format("A newer version of OutRun2006Tweaks is available ({})\n---\nPress {} and click here to visit release page.",
-			newerVersion, InputManager_ModActionDisplayName(ModAction::OverlayToggle)), 20,
-            [newerVersion]() {
-                std::string url = "https://github.com/emoose/OutRun2006Tweaks/releases";
-                ShellExecuteA(nullptr, "open", url.c_str(), 0, 0, SW_SHOWNORMAL);
-            });
+	{
+		Notifications::instance.add(
+			std::format("A newer version of OutRun2006Tweaks is available ({})\n---\nPress {} and click here to visit this fork's release page.",
+				newerVersion, InputManager_ModActionDisplayName(ModAction::OverlayToggle)),
+			20,
+			[]() {
+				ShellExecuteA(nullptr, "open", UpdateReleasesUrl, nullptr, nullptr, SW_SHOWNORMAL);
+			});
+	}
 }
 
 std::thread updateCheckThread;
@@ -99,7 +106,11 @@ void UpdateCheck_Init()
 {
 	if (Overlay::NotifyUpdateCheck)
 	{
-		updateCheckThread = std::thread(&UpdateCheck_Thread, MODULE_VERSION_STR, "emoose", "OutRun2006Tweaks");
+		// This fork carries wheel/FFB and VR changes that are not represented by
+		// upstream emoose releases, so update notifications must never direct a
+		// user to an incompatible upstream payload.
+		updateCheckThread = std::thread(&UpdateCheck_Thread,
+			MODULE_VERSION_STR, UpdateRepoOwner, UpdateRepoName);
 		updateCheckThread.detach();
 	}
 }

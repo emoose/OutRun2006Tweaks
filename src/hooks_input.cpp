@@ -4,6 +4,8 @@
 #include <winioctl.h>
 #include <hidsdi.h>
 
+#include <array>
+#include <chrono>
 #include <queue>
 
 #include "hook_mgr.hpp"
@@ -13,11 +15,18 @@
 
 namespace Settings
 {
-	Setting<float> SteeringDeadZone{ "Controls", "SteeringDeadZone", 0.2f,
-		"Allows overriding the steering deadzone. Game default is 0.2 / 20%.", Range<float>{ 0.f, 1.f } };
+	Setting<float> SteeringDeadZone{ "Controls", "SteeringDeadZone", 0.0f,
+		"Allows overriding the steering deadzone. Original game default is 0.2 / 20%; wheel branch default is 0%.", Range<float>{ 0.f, 1.f } };
 	Setting<bool> ControllerHotPlug{ "Controls", "ControllerHotPlug", false,
 		"Allows game to detect newly plugged in devices, rather than needing a restart. May have issues with some "
 		"controllers/wheels, and is ignored when using UseNewInput as hot-plug is supported by it by default." };
+	Setting<bool> WheelAccelerationInvert{ "Controls", "WheelAccelerationInvert", false,
+		"Reverses the legacy DirectInput acceleration channel for wheel pedals that report released as maximum." };
+	Setting<bool> WheelBrakeInvert{ "Controls", "WheelBrakeInvert", false,
+		"Reverses the legacy DirectInput brake channel. Enable this only if the brake is active while released." };
+	Setting<bool> WheelMenuDirectionFilter{ "Controls", "WheelMenuDirectionFilter", true,
+		"Learns and suppresses a legacy DirectInput direction that is held continuously by a pedal at rest. "
+		"Keyboard arrow keys remain available for menu navigation." };
 	Setting<int> ImpulseVibrationMode{ "Controls", "ImpulseVibrationMode", 2,
 		"Enable/disable Xbox Series impulse trigger vibration, or customise it. VibrationMode must be enabled for this to work.",
 		{ "Disable", "Enable impulse triggers", "L/R motors swapped (recommended for impulse triggers)",
@@ -296,6 +305,117 @@ void DInput_RegisterNewDevices()
         *Module::exe_ptr<int>(0x3398D4) = 0;
     }
 }
+
+// A reversed pedal can also be interpreted as a permanently-held menu direction
+// before GetVolume is called. Learn only direction bits that stay held while the
+// game is outside a race, then rebuild their edge masks after filtering. This
+// preserves the wheel's other menu buttons and explicitly re-injects keyboard
+// arrows so a filtered wheel direction never disables keyboard navigation.
+class LegacyWheelMenuFilter : public Hook
+{
+    struct Direction
+    {
+        uint32_t mask;
+        int virtualKey;
+        const char* name;
+    };
+
+    inline static constexpr std::array<Direction, 4> Directions = {{
+        { 0x40,  VK_UP,    "up" },
+        { 0x20,  VK_DOWN,  "down" },
+        { 0x100, VK_LEFT,  "left" },
+        { 0x80,  VK_RIGHT, "right" },
+    }};
+    inline static constexpr uint32_t DirectionMask = 0x1E0;
+    inline static constexpr auto LearnDelay = std::chrono::milliseconds(250);
+
+    inline static SafetyHookInline DInputUpdate = {};
+    inline static std::array<std::chrono::steady_clock::time_point, Directions.size()> heldSince = {};
+    inline static uint32_t learnedMask = 0;
+    inline static uint32_t previousOutput = 0;
+
+    static SumoDInputState* DInputUpdate_dest()
+    {
+        auto* state = DInputUpdate.call<SumoDInputState*>();
+        if (!state)
+            state = Game::dinput_state;
+
+        if (!state || !Settings::WheelInputCompatibility || !Settings::WheelMenuDirectionFilter)
+            return state;
+
+        const auto now = std::chrono::steady_clock::now();
+        const bool mayLearn = Game::current_mode && *Game::current_mode != STATE_GAME;
+        uint32_t keyboardDirections = 0;
+
+        for (size_t i = 0; i < Directions.size(); ++i)
+        {
+            const auto& direction = Directions[i];
+            const bool keyboardHeld = (GetAsyncKeyState(direction.virtualKey) & 0x8000) != 0;
+            const bool rawHeld = (state->buttons_4 & direction.mask) != 0;
+
+            if (keyboardHeld)
+                keyboardDirections |= direction.mask;
+
+            if ((learnedMask & direction.mask) == 0)
+            {
+                if (mayLearn && rawHeld && !keyboardHeld)
+                {
+                    if (heldSince[i] == std::chrono::steady_clock::time_point{})
+                        heldSince[i] = now;
+                    else if (now - heldSince[i] >= LearnDelay)
+                    {
+                        learnedMask |= direction.mask;
+                        spdlog::info(
+                            "WheelMenuDirectionFilter: suppressing continuously-held '{}' input (mask 0x{:X})",
+                            direction.name, direction.mask);
+                    }
+                }
+                else
+                {
+                    heldSince[i] = {};
+                }
+            }
+        }
+
+        const uint32_t rawDirections = state->buttons_4 & DirectionMask;
+        const uint32_t outputDirections = (rawDirections & ~learnedMask) | keyboardDirections;
+
+        state->buttons_4 = (state->buttons_4 & ~DirectionMask) | outputDirections;
+        state->pressed_8 = (state->pressed_8 & ~DirectionMask) |
+            (outputDirections & ~previousOutput);
+        state->released_C = (state->released_C & ~DirectionMask) |
+            (previousOutput & ~outputDirections);
+        previousOutput = outputDirections;
+
+        return state;
+    }
+
+public:
+    std::string_view description() override
+    {
+        return "WheelMenuDirectionFilter";
+    }
+
+    bool validate() override
+    {
+        return Settings::WheelInputCompatibility;
+    }
+
+    void declare_settings() override
+    {
+        Settings::WheelMenuDirectionFilter.needs_restart();
+        Settings::WheelMenuDirectionFilter.hidden(Settings::UseNewInput);
+    }
+
+    bool apply() override
+    {
+        DInputUpdate = safetyhook::create_inline(Module::exe_ptr(0x6FA0), DInputUpdate_dest);
+        return !!DInputUpdate;
+    }
+
+    static LegacyWheelMenuFilter instance;
+};
+LegacyWheelMenuFilter LegacyWheelMenuFilter::instance;
 
 class SteeringDeadZone : public Hook
 {

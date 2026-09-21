@@ -1,3 +1,5 @@
+name: Build
+
 on:
   push:
   pull_request:
@@ -16,42 +18,204 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Configure
+      - name: Verify consolidated wheel FFB source
+        shell: pwsh
+        run: python tools/verify_wheel_ffb_current.py
+
+      - name: Test production wheel FFB math
+        shell: cmd
         run: |
+          call "%ProgramFiles%\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars32.bat" || exit /b 1
+          python tools/verify_wheel_ffb_math.py
+
+      - name: Configure
+        shell: pwsh
+        run: |
+          # cmkr intentionally skips regeneration when CI is set. vr-openxr uses
+          # cmake.toml as the canonical source graph, so remove CI here just as
+          # the dedicated VR workflow does before configuring.
+          Remove-Item Env:CI -ErrorAction SilentlyContinue
           mkdir build
           cd build
           cmake -G "Visual Studio 17 2022" -A ${{matrix.arch}} ..
-          
+
       - name: Add older VC2022 redist workaround to safetyhook
         shell: pwsh
         run: |
-          (Get-Content build/_deps/safetyhook-build/src/safetyhook.vcxproj) -replace 'ZYCORE_STATIC_BUILD', '_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR;ZYCORE_STATIC_BUILD' | Set-Content build/_deps/safetyhook-build/safetyhook.vcxproj
+          (Get-Content build/_deps/safetyhook-build/src/safetyhook.vcxproj) -replace 'ZYCORE_STATIC_BUILD', '_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR;ZYCORE_STATIC_BUILD' | Set-Content build/_deps/safetyhook-build/src/safetyhook.vcxproj
           (Get-Content build/_deps/zydis-build/Zydis.vcxproj) -replace 'ZYCORE_STATIC_BUILD', '_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR;ZYCORE_STATIC_BUILD' | Set-Content build/_deps/zydis-build/Zydis.vcxproj
           (Get-Content build/_deps/zydis-build/zycore/Zycore.vcxproj) -replace 'ZYCORE_STATIC_BUILD', '_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR;ZYCORE_STATIC_BUILD' | Set-Content build/_deps/zydis-build/zycore/Zycore.vcxproj
 
-      - name: Zero out SDL_gameinputjoystick.c (https://github.com/libsdl-org/SDL/issues/11487 / https://github.com/actions/runner-images/issues/10980)
+      - name: Zero out SDL_gameinputjoystick.c
         shell: pwsh
         run: |
           Set-Content -Path build/_deps/sdl-src/src/joystick/gdk/SDL_gameinputjoystick.c -Value ""
           (Get-Content build/_deps/sdl-build/include-config-release/build_config/SDL_build_config.h) -replace '#define SDL_JOYSTICK_GAMEINPUT 1', '/* #undef SDL_JOYSTICK_GAMEINPUT */' | Set-Content build/_deps/sdl-build/include-config-release/build_config/SDL_build_config.h
-      
+
       - name: Build
-        run: |
-          cmake --build build --config ${{matrix.build_type}}
-          
+        run: cmake --build build --config ${{matrix.build_type}}
+
       - name: Copy settings
         shell: pwsh
         run: |
           cp OutRun2006Tweaks.ini build/bin/OutRun2006Tweaks.ini
           cp OutRun2006Tweaks.lods.ini build/bin/OutRun2006Tweaks.lods.ini
-          
-      - name: Download EXE
+
+      - name: Verify built wheel and VR payload
         shell: pwsh
         run: |
-          Invoke-WebRequest -Uri https://github.com/emoose/OutRun2006Tweaks/releases/download/v0.1/OR2006C2C.EXE -OutFile build/bin/OR2006C2C.exe
-          
-      - name: Upload
+          $dllPath = "build/bin/dinput8.dll"
+          if (-not (Test-Path $dllPath)) { throw "dinput8.dll was not produced" }
+          $bytes = [System.IO.File]::ReadAllBytes($dllPath)
+          if ($bytes.Length -lt 1000000) { throw "dinput8.dll is unexpectedly small" }
+          if ($bytes[0] -ne 0x4D -or $bytes[1] -ne 0x5A) { throw "dinput8.dll has no MZ header" }
+          $peOffset = [BitConverter]::ToInt32($bytes, 0x3C)
+          if ($peOffset -lt 0 -or ($peOffset + 6) -ge $bytes.Length) { throw "invalid PE offset" }
+          $signature = [Text.Encoding]::ASCII.GetString($bytes, $peOffset, 4)
+          if ($signature -ne "PE`0`0") { throw "invalid PE signature" }
+          $machine = [BitConverter]::ToUInt16($bytes, $peOffset + 4)
+          if ($machine -ne 0x014C) { throw ("expected Win32 x86 DLL, machine=0x{0:X4}" -f $machine) }
+
+          $ascii = [Text.Encoding]::ASCII.GetString($bytes)
+          $markers = @(
+            "WheelFFB: GUID_Damper created",
+            "WheelFFB: scheduling DirectInput device reinitialization",
+            "WheelFFB: selected DirectInput identity",
+            "Reverse SAT / ConstantForce",
+            "Reverse Spring",
+            "multi-device SDL raw input enabled",
+            "Multi-device input architecture adapted from hyp36rmax (MIT)",
+            "zero-force live SetParameters",
+            "temporarily excluding it from automatic selection",
+            "ConstantForce is using detected actuator offset",
+            "next compatible interface will be probed on the next update tick",
+            "transient ConstantForce update failure",
+            "preferred FFB driver/vendor",
+            "MOZA R3 Physics SAT",
+            "MOZA R3 Natural SAT",
+            "Single-owner wheel FFB: DirectInput COM only",
+            "Physics SAT (body slip + yaw)",
+            "Mechanical / Caster Trail",
+            "Pneumatic Trail Response Lead",
+            "FFB Headroom / Clipping",
+            "Enable wheel response correction",
+            "WheelFFB SATMODEL",
+            "trailResponseSlip={} trailResponseLead={}",
+            "load={:.2f} slide={:.2f} scrub={:.2f}",
+            "basis=M70r{}",
+            "steerSrc={}",
+            "Test Left (20%)",
+            "VR stereo: D3D9 full-eye renderer installed",
+            "VR R13: stereo hardening ACTIVE",
+            "VR R13: auxiliary/offscreen c64 WVP kept stock",
+            "VR v3 shadow: live dual-protocol diagnostics active",
+            "VR GPL SHADER: pair="
+          )
+          foreach ($marker in $markers) {
+            if (-not $ascii.Contains($marker)) { throw "missing compiled marker: $marker" }
+          }
+
+          $ini = Get-Content "build/bin/OutRun2006Tweaks.ini" -Raw
+          if ($ini -notmatch '(?m)^SteeringDeadZone\s*=\s*0\.0\s*$') { throw "shipped deadzone is not 0.0" }
+          if ($ini -notmatch '(?m)^WheelAccelerationInvert\s*=\s*false\s*$') { throw "shipped accelerator invert is not false" }
+          if ($ini -notmatch '(?m)^WheelBrakeInvert\s*=\s*false\s*$') { throw "shipped brake invert is not false" }
+          if ($ini -notmatch '(?m)^UseNewInput\s*=\s*true\s*$') { throw "multi-device input is not the shipped default" }
+          if ($ini -notmatch '(?m)^TrailResponseLead\s*=\s*0\.25\s*$') { throw "shipped pneumatic trail response lead is not 0.25" }
+
+          Write-Host ("Verified dinput8.dll: {0} bytes, PE32 x86, current wheel FFB + OpenXR VR markers present" -f $bytes.Length)
+          Get-FileHash $dllPath -Algorithm SHA256
+
+      - name: Download upstream replacement EXE
+        shell: pwsh
+        run: Invoke-WebRequest -Uri https://github.com/emoose/OutRun2006Tweaks/releases/download/v0.1/OR2006C2C.EXE -OutFile build/bin/OR2006C2C.exe
+
+      - name: Collect binary distribution licenses
+        shell: pwsh
+        run: |
+          $candidates = New-Object System.Collections.Generic.List[System.IO.FileInfo]
+          $candidates.Add((Get-Item LICENSE.md))
+          if (Test-Path COPYING.GPL3) { $candidates.Add((Get-Item COPYING.GPL3)) }
+          if (Test-Path THIRD_PARTY_NOTICES.md) { $candidates.Add((Get-Item THIRD_PARTY_NOTICES.md)) }
+          foreach ($root in @('external', 'build/_deps')) {
+            if (Test-Path $root) {
+              Get-ChildItem $root -Recurse -File | Where-Object {
+                $_.Name -match '^(LICENSE|LICENCE|COPYING|COPYRIGHT)(\..*)?$'
+              } | ForEach-Object { $candidates.Add($_) }
+            }
+          }
+
+          $seen = @{}
+          $builder = New-Object System.Text.StringBuilder
+          [void]$builder.AppendLine('OutRun2006Tweaks Wheel FFB v0.1 - bundled open-source notices')
+          [void]$builder.AppendLine('Generated by CI from the exact source/dependency trees used for this build.')
+          [void]$builder.AppendLine('')
+
+          foreach ($file in ($candidates | Sort-Object FullName)) {
+            try { $text = Get-Content $file.FullName -Raw -ErrorAction Stop } catch { continue }
+            if ([string]::IsNullOrWhiteSpace($text)) { continue }
+            $bytes = [Text.Encoding]::UTF8.GetBytes($text)
+            $hash = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($bytes))
+            if ($seen.ContainsKey($hash)) { continue }
+            $seen[$hash] = $true
+            $relative = [IO.Path]::GetRelativePath((Get-Location).Path, $file.FullName)
+            [void]$builder.AppendLine(('=' * 78))
+            [void]$builder.AppendLine($relative)
+            [void]$builder.AppendLine(('=' * 78))
+            [void]$builder.AppendLine($text.TrimEnd())
+            [void]$builder.AppendLine('')
+          }
+
+          $builder.ToString() | Set-Content build/bin/LICENSES.txt -Encoding utf8
+          if (-not (Test-Path build/bin/LICENSES.txt)) { throw 'LICENSES.txt was not generated' }
+          if (Test-Path COPYING.GPL3) { Copy-Item COPYING.GPL3 build/bin/COPYING.GPL3 }
+          if (Test-Path THIRD_PARTY_NOTICES.md) { Copy-Item THIRD_PARTY_NOTICES.md build/bin/THIRD_PARTY_NOTICES.md }
+          if (-not (Test-Path build/bin/COPYING.GPL3)) { throw 'GPLv3 text is missing from binary distribution' }
+          if (-not (Test-Path build/bin/THIRD_PARTY_NOTICES.md)) { throw 'third-party notices are missing from binary distribution' }
+          Write-Host ("Collected {0} unique license/notice texts" -f $seen.Count)
+
+      - name: Upload binary
         uses: actions/upload-artifact@v7.0.1
         with:
           name: outrun2006tweaks-${{ github.sha }}
           path: build/bin/
+
+      - name: Upload wheel source snapshot
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: wheel-source-${{ github.sha }}
+          path: |
+            src/hooks_wheel_ffb.cpp
+            src/hooks_wheel_ffb_build.cpp
+            src/hooks_wheel_vehicle_dynamics.hpp
+            src/wheel_ffb_math.hpp
+            src/wheel_ffb_runtime.hpp
+            tools/test_wheel_ffb_current.cpp
+            tools/verify_wheel_ffb_math.py
+            src/hooks_forcefeedback.cpp
+            src/hooks_framerate.cpp
+            src/hooks_wheel_input_compat_v2.hpp
+            src/hooks_wheel_r3_menu_dpad.hpp
+            src/hooks_wheel_r3_menu_ab.hpp
+            src/hooks_wheel_r3_device_autoselect.hpp
+            src/input_manager.hpp
+            src/input_manager.cpp
+            src/overlay/input_bindings_ui.cpp
+            src/overlay/wheel_setup_ui.cpp
+            src/wheel_profile_store.hpp
+            src/hooks_input.cpp
+            src/overlay/settings_ui.cpp
+            src/overlay/overlay.cpp
+            src/dllmain.cpp
+            OutRun2006Tweaks.ini
+            CMakeLists.txt
+            cmake.toml
+            README.md
+            WHEEL_FFB.md
+            RELEASE_NOTES_v0.1.md
+            LICENSE.md
+            COPYING.GPL3
+            THIRD_PARTY_NOTICES.md
+            src/vr/d3d9/shader_fingerprint_gpl.hpp
+            tools/verify_wheel_ffb_current.py
+            .github/workflows/build.yml
+          include-hidden-files: true

@@ -1,6 +1,7 @@
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
 #include <shellapi.h>
+#include <algorithm>
 #include <atomic>
 #include <intrin.h>
 #include "hook_mgr.hpp"
@@ -437,30 +438,37 @@ class FixFullPedalChecks : public Hook
 	const static int GetVolume_Addr = 0x53720;
 	const static int GetVolumeOld_Addr = 0x53750;
 
+	static int correctPedalValue(int channel, int result)
+	{
+		if (Settings::WheelInputCompatibility)
+		{
+			const bool invert =
+				(channel == 1 && Settings::WheelAccelerationInvert) ||
+				(channel == 2 && Settings::WheelBrakeInvert);
+
+			if (invert)
+				result = 255 - std::clamp(result, 0, 255);
+		}
+
+		if (Settings::FixFullPedalChecks && (channel == 1 || channel == 2) &&
+			result < 255 && result >= 250)
+		{
+			result = 255;
+		}
+
+		return result;
+	}
+
 	inline static SafetyHookInline GetVolume = {};
 	static int GetVolume_dest(int channel)
 	{
-		int result = GetVolume.call<int>(channel);
-		if (!Settings::FixFullPedalChecks)
-			return result;
-		if (channel != 1 && channel != 2) // accelerate / brake pedals only
-			return result;
-		if (result < 255 && result >= 250)
-			result = 255;
-		return result;
+		return correctPedalValue(channel, GetVolume.call<int>(channel));
 	}
 
 	inline static SafetyHookInline GetVolumeOld = {};
 	static int GetVolumeOld_dest(int channel)
 	{
-		int result = GetVolumeOld.call<int>(channel);
-		if (!Settings::FixFullPedalChecks)
-			return result;
-		if (channel != 1 && channel != 2) // accelerate / brake pedals only
-			return result;
-		if (result < 255 && result >= 250)
-			result = 255;
-		return result;
+		return correctPedalValue(channel, GetVolumeOld.call<int>(channel));
 	}
 
 public:
@@ -473,6 +481,13 @@ public:
 	{
 		GetVolume = safetyhook::create_inline(Module::exe_ptr(GetVolume_Addr), GetVolume_dest);
 		GetVolumeOld = safetyhook::create_inline(Module::exe_ptr(GetVolumeOld_Addr), GetVolumeOld_dest);
+		if (Settings::WheelInputCompatibility)
+		{
+			spdlog::info(
+				"WheelPedalDirection: acceleration={}, brake={}",
+				Settings::WheelAccelerationInvert ? "inverted" : "normal",
+				Settings::WheelBrakeInvert ? "inverted" : "normal");
+		}
 		return !!GetVolume && !!GetVolumeOld;
 	}
 

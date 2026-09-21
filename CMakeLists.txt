@@ -26,6 +26,207 @@ endif()
 
 project(outrun2006tweaks-proj)
 
+set_source_files_properties(src/hooks_wheel_ffb.cpp PROPERTIES HEADER_FILE_ONLY TRUE)
+# R33/R14 keep the validated R32/R31/R30/R29/R26/R23/R22/R21/R20/R13/R9/R12
+# implementation chains intact and compile only the final game/stereo/Ex wrapper
+# TUs. Included implementation files are header-only here so no hook body is
+# linked twice.
+set(OUTRUN_VR_INCLUDED_IMPL_TUS
+    src/vr/d3d9/ex_device_upgrade.cpp
+    src/vr/d3d9/ex_device_upgrade_r13.cpp
+    src/vr/d3d9/stereo_renderer.cpp
+    src/vr/d3d9/stereo_renderer_r13.cpp
+    src/vr/d3d9/stereo_renderer_r20.cpp
+    src/vr/d3d9/stereo_renderer_r21.cpp
+    src/vr/d3d9/stereo_renderer_r22.cpp
+    src/vr/d3d9/stereo_renderer_r23.cpp
+    src/vr/d3d9/stereo_renderer_r26.cpp
+    src/vr/d3d9/stereo_renderer_r29.cpp
+    src/vr/d3d9/stereo_renderer_r30.cpp
+    src/vr/d3d9/stereo_renderer_r31.cpp
+    src/vr/d3d9/stereo_renderer_r32.cpp
+    src/vr/game/outrun_renderer.cpp
+    src/vr/game/outrun_renderer_r13.cpp
+    src/vr/game/outrun_renderer_r23.cpp)
+set_source_files_properties(${OUTRUN_VR_INCLUDED_IMPL_TUS}
+    PROPERTIES HEADER_FILE_ONLY TRUE)
+
+set(OUTRUN_VR_FINAL_TUS
+    src/vr/d3d9/ex_device_upgrade_r14.cpp
+    src/vr/d3d9/stereo_renderer_r33.cpp
+    src/vr/game/outrun_renderer_r29.cpp)
+foreach(_vr_source IN LISTS OUTRUN_VR_INCLUDED_IMPL_TUS OUTRUN_VR_FINAL_TUS)
+    if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/${_vr_source}")
+        message(FATAL_ERROR "VR source graph references missing TU: ${_vr_source}")
+    endif()
+endforeach()
+foreach(_vr_source IN LISTS OUTRUN_VR_INCLUDED_IMPL_TUS)
+    get_source_file_property(_vr_header_only "${_vr_source}" HEADER_FILE_ONLY)
+    if(NOT _vr_header_only)
+        message(FATAL_ERROR "VR included implementation TU must be HEADER_FILE_ONLY: ${_vr_source}")
+    endif()
+endforeach()
+foreach(_vr_source IN LISTS OUTRUN_VR_FINAL_TUS)
+    get_source_file_property(_vr_header_only "${_vr_source}" HEADER_FILE_ONLY)
+    if(_vr_header_only)
+        message(FATAL_ERROR "VR final wrapper TU must compile normally: ${_vr_source}")
+    endif()
+endforeach()
+unset(_vr_source)
+unset(_vr_header_only)
+
+# R15/R34 are post-review correctness overlays. They include the complete R14
+# and R33 chains respectively, so the former final wrappers become include-only.
+set(OUTRUN_VR_POST_REVIEW_FINAL_TUS
+    src/vr/d3d9/ex_device_upgrade_r15.cpp
+    src/vr/d3d9/stereo_renderer_r34.cpp)
+foreach(_vr_source IN LISTS OUTRUN_VR_POST_REVIEW_FINAL_TUS)
+    if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/${_vr_source}")
+        message(FATAL_ERROR "VR post-review final TU missing: ${_vr_source}")
+    endif()
+endforeach()
+set_source_files_properties(
+    src/vr/d3d9/ex_device_upgrade_r14.cpp
+    src/vr/d3d9/stereo_renderer_r33.cpp
+    PROPERTIES HEADER_FILE_ONLY TRUE)
+unset(_vr_source)
+
+# Production-safe stereo draw owner. The user-visible regression reproduced on
+# Quest while the monitor SBS remained individually plausible is tied to the
+# post-e20 R29+ fast L+R/HUD dispatch chain. Default back to the last proven
+# R26/R23/R22/R13/R9 draw + R23 renderer boundary. R29-R34 comparison builds
+# remain available only when this option is explicitly disabled.
+option(OUTRUN_VR_SAFE_DRAW_COMPARE "Use proven R26/R23 safe stereo draw production path" ON)
+set_source_files_properties(
+    src/vr/d3d9/stereo_renderer_r26_compare.cpp
+    src/vr/d3d9/stereo_renderer_r30_r26_safe.cpp
+    PROPERTIES HEADER_FILE_ONLY TRUE)
+option(OUTRUN_VR_R26_HUD_COMPARE "Build R26-safe world path with R30 HUD/XYZRHW/SkyGlow overlay" OFF)
+if(OUTRUN_VR_SAFE_DRAW_COMPARE)
+    set_source_files_properties(
+        src/vr/d3d9/stereo_renderer_r34.cpp
+        PROPERTIES HEADER_FILE_ONLY TRUE)
+    set_source_files_properties(
+        src/vr/d3d9/stereo_renderer_r26_compare.cpp
+        PROPERTIES HEADER_FILE_ONLY FALSE)
+    # Renderer R29 depends on R31 StateBlock exports. For this regression
+    # comparison, use the R23 renderer owner that paired with the known-good
+    # R26 stereo path instead of introducing fake R31 stubs.
+    set_source_files_properties(
+        src/vr/game/outrun_renderer_r29.cpp
+        PROPERTIES HEADER_FILE_ONLY TRUE)
+    set_source_files_properties(
+        src/vr/game/outrun_renderer_r23.cpp
+        PROPERTIES HEADER_FILE_ONLY FALSE)
+    add_compile_definitions(OUTRUN_VR_SAFE_DRAW_COMPARE=1)
+    message(STATUS "OutRun VR safe-draw comparison: R26 final stereo chain enabled")
+endif()
+
+# C1/C2 regression-isolation builds. These keep current R15/transport/texture
+# work and renderer R29 installation, but compile a shorter stereo owner chain.
+# C1 = R29 fast L+R + restored R23/R27/R28 perspective-world classification.
+# C2 = C1 + R30 asymmetric-FOV HUD correction. R31-R34 stay excluded in both.
+option(OUTRUN_VR_C1_COMPARE "Build C1: R29 fast L+R with R27/R28 classification" OFF)
+option(OUTRUN_VR_C2_COMPARE "Build C2: C1 plus R30 HUD correction" OFF)
+set_source_files_properties(
+    src/vr/d3d9/stereo_renderer_r29_c1_compare.cpp
+    src/vr/d3d9/stereo_renderer_r30_c2_compare.cpp
+    PROPERTIES HEADER_FILE_ONLY TRUE)
+
+set(OUTRUN_VR_COMPARE_COUNT 0)
+foreach(_vr_option
+    OUTRUN_VR_SAFE_DRAW_COMPARE
+    OUTRUN_VR_R26_HUD_COMPARE
+    OUTRUN_VR_C1_COMPARE
+    OUTRUN_VR_C2_COMPARE)
+    if(${_vr_option})
+        math(EXPR OUTRUN_VR_COMPARE_COUNT
+            "${OUTRUN_VR_COMPARE_COUNT} + 1")
+    endif()
+endforeach()
+if(OUTRUN_VR_COMPARE_COUNT GREATER 1)
+    message(FATAL_ERROR "Choose only one VR comparison build option")
+endif()
+unset(_vr_option)
+
+if(OUTRUN_VR_R26_HUD_COMPARE)
+    set_source_files_properties(
+        src/vr/d3d9/stereo_renderer_r34.cpp
+        src/vr/d3d9/stereo_renderer_r26_compare.cpp
+        PROPERTIES HEADER_FILE_ONLY TRUE)
+    set_source_files_properties(
+        src/vr/d3d9/stereo_renderer_r30_r26_safe.cpp
+        PROPERTIES HEADER_FILE_ONLY FALSE)
+    set_source_files_properties(
+        src/vr/game/outrun_renderer_r29.cpp
+        PROPERTIES HEADER_FILE_ONLY TRUE)
+    set_source_files_properties(
+        src/vr/game/outrun_renderer_r23.cpp
+        PROPERTIES HEADER_FILE_ONLY FALSE)
+    add_compile_definitions(OUTRUN_VR_R26_HUD_COMPARE=1)
+    message(STATUS "OutRun VR R26+HUD comparison: safe R26 world + R30 HUD/SkyGlow")
+endif()
+
+if(OUTRUN_VR_C1_COMPARE OR OUTRUN_VR_C2_COMPARE)
+    set_source_files_properties(
+        src/vr/d3d9/stereo_renderer_r34.cpp
+        PROPERTIES HEADER_FILE_ONLY TRUE)
+    add_compile_definitions(OUTRUN_VR_R29_R28_CLASSIFICATION_COMPARE=1)
+endif()
+
+if(OUTRUN_VR_C1_COMPARE)
+    set_source_files_properties(
+        src/vr/d3d9/stereo_renderer_r29_c1_compare.cpp
+        PROPERTIES HEADER_FILE_ONLY FALSE)
+    add_compile_definitions(OUTRUN_VR_C1_COMPARE=1)
+    message(STATUS "OutRun VR C1 comparison: R29 fast L+R + R27/R28 classification")
+elseif(OUTRUN_VR_C2_COMPARE)
+    set_source_files_properties(
+        src/vr/d3d9/stereo_renderer_r30_c2_compare.cpp
+        PROPERTIES HEADER_FILE_ONLY FALSE)
+    add_compile_definitions(OUTRUN_VR_C2_COMPARE=1)
+    message(STATUS "OutRun VR C2 comparison: C1 + R30 HUD correction")
+endif()
+
+# Re-evaluate ownership after every comparison option has mutated
+# HEADER_FILE_ONLY. The configured graph must compile exactly one stereo owner
+# and exactly one renderer owner.
+set(_vr_stereo_owner_candidates
+    src/vr/d3d9/stereo_renderer_r34.cpp
+    src/vr/d3d9/stereo_renderer_r26_compare.cpp
+    src/vr/d3d9/stereo_renderer_r30_r26_safe.cpp
+    src/vr/d3d9/stereo_renderer_r29_c1_compare.cpp
+    src/vr/d3d9/stereo_renderer_r30_c2_compare.cpp)
+set(_vr_renderer_owner_candidates
+    src/vr/game/outrun_renderer_r29.cpp
+    src/vr/game/outrun_renderer_r23.cpp)
+set(_vr_stereo_owner_count 0)
+set(_vr_renderer_owner_count 0)
+foreach(_vr_source IN LISTS _vr_stereo_owner_candidates)
+    get_source_file_property(_vr_header_only "${_vr_source}" HEADER_FILE_ONLY)
+    if(NOT _vr_header_only)
+        math(EXPR _vr_stereo_owner_count
+            "${_vr_stereo_owner_count} + 1")
+    endif()
+endforeach()
+foreach(_vr_source IN LISTS _vr_renderer_owner_candidates)
+    get_source_file_property(_vr_header_only "${_vr_source}" HEADER_FILE_ONLY)
+    if(NOT _vr_header_only)
+        math(EXPR _vr_renderer_owner_count
+            "${_vr_renderer_owner_count} + 1")
+    endif()
+endforeach()
+if(NOT _vr_stereo_owner_count EQUAL 1)
+    message(FATAL_ERROR
+        "VR final graph must have exactly one stereo owner; got ${_vr_stereo_owner_count}")
+endif()
+if(NOT _vr_renderer_owner_count EQUAL 1)
+    message(FATAL_ERROR
+        "VR final graph must have exactly one renderer owner; got ${_vr_renderer_owner_count}")
+endif()
+unset(_vr_source)
+unset(_vr_header_only)
+
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /MP")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MP")
 
@@ -170,6 +371,18 @@ target_include_directories(spdlog PUBLIC
 	"external/spdlog/include"
 )
 
+# Build identity used by VR cross-process diagnostics.
+execute_process(
+	COMMAND git rev-parse --short=12 HEAD
+	WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+	OUTPUT_VARIABLE OUTRUN_VR_GIT_SHA
+	OUTPUT_STRIP_TRAILING_WHITESPACE
+	ERROR_QUIET
+)
+if(NOT OUTRUN_VR_GIT_SHA)
+	set(OUTRUN_VR_GIT_SHA "unknown")
+endif()
+
 # Target: outrun2006tweaks
 set(outrun2006tweaks_SOURCES
 	OutRun2006Tweaks.ini
@@ -304,6 +517,16 @@ set(outrun2006tweaks_SOURCES
 	"src/hooks_misc.cpp"
 	"src/hooks_textures.cpp"
 	"src/hooks_uiscaling.cpp"
+	"src/hooks_wheel_ffb.cpp"
+	"src/hooks_wheel_ffb_build.cpp"
+	"src/hooks_wheel_input_compat_v2.hpp"
+	"src/hooks_wheel_legacy_blank_defaults.hpp"
+	"src/hooks_wheel_menu_keyboard_back.hpp"
+	"src/hooks_wheel_menu_keyboard_select.hpp"
+	"src/hooks_wheel_r3_device_autoselect.hpp"
+	"src/hooks_wheel_r3_menu_ab.hpp"
+	"src/hooks_wheel_r3_menu_dpad.hpp"
+	"src/hooks_wheel_vehicle_dynamics.hpp"
 	"src/input_manager.cpp"
 	"src/input_manager.hpp"
 	"src/input_names.hpp"
@@ -324,12 +547,62 @@ set(outrun2006tweaks_SOURCES
 	"src/overlay/server_notifications.cpp"
 	"src/overlay/settings_ui.cpp"
 	"src/overlay/update_check.cpp"
+	"src/overlay/wheel_setup_ui.cpp"
 	"src/plugin.hpp"
 	"src/resource.h"
 	"src/settings.cpp"
 	"src/settings.hpp"
 	"src/upnp.cpp"
 	"src/upnp.hpp"
+	"src/vr/core/frame_types.hpp"
+	"src/vr/core/matrix.hpp"
+	"src/vr/core/transport.hpp"
+	"src/vr/d3d9/device_probe.cpp"
+	"src/vr/d3d9/ex_device_upgrade.cpp"
+	"src/vr/d3d9/ex_device_upgrade_r13.cpp"
+	"src/vr/d3d9/ex_device_upgrade_r14.cpp"
+	"src/vr/d3d9/ex_device_upgrade_r15.cpp"
+	"src/vr/d3d9/helper_ex_probe.cpp"
+	"src/vr/d3d9/r13_bridge.hpp"
+	"src/vr/d3d9/r32_policy.hpp"
+	"src/vr/d3d9/shader_fingerprint_gpl.hpp"
+	"src/vr/d3d9/stereo_backend.hpp"
+	"src/vr/d3d9/stereo_renderer.cpp"
+	"src/vr/d3d9/stereo_renderer_r13.cpp"
+	"src/vr/d3d9/stereo_renderer_r20.cpp"
+	"src/vr/d3d9/stereo_renderer_r21.cpp"
+	"src/vr/d3d9/stereo_renderer_r22.cpp"
+	"src/vr/d3d9/stereo_renderer_r23.cpp"
+	"src/vr/d3d9/stereo_renderer_r26.cpp"
+	"src/vr/d3d9/stereo_renderer_r26_compare.cpp"
+	"src/vr/d3d9/stereo_renderer_r29.cpp"
+	"src/vr/d3d9/stereo_renderer_r30.cpp"
+	"src/vr/d3d9/stereo_renderer_r31.cpp"
+	"src/vr/d3d9/stereo_renderer_r32.cpp"
+	"src/vr/d3d9/stereo_renderer_r33.cpp"
+	"src/vr/d3d9/stereo_renderer_r34.cpp"
+	"src/vr/d3d9/stereo_renderer_r7.inc"
+	"src/vr/d3d9/vr_pass_policy.hpp"
+	"src/vr/game/game_adapter.hpp"
+	"src/vr/game/outrun_renderer.cpp"
+	"src/vr/game/outrun_renderer_r13.cpp"
+	"src/vr/game/outrun_renderer_r23.cpp"
+	"src/vr/game/outrun_renderer_r29.cpp"
+	"src/vr/ipc/direct_ack_r13.hpp"
+	"src/vr/ipc/host_pose_v3.hpp"
+	"src/vr/ipc/host_state_v3_reader.hpp"
+	"src/vr/ipc/protocol.hpp"
+	"src/vr/ipc/protocol_v3.hpp"
+	"src/vr/ipc/protocol_v3_smoke.cpp"
+	"src/vr/ipc/shadow_legacy_v2.hpp"
+	"src/vr/ipc/shadow_lifetime_bridge.hpp"
+	"src/vr/ipc/v3_game_shadow_bridge.cpp"
+	"src/vr/ipc/win32_channel.hpp"
+	"src/vr/settings.cpp"
+	"src/vr_shared.hpp"
+	"src/wheel_ffb_math.hpp"
+	"src/wheel_ffb_runtime.hpp"
+	"src/wheel_profile_store.hpp"
 )
 
 add_library(outrun2006tweaks SHARED)
@@ -341,6 +614,7 @@ target_compile_definitions(outrun2006tweaks PUBLIC
 	_SILENCE_STDEXT_ARR_ITERS_DEPRECATION_WARNING
 	_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR
 	DIRECTINPUT_VERSION=0x0800
+	OUTRUN_VR_BUILD_SHA="${OUTRUN_VR_GIT_SHA}"
 )
 
 target_compile_features(outrun2006tweaks PUBLIC
@@ -348,7 +622,7 @@ target_compile_features(outrun2006tweaks PUBLIC
 )
 
 target_compile_options(outrun2006tweaks PUBLIC
-	"/GS-"
+	"/GS"
 	"/bigobj"
 	"/EHa"
 	"/MP"
@@ -381,6 +655,7 @@ target_link_libraries(outrun2006tweaks PUBLIC
 	Winmm.lib
 	Setupapi.lib
 	Crypt32.lib
+	d3dcompiler.lib
 )
 
 target_link_options(outrun2006tweaks PUBLIC

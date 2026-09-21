@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "producer": "FIX",
+  "generation": 0,
+  "queueItemId": null,
+  "inputCommit": null,
+  "outputCommit": null,
+  "status": "IDLE",
+  "attempt": 0,
+  "changedPaths": [],
+  "hypothesis": null,
+  "expectedEffect": null,
+  "validationRequest": null,
+  "completedKst": null
+}

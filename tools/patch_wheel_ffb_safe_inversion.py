@@ -1,0 +1,15 @@
+from pathlib import Path
+p=Path('src/hooks_wheel_ffb.cpp'); s=p.read_text()
+
+def r(a,b,n):
+    global s
+    c=s.count(a)
+    if c!=1: raise SystemExit(f'{n}: {c}')
+    s=s.replace(a,b,1); print('patched',n)
+
+r('''    Setting<bool> WheelFFBInvertForce{\n        "WheelFFB", "InvertForce", false,\n        "Reverse steering force direction."\n    };\n''','''    Setting<bool> WheelFFBInvertForce{\n        "WheelFFB", "InvertForce", false,\n        "Reverse directional cornering/impact force. Centering spring and damping always remain stabilizing."\n    };\n''','description')
+r('''            // R3 testing showed the old negative GUID_Spring coefficient pushes\n            // the wheel farther in the direction of steering instead of back to\n            // center. Keep hardware-spring direction consistent with the global\n            // InvertForce option: normal (false) uses the R3 centering sign, and\n            // inverted (true) reverses it together with ConstantForce.\n            const LONG coefficient = Settings::WheelFFBInvertForce\n                ? -coefficientMagnitude\n                : coefficientMagnitude;\n''','''            // R3 hardware testing established that this driver's positive\n            // condition coefficient is the restoring sign. Never let the global\n            // directional-force inversion turn a centering spring into an\n            // unstable run-away force.\n            const LONG coefficient = coefficientMagnitude;\n''','hardware spring sign')
+r('''            const float softwareSpring =\n                springEffect_\n                    ? 0.0f\n                    : -steer * static_cast<float>(Settings::WheelFFBSpringStrength) * speedCurve;\n''','''            const float softwareSpring =\n                springEffect_ ? 0.0f : -steer * springStrength;\n''','software spring parity')
+r('''            float structural = 0.0f;\n            if (crashImpulseTimer_ <= CrashCooldownFrames)\n                structural = (softwareSpring + lateral) * loadMod + damper;\n\n            float events = update_event_force();\n\n            float total = structural + events;\n            if (Settings::WheelFFBInvertForce)\n                total = -total;\n''','''            // Centering and damping are stabilizing terms and must never be\n            // inverted. InvertForce is intentionally restricted to directional\n            // physics (cornering and event kick) so toggling it cannot make a\n            // wheel accelerate away from center.\n            float stabilizing = 0.0f;\n            float directional = update_event_force();\n            if (crashImpulseTimer_ <= CrashCooldownFrames)\n            {\n                stabilizing = softwareSpring * loadMod + damper;\n                directional += lateral * loadMod;\n            }\n            if (Settings::WheelFFBInvertForce)\n                directional = -directional;\n\n            float total = stabilizing + directional;\n''','safe inversion split')
+p.write_text(s)
+print('Applied safe directional inversion; centering/damping remain stabilizing')

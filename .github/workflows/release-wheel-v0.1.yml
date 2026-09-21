@@ -1,0 +1,112 @@
+name: Release wheel v0.1
+
+on:
+  push:
+    branches:
+      - wheel-ffb
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  release:
+    if: "${{ github.event.head_commit.message == 'release: v0.1 MOZA R3 wheel FFB' }}"
+    runs-on: windows-2022
+
+    steps:
+      - name: Checkout release commit
+        uses: actions/checkout@v7.0.1
+
+      - name: Wait for successful Win32 build
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $runId = $null
+          for ($i = 0; $i -lt 90; $i++) {
+            $runs = gh run list --repo $env:GITHUB_REPOSITORY --workflow build.yml --commit $env:GITHUB_SHA --limit 10 --json databaseId,status,conclusion | ConvertFrom-Json
+            $candidate = $runs | Where-Object { $_.status -eq 'completed' } | Select-Object -First 1
+            if ($candidate) {
+              if ($candidate.conclusion -ne 'success') {
+                throw "Wheel build completed with conclusion '$($candidate.conclusion)'"
+              }
+              $runId = $candidate.databaseId
+              break
+            }
+            Start-Sleep -Seconds 10
+          }
+          if (-not $runId) {
+            throw 'Timed out waiting for the wheel build artifact.'
+          }
+          "BUILD_RUN_ID=$runId" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Download tested build artifact
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          New-Item -ItemType Directory -Force -Path artifact-bin | Out-Null
+          gh run download $env:BUILD_RUN_ID --repo $env:GITHUB_REPOSITORY -n "outrun2006tweaks-$env:GITHUB_SHA" -D artifact-bin
+          foreach ($required in @('dinput8.dll','OutRun2006Tweaks.ini','OutRun2006Tweaks.lods.ini','OR2006C2C.exe','LICENSES.txt')) {
+            if (-not (Test-Path (Join-Path 'artifact-bin' $required))) { throw "$required missing from downloaded build artifact" }
+          }
+
+      - name: Package minimal v0.1 release
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path release-bin | Out-Null
+          foreach ($file in @('dinput8.dll','OutRun2006Tweaks.ini','OutRun2006Tweaks.lods.ini','OR2006C2C.exe','LICENSES.txt')) {
+            Copy-Item (Join-Path 'artifact-bin' $file) (Join-Path 'release-bin' $file)
+          }
+          Copy-Item README.md release-bin/README.md
+
+          $unexpected = Get-ChildItem release-bin -File | Where-Object {
+            $_.Name -notin @('dinput8.dll','OutRun2006Tweaks.ini','OutRun2006Tweaks.lods.ini','OR2006C2C.exe','README.md','LICENSES.txt')
+          }
+          if ($unexpected) { throw ("Unexpected release files: " + (($unexpected.Name) -join ', ')) }
+
+          New-Item -ItemType Directory -Force -Path release | Out-Null
+          Compress-Archive -Path release-bin/* -DestinationPath release/OutRun2006Tweaks-Wheel-FFB-v0.1.zip -Force
+          Get-FileHash release-bin/dinput8.dll -Algorithm SHA256
+          Get-FileHash release-bin/OR2006C2C.exe -Algorithm SHA256
+          Get-FileHash release/OutRun2006Tweaks-Wheel-FFB-v0.1.zip -Algorithm SHA256
+
+      - name: Publish GitHub release v0.1
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create v0.1 release/OutRun2006Tweaks-Wheel-FFB-v0.1.zip `
+            --repo $env:GITHUB_REPOSITORY `
+            --target $env:GITHUB_SHA `
+            --title 'OutRun2006Tweaks Wheel FFB v0.1' `
+            --notes-file RELEASE_NOTES_v0.1.md
+
+  sync-release-notes:
+    if: "${{ github.event.head_commit.message == 'docs: add Korean documentation and release notices' || github.event.head_commit.message == 'release: publish v0.1 as stable' }}"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout documentation commit
+        uses: actions/checkout@v7.0.1
+
+      - name: Sync bilingual notes and publish stable GitHub release v0.1
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release edit v0.1 \
+            --repo "$GITHUB_REPOSITORY" \
+            --title 'OutRun2006Tweaks Wheel FFB v0.1' \
+            --notes-file RELEASE_NOTES_v0.1.md \
+            --prerelease=false \
+            --latest
+
+  remove-release:
+    if: "${{ github.event.head_commit.message == 'chore: remove v0.1 release' }}"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete v0.1 release and tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete v0.1 --repo "$GITHUB_REPOSITORY" --cleanup-tag --yes

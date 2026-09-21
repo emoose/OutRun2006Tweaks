@@ -1,0 +1,751 @@
+name: OpenXR VR architecture
+
+on:
+  push:
+    branches: [ vr-openxr ]
+    paths:
+      - 'src/vr/**'
+      - 'src/vr_shared.hpp'
+      - 'src/hooks_framerate.cpp'
+      - 'src/hooks_wheel_ffb*.cpp'
+      - 'src/wheel_profile_store.hpp'
+      - 'src/overlay/wheel_setup_ui.cpp'
+      - 'cmake.toml'
+      - 'CMakeLists.txt'
+      - 'cmkr.cmake'
+      - 'vrhost/**'
+      - 'tools/verify_vr_architecture.py'
+      - 'tools/verify_vr_r32_review.py'
+      - 'docs/VR_ARCHITECTURE.md'
+      - '.github/workflows/vr-openxr.yml'
+  pull_request:
+    paths:
+      - 'src/vr/**'
+      - 'src/vr_shared.hpp'
+      - 'src/hooks_framerate.cpp'
+      - 'src/hooks_wheel_ffb*.cpp'
+      - 'src/wheel_profile_store.hpp'
+      - 'src/overlay/wheel_setup_ui.cpp'
+      - 'cmake.toml'
+      - 'CMakeLists.txt'
+      - 'cmkr.cmake'
+      - 'vrhost/**'
+      - 'tools/verify_vr_architecture.py'
+      - 'tools/verify_vr_r32_review.py'
+      - 'docs/VR_ARCHITECTURE.md'
+      - '.github/workflows/vr-openxr.yml'
+
+jobs:
+  game-x86:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Verify reconstructed VR architecture boundaries
+        run: |
+          python tools/verify_vr_architecture.py
+          python tools/verify_vr_r32_review.py
+
+      - name: Verify R23-R34 review hardening guards
+        shell: pwsh
+        run: |
+          $checks = @{
+            'src/vr/runtime_eligibility.hpp' = @(
+              'enum class InstallState',
+              'InstallState::Failed',
+              'SafetyOverlayReady',
+              'BaselineVerified'
+            )
+            'src/vr/d3d9/stereo_renderer_r20.cpp' = @(
+              'R20InstallState',
+              'StartDisabled',
+              'InstallState::Failed'
+            )
+            'src/vr/d3d9/stereo_renderer_r21.cpp' = @(
+              'R21InstallState',
+              'IsFailed(R20InstallState)',
+              'StartDisabled'
+            )
+            'src/vr/d3d9/stereo_renderer_r22.cpp' = @(
+              'R22InstallState',
+              'R22ShadowState',
+              'R22SetScissorRectHook',
+              'R22SetRenderStateHook',
+              'StartDisabled',
+              'per-draw GetViewport/GetScissorRect/GetRenderState eliminated'
+            )
+            'src/vr/d3d9/stereo_renderer_r23.cpp' = @(
+              'R23InstallState',
+              'IsFailed(R22InstallState)',
+              'R23CaptureActualGameState',
+              'R23GameDrawSerial',
+              'passive original Clear only',
+              'authoritative first seed'
+            )
+            'src/vr/d3d9/stereo_renderer_r31.cpp' = @(
+              'R31StateBlockTrackingReliable',
+              'GetR28VerifiedProjection',
+              'R31 fast left-eye c64 rollback'
+            )
+            'src/vr/d3d9/stereo_renderer_r32.cpp' = @(
+              'R32ResetR22Hook',
+              'ResetDestR22',
+              'R32ResetAfterGameReset',
+              'R32SetWvpBatch',
+              'R32WaitProducerFence',
+              'R32DrainPendingProducerFence',
+              'R32ProducerFencePending',
+              'draw is forced to stock-WVP zero disparity',
+              'VR R32 REVIEW2'
+            )
+            'src/vr/d3d9/stereo_renderer_r33.cpp' = @(
+              'R31OwnedResult R33TryFastWorld',
+              'R31OwnedResult R33TryHud',
+              'R32LowerFailClosed',
+              'R30DrawPrimitiveR29Hook',
+              'R33ResetR32Hook.stdcall<HRESULT>',
+              'top-level telemetry counted once'
+            )
+            'src/vr/d3d9/ex_device_upgrade_r14.cpp' = @(
+              'std::unordered_map<IDirect3DTexture9*, R14EntryPtr>',
+              'R14CopyWholeLevelByLock',
+              'exact mip CPU-shadow upload failed'
+            )
+            'src/vr/d3d9/ex_device_upgrade_r15.cpp' = @(
+              'R15ClassicAllState',
+              'D3DSBT_ALL',
+              'R15RestoreClassicAllState',
+              'Ex promotion rolled back transactionally'
+            )
+            'src/vr/d3d9/stereo_renderer_r34.cpp' = @(
+              'R34ResetReplayBlocked',
+              'LastResetStateReplaySucceeded',
+              'stereo remains fail-closed'
+            )
+            'src/vr/d3d9/vr_pass_policy.hpp' = @(
+              'EffectStereoPolicy',
+              'ZeroDisparity',
+              'ClassifyEffectStereo'
+            )
+            'src/vr/game/outrun_renderer_r13.cpp' = @(
+              'R13FragileEffectNeedsZeroDisparity',
+              'shadow/billboard/panel pass kept stock',
+              'InvalidateVerifiedWvp'
+            )
+            'src/vr/game/outrun_renderer_r29.cpp' = @(
+              'R29BuildCoherentUploadEnvelope',
+              'R29InvalidateRendererStateAfterExternalRestore'
+            )
+            'src/vr/game/outrun_renderer_r23.cpp' = @(
+              'R23RenderThreadCleanupRequested',
+              'R23ServiceRenderThreadCleanup',
+              'R23KeepWarmupPoseStockOnRenderThread',
+              'recovery pose warmup is stock-visible'
+            )
+            'src/vr/ipc/v3_game_shadow_bridge.cpp' = @(
+              'ShadowIdlePollMs = 8',
+              'lastClientPublishedFrameId',
+              'clientChanged',
+              'ShadowRetryMs'
+            )
+            'vrhost/src/ipc/v3_shadow_bridge.cpp' = @(
+              'ShadowIdlePollMs = 8',
+              'ShadowWriterRetryMs',
+              'ackWriter.reset()'
+            )
+            'vrhost/src/ipc/host_state_v3_writer.hpp' = @(
+              'Reset(false)',
+              'constructor that throws never runs this object',
+              'ProcessLiveness::Unknown'
+            )
+            'vrhost/src/runtime/r23_runtime_hardening.hpp' = @(
+              'ExpectedDirectDxgiFormat',
+              'DirectSafeEyeMatchesCommittedFrame',
+              'SafeTransportGeneration'
+            )
+            'vrhost/src/runtime/d3d9ex_direct_passthrough_r32.hpp' = @(
+              'R32SharedSlotCache',
+              'R32InactiveEye',
+              'queued copy cannot mutate SafeFrameId image identity'
+            )
+            'vrhost/src/runtime/r32_direct_submit.hpp' = @(
+              'ArmConsumptionFence',
+              'D3D11_ASYNC_GETDATA_DONOTFLUSH',
+              'flushIssued',
+              'deferred until actual direct-ring slot pressure',
+              'R32 direct PERF 5s',
+              'verified incoming DirectGPU projection submitted once',
+              'presentation-authoritative while its exact producer slot stays protected'
+            )
+            'vrhost/src/runtime/sbs_capture_override.hpp' = @(
+              'Preserve acquiredImage',
+              'bool acquired = false',
+              'Release(Projection);',
+              'Release(Theater);'
+            )
+            'vrhost/src/main_r23.cpp' = @(
+              'R23RefreshTheaterFallbackCapture',
+              'allowInitialWarmupWait',
+              'theater-only fallback'
+            )
+            'vrhost/src/runtime/d3d9ex_direct_passthrough.hpp' = @(
+              'SafeTransportGeneration',
+              'SafeTransportGeneration == generation',
+              'host-owned GPU eye copies + completion ACK active'
+            )
+            'src/vr/ipc/shadow_lifetime_bridge.hpp' = @(
+              'ShadowBridgeStopCallbackSlot',
+              'RequestRegisteredShadowBridgeStop'
+            )
+            'src/dllmain.cpp' = @(
+              'OutRunVR::IpcV3::RequestRegisteredShadowBridgeStop();'
+            )
+          }
+          foreach ($path in $checks.Keys) {
+            $text = Get-Content $path -Raw
+            foreach ($marker in $checks[$path]) {
+              if (-not $text.Contains($marker)) {
+                throw "VR hardening guard missing: $path :: $marker"
+              }
+            }
+          }
+
+      - name: Configure Win32 VR build
+        shell: cmd
+        run: |
+          set CI=
+          cmake -S . -B build-vr-game -G "Visual Studio 17 2022" -A Win32
+
+      - name: Verify regenerated R26 safe production source graph
+        shell: pwsh
+        run: |
+          $projects = Get-ChildItem build-vr-game -Filter *.vcxproj -Recurse
+          if (-not $projects) { throw 'no Visual Studio project files were generated' }
+          $projectText = ($projects | ForEach-Object { Get-Content $_.FullName -Raw }) -join "`n"
+
+          foreach ($required in @(
+            'ex_device_upgrade_r15.cpp',
+            'stereo_renderer_r26_compare.cpp',
+            'outrun_renderer_r23.cpp'
+          )) {
+            if (-not $projectText.Contains($required)) {
+              throw "authoritative safe VR translation unit missing from generated build graph: $required"
+            }
+          }
+
+          foreach ($excluded in @(
+            'stereo_renderer_r29.cpp',
+            'stereo_renderer_r30.cpp',
+            'stereo_renderer_r31.cpp',
+            'stereo_renderer_r32.cpp',
+            'stereo_renderer_r33.cpp',
+            'stereo_renderer_r34.cpp',
+            'outrun_renderer_r29.cpp'
+          )) {
+            $escaped = [regex]::Escape($excluded)
+            $pattern = '<ClCompile Include="[^"]*[\\/]' + $escaped + '"'
+            if ($projectText -match $pattern) {
+              throw "post-e20 fast/HUD implementation compiled into safe production build: $excluded"
+            }
+          }
+
+      - name: Apply dependency workarounds
+        shell: pwsh
+        run: |
+          (Get-Content build-vr-game/_deps/safetyhook-build/src/safetyhook.vcxproj) -replace 'ZYCORE_STATIC_BUILD', '_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR;ZYCORE_STATIC_BUILD' | Set-Content build-vr-game/_deps/safetyhook-build/src/safetyhook.vcxproj
+          (Get-Content build-vr-game/_deps/zydis-build/Zydis.vcxproj) -replace 'ZYCORE_STATIC_BUILD', '_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR;ZYCORE_STATIC_BUILD' | Set-Content build-vr-game/_deps/zydis-build/Zydis.vcxproj
+          (Get-Content build-vr-game/_deps/zydis-build/zycore/Zycore.vcxproj) -replace 'ZYCORE_STATIC_BUILD', '_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR;ZYCORE_STATIC_BUILD' | Set-Content build-vr-game/_deps/zydis-build/zycore/Zycore.vcxproj
+          Set-Content -Path build-vr-game/_deps/sdl-src/src/joystick/gdk/SDL_gameinputjoystick.c -Value ""
+          (Get-Content build-vr-game/_deps/sdl-build/include-config-release/build_config/SDL_build_config.h) -replace '#define SDL_JOYSTICK_GAMEINPUT 1', '/* #undef SDL_JOYSTICK_GAMEINPUT */' | Set-Content build-vr-game/_deps/sdl-build/include-config-release/build_config/SDL_build_config.h
+
+      - name: Build Win32 VR DLL and v3 contract
+        run: cmake --build build-vr-game --config Release
+
+      - name: Verify Win32 R26-safe/R15 binary markers
+        shell: pwsh
+        run: |
+          $dllPath = 'build-vr-game/bin/dinput8.dll'
+          if (-not (Test-Path $dllPath)) { throw 'dinput8.dll was not produced' }
+          $bytes = [System.IO.File]::ReadAllBytes($dllPath)
+          $ascii = [Text.Encoding]::ASCII.GetString($bytes)
+          foreach ($marker in @(
+            'VR stereo: D3D9 full-eye renderer installed',
+            'VR R13: stereo hardening ACTIVE',
+            'VR R22 GAME: shadow-tracked viewport/scissor replay',
+            'VR R23 GAME: single-owner live-state recovery baseline ACTIVE',
+            'VR R23/R25 BASELINE: authoritative first seed',
+            'VR R23 RENDERER: BeginScene/WVP guards READY; recovery pose warmup is stock-visible',
+            'VR SAFE-DRAW COMPARE: R26/R23/R22/R13/R9 stereo draw chain ACTIVE',
+            'VR R15 EX: full D3DSBT_ALL baseline + synchronous Reset/stereo handoff ACTIVE',
+            'VR v3 shadow: live dual-protocol diagnostics active'
+          )) {
+            if (-not $ascii.Contains($marker)) { throw "VR safe DLL marker missing: $marker" }
+          }
+          foreach ($forbidden in @(
+            'VR R29 PERF: stable main-backbuffer draws now execute LEFT+RIGHT only',
+            'VR R30 HUD: ScreenSpace2D correction READY with configurable common-center HUD scale current=',
+            'VR R33 DISPATCH: R33TryFastWorld/R33TryHud + direct R29 fallback READY',
+            'VR R34 RESET GUARD: R15 classic-state replay health now gates post-Reset stereo eligibility'
+          )) {
+            if ($ascii.Contains($forbidden)) { throw "regressed fast/HUD marker present: $forbidden" }
+          }
+          $peOffset = [BitConverter]::ToInt32($bytes, 0x3C)
+          if ([BitConverter]::ToUInt16($bytes, $peOffset + 4) -ne 0x014C) { throw 'expected x86 DLL' }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: outrun2006-vr-x86
+          path: build-vr-game/bin/dinput8.dll
+          if-no-files-found: error
+
+
+  game-x86-safe-draw-compare:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Configure Win32 R26 safe-draw comparison build
+        shell: cmd
+        run: |
+          set CI=
+          cmake -S . -B build-vr-safe-draw -G "Visual Studio 17 2022" -A Win32 -DOUTRUN_VR_SAFE_DRAW_COMPARE=ON
+
+      - name: Verify R26 comparison source graph
+        shell: pwsh
+        run: |
+          $projects = Get-ChildItem build-vr-safe-draw -Filter *.vcxproj -Recurse
+          if (-not $projects) { throw 'no Visual Studio project files were generated' }
+          $projectText = ($projects | ForEach-Object { Get-Content $_.FullName -Raw }) -join "`n"
+
+          if (-not $projectText.Contains('stereo_renderer_r26_compare.cpp')) {
+            throw 'safe-draw comparison TU is missing from generated build graph'
+          }
+          if (-not $projectText.Contains('outrun_renderer_r23.cpp')) {
+            throw 'R23 renderer TU is missing from safe-draw comparison build'
+          }
+          foreach ($includedOnly in @(
+            'stereo_renderer_r26.cpp',
+            'stereo_renderer_r29.cpp',
+            'stereo_renderer_r30.cpp',
+            'stereo_renderer_r31.cpp',
+            'stereo_renderer_r32.cpp',
+            'stereo_renderer_r33.cpp',
+            'stereo_renderer_r34.cpp',
+            'outrun_renderer_r29.cpp'
+          )) {
+            $escaped = [regex]::Escape($includedOnly)
+            $pattern = '<ClCompile Include="[^"]*[\\/]' + $escaped + '"'
+            if ($projectText -match $pattern) {
+              throw "comparison build unexpectedly compiles excluded stereo TU: $includedOnly"
+            }
+          }
+
+      - name: Apply dependency workarounds
+        shell: pwsh
+        run: |
+          (Get-Content build-vr-safe-draw/_deps/safetyhook-build/src/safetyhook.vcxproj) -replace 'ZYCORE_STATIC_BUILD', '_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR;ZYCORE_STATIC_BUILD' | Set-Content build-vr-safe-draw/_deps/safetyhook-build/src/safetyhook.vcxproj
+          (Get-Content build-vr-safe-draw/_deps/zydis-build/Zydis.vcxproj) -replace 'ZYCORE_STATIC_BUILD', '_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR;ZYCORE_STATIC_BUILD' | Set-Content build-vr-safe-draw/_deps/zydis-build/Zydis.vcxproj
+          (Get-Content build-vr-safe-draw/_deps/zydis-build/zycore/Zycore.vcxproj) -replace 'ZYCORE_STATIC_BUILD', '_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR;ZYCORE_STATIC_BUILD' | Set-Content build-vr-safe-draw/_deps/zydis-build/zycore/Zycore.vcxproj
+          Set-Content -Path build-vr-safe-draw/_deps/sdl-src/src/joystick/gdk/SDL_gameinputjoystick.c -Value ""
+          (Get-Content build-vr-safe-draw/_deps/sdl-build/include-config-release/build_config/SDL_build_config.h) -replace '#define SDL_JOYSTICK_GAMEINPUT 1', '/* #undef SDL_JOYSTICK_GAMEINPUT */' | Set-Content build-vr-safe-draw/_deps/sdl-build/include-config-release/build_config/SDL_build_config.h
+
+      - name: Build Win32 R26 safe-draw comparison DLL
+        run: cmake --build build-vr-safe-draw --config Release
+
+      - name: Verify safe-draw comparison binary marker
+        shell: pwsh
+        run: |
+          $dllPath = 'build-vr-safe-draw/bin/dinput8.dll'
+          if (-not (Test-Path $dllPath)) { throw 'safe-draw dinput8.dll was not produced' }
+          $bytes = [System.IO.File]::ReadAllBytes($dllPath)
+          $ascii = [Text.Encoding]::ASCII.GetString($bytes)
+          if (-not $ascii.Contains('VR SAFE-DRAW COMPARE: R26/R23/R22/R13/R9 stereo draw chain ACTIVE')) {
+            throw 'safe-draw comparison marker missing'
+          }
+          foreach ($forbidden in @(
+            'VR R29 PERF: stable main-backbuffer draws now execute LEFT+RIGHT only',
+            'VR R33 DISPATCH: R33TryFastWorld/R33TryHud + direct R29 fallback READY',
+            'VR R34 RESET GUARD: R15 classic-state replay health now gates post-Reset stereo eligibility'
+          )) {
+            if ($ascii.Contains($forbidden)) {
+              throw "excluded fast-path marker unexpectedly present: $forbidden"
+            }
+          }
+          $peOffset = [BitConverter]::ToInt32($bytes, 0x3C)
+          if ([BitConverter]::ToUInt16($bytes, $peOffset + 4) -ne 0x014C) { throw 'expected x86 DLL' }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: outrun2006-vr-x86-safe-draw-compare
+          path: build-vr-safe-draw/bin/dinput8.dll
+          if-no-files-found: error
+
+
+  game-x86-r26-hud-safe:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Configure Win32 R26 HUD/SkyGlow safe test
+        shell: cmd
+        run: |
+          set CI=
+          cmake -S . -B build-vr-r26-hud -G "Visual Studio 17 2022" -A Win32 -DOUTRUN_VR_SAFE_DRAW_COMPARE=OFF -DOUTRUN_VR_R26_HUD_COMPARE=ON
+
+      - name: Verify R26 HUD source graph
+        shell: pwsh
+        run: |
+          $projects = Get-ChildItem build-vr-r26-hud -Filter *.vcxproj -Recurse
+          if (-not $projects) { throw 'no Visual Studio project files were generated' }
+          $projectText = ($projects | ForEach-Object { Get-Content $_.FullName -Raw }) -join "`n"
+          foreach ($required in @(
+            'stereo_renderer_r30_r26_safe.cpp',
+            'outrun_renderer_r23.cpp',
+            'ex_device_upgrade_r15.cpp'
+          )) {
+            if (-not $projectText.Contains($required)) {
+              throw "R26 HUD required TU missing: $required"
+            }
+          }
+          foreach ($excluded in @(
+            'stereo_renderer_r26_compare.cpp',
+            'stereo_renderer_r29_c1_compare.cpp',
+            'stereo_renderer_r30_c2_compare.cpp',
+            'stereo_renderer_r34.cpp',
+            'outrun_renderer_r29.cpp'
+          )) {
+            $escaped = [regex]::Escape($excluded)
+            $pattern = '<ClCompile Include="[^"]*[\\/]' + $escaped + '"'
+            if ($projectText -match $pattern) {
+              throw "R26 HUD unexpectedly compiles excluded TU: $excluded"
+            }
+          }
+
+      - name: Apply dependency workarounds
+        shell: pwsh
+        run: |
+          (Get-Content build-vr-r26-hud/_deps/safetyhook-build/src/safetyhook.vcxproj) -replace 'ZYCORE_STATIC_BUILD', '_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR;ZYCORE_STATIC_BUILD' | Set-Content build-vr-r26-hud/_deps/safetyhook-build/src/safetyhook.vcxproj
+          (Get-Content build-vr-r26-hud/_deps/zydis-build/Zydis.vcxproj) -replace 'ZYCORE_STATIC_BUILD', '_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR;ZYCORE_STATIC_BUILD' | Set-Content build-vr-r26-hud/_deps/zydis-build/Zydis.vcxproj
+          (Get-Content build-vr-r26-hud/_deps/zydis-build/zycore/Zycore.vcxproj) -replace 'ZYCORE_STATIC_BUILD', '_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR;ZYCORE_STATIC_BUILD' | Set-Content build-vr-r26-hud/_deps/zydis-build/zycore/Zycore.vcxproj
+          Set-Content -Path build-vr-r26-hud/_deps/sdl-src/src/joystick/gdk/SDL_gameinputjoystick.c -Value ""
+          (Get-Content build-vr-r26-hud/_deps/sdl-build/include-config-release/build_config/SDL_build_config.h) -replace '#define SDL_JOYSTICK_GAMEINPUT 1', '/* #undef SDL_JOYSTICK_GAMEINPUT */' | Set-Content build-vr-r26-hud/_deps/sdl-build/include-config-release/build_config/SDL_build_config.h
+
+      - name: Build Win32 R26 HUD/SkyGlow safe DLL
+        run: cmake --build build-vr-r26-hud --config Release
+
+      - name: Verify R26 HUD/SkyGlow binary markers
+        shell: pwsh
+        run: |
+          $dllPath = 'build-vr-r26-hud/bin/dinput8.dll'
+          if (-not (Test-Path $dllPath)) { throw 'R26 HUD dinput8.dll was not produced' }
+          $bytes = [System.IO.File]::ReadAllBytes($dllPath)
+          $ascii = [Text.Encoding]::ASCII.GetString($bytes)
+          foreach ($marker in @(
+            'VR R26+HUD SAFE TEST: R26/R23 world path + R30 HUD/XYZRHW/SkyGlow overlay ACTIVE',
+            'VR R30 HUD: ScreenSpace2D correction READY with configurable common-center HUD scale current=',
+            'VR R30.6 XYZRHW WORLD:'
+          )) {
+            if (-not $ascii.Contains($marker)) {
+              throw "R26 HUD marker missing: $marker"
+            }
+          }
+          $peOffset = [BitConverter]::ToInt32($bytes, 0x3C)
+          if ([BitConverter]::ToUInt16($bytes, $peOffset + 4) -ne 0x014C) {
+            throw 'expected x86 DLL'
+          }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: outrun2006-vr-x86-r26-hud-safe
+          path: build-vr-r26-hud/bin/dinput8.dll
+          if-no-files-found: error
+
+
+  game-x86-c1-r29-r28-classify:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Configure Win32 C1 comparison build
+        shell: cmd
+        run: |
+          set CI=
+          cmake -S . -B build-vr-c1 -G "Visual Studio 17 2022" -A Win32 -DOUTRUN_VR_SAFE_DRAW_COMPARE=OFF -DOUTRUN_VR_C1_COMPARE=ON
+
+      - name: Verify C1 source graph
+        shell: pwsh
+        run: |
+          $projects = Get-ChildItem build-vr-c1 -Filter *.vcxproj -Recurse
+          if (-not $projects) { throw 'no Visual Studio project files were generated' }
+          $projectText = ($projects | ForEach-Object { Get-Content $_.FullName -Raw }) -join "`n"
+          foreach ($required in @(
+            'stereo_renderer_r29_c1_compare.cpp',
+            'outrun_renderer_r29.cpp',
+            'ex_device_upgrade_r15.cpp'
+          )) {
+            if (-not $projectText.Contains($required)) {
+              throw "C1 required TU missing: $required"
+            }
+          }
+          foreach ($excluded in @(
+            'stereo_renderer_r30_c2_compare.cpp',
+            'stereo_renderer_r31.cpp',
+            'stereo_renderer_r32.cpp',
+            'stereo_renderer_r33.cpp',
+            'stereo_renderer_r34.cpp'
+          )) {
+            $escaped = [regex]::Escape($excluded)
+            $pattern = '<ClCompile Include="[^"]*[\\/]' + $escaped + '"'
+            if ($projectText -match $pattern) {
+              throw "C1 unexpectedly compiles excluded TU: $excluded"
+            }
+          }
+
+      - name: Apply dependency workarounds
+        shell: pwsh
+        run: |
+          (Get-Content build-vr-c1/_deps/safetyhook-build/src/safetyhook.vcxproj) -replace 'ZYCORE_STATIC_BUILD', '_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR;ZYCORE_STATIC_BUILD' | Set-Content build-vr-c1/_deps/safetyhook-build/src/safetyhook.vcxproj
+          (Get-Content build-vr-c1/_deps/zydis-build/Zydis.vcxproj) -replace 'ZYCORE_STATIC_BUILD', '_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR;ZYCORE_STATIC_BUILD' | Set-Content build-vr-c1/_deps/zydis-build/Zydis.vcxproj
+          (Get-Content build-vr-c1/_deps/zydis-build/zycore/Zycore.vcxproj) -replace 'ZYCORE_STATIC_BUILD', '_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR;ZYCORE_STATIC_BUILD' | Set-Content build-vr-c1/_deps/zydis-build/zycore/Zycore.vcxproj
+          Set-Content -Path build-vr-c1/_deps/sdl-src/src/joystick/gdk/SDL_gameinputjoystick.c -Value ""
+          (Get-Content build-vr-c1/_deps/sdl-build/include-config-release/build_config/SDL_build_config.h) -replace '#define SDL_JOYSTICK_GAMEINPUT 1', '/* #undef SDL_JOYSTICK_GAMEINPUT */' | Set-Content build-vr-c1/_deps/sdl-build/include-config-release/build_config/SDL_build_config.h
+
+      - name: Build Win32 C1 DLL
+        run: cmake --build build-vr-c1 --config Release
+
+      - name: Verify C1 binary markers
+        shell: pwsh
+        run: |
+          $dllPath = 'build-vr-c1/bin/dinput8.dll'
+          if (-not (Test-Path $dllPath)) { throw 'C1 dinput8.dll was not produced' }
+          $bytes = [System.IO.File]::ReadAllBytes($dllPath)
+          $ascii = [Text.Encoding]::ASCII.GetString($bytes)
+          foreach ($marker in @(
+            'VR C1 COMPARE: R29 fast L+R + R23/R27/R28 perspective classification ACTIVE; R30-R34 excluded',
+            'VR C1/C2 CLASSIFY: R29 renderer delegates candidate WVP uploads to R23/R27/R28 perspective-world classification',
+            'VR R29 PERF: stable main-backbuffer draws now execute LEFT+RIGHT only',
+            'VR C1.1 BASELINE: authoritative color clear replay seeds right/mono surfaces; two full-surface StretchRect baseline copies removed',
+            'VR C1.2 FIXEDFN HEAD: perspective fixed-function XYZ world receives the same latched head inverse',
+            'VR R27 EFFECT: main-backbuffer perspective c64 now follows the verified per-eye world WVP'
+          )) {
+            if (-not $ascii.Contains($marker)) { throw "C1 marker missing: $marker" }
+          }
+          foreach ($forbidden in @(
+            'VR R30 HUD: ScreenSpace2D asymmetric-FOV correction overlay READY',
+            'VR R31 PERF: cached world stereo + draw-route telemetry READY',
+            'VR R34 RESET GUARD: R15 classic-state replay health now gates post-Reset stereo eligibility'
+          )) {
+            if ($ascii.Contains($forbidden)) { throw "C1 excluded marker present: $forbidden" }
+          }
+          $peOffset = [BitConverter]::ToInt32($bytes, 0x3C)
+          if ([BitConverter]::ToUInt16($bytes, $peOffset + 4) -ne 0x014C) { throw 'expected x86 DLL' }
+          Get-FileHash $dllPath -Algorithm SHA256
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: outrun2006-vr-x86-c1-r29-r28-classify
+          path: build-vr-c1/bin/dinput8.dll
+          if-no-files-found: error
+
+  game-x86-c2-r30-hud:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Configure Win32 C2 comparison build
+        shell: cmd
+        run: |
+          set CI=
+          cmake -S . -B build-vr-c2 -G "Visual Studio 17 2022" -A Win32 -DOUTRUN_VR_SAFE_DRAW_COMPARE=OFF -DOUTRUN_VR_C2_COMPARE=ON
+
+      - name: Verify C2 source graph
+        shell: pwsh
+        run: |
+          $projects = Get-ChildItem build-vr-c2 -Filter *.vcxproj -Recurse
+          if (-not $projects) { throw 'no Visual Studio project files were generated' }
+          $projectText = ($projects | ForEach-Object { Get-Content $_.FullName -Raw }) -join "`n"
+          foreach ($required in @(
+            'stereo_renderer_r30_c2_compare.cpp',
+            'outrun_renderer_r29.cpp',
+            'ex_device_upgrade_r15.cpp'
+          )) {
+            if (-not $projectText.Contains($required)) {
+              throw "C2 required TU missing: $required"
+            }
+          }
+          foreach ($excluded in @(
+            'stereo_renderer_r29_c1_compare.cpp',
+            'stereo_renderer_r31.cpp',
+            'stereo_renderer_r32.cpp',
+            'stereo_renderer_r33.cpp',
+            'stereo_renderer_r34.cpp'
+          )) {
+            $escaped = [regex]::Escape($excluded)
+            $pattern = '<ClCompile Include="[^"]*[\\/]' + $escaped + '"'
+            if ($projectText -match $pattern) {
+              throw "C2 unexpectedly compiles excluded TU: $excluded"
+            }
+          }
+
+      - name: Apply dependency workarounds
+        shell: pwsh
+        run: |
+          (Get-Content build-vr-c2/_deps/safetyhook-build/src/safetyhook.vcxproj) -replace 'ZYCORE_STATIC_BUILD', '_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR;ZYCORE_STATIC_BUILD' | Set-Content build-vr-c2/_deps/safetyhook-build/src/safetyhook.vcxproj
+          (Get-Content build-vr-c2/_deps/zydis-build/Zydis.vcxproj) -replace 'ZYCORE_STATIC_BUILD', '_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR;ZYCORE_STATIC_BUILD' | Set-Content build-vr-c2/_deps/zydis-build/Zydis.vcxproj
+          (Get-Content build-vr-c2/_deps/zydis-build/zycore/Zycore.vcxproj) -replace 'ZYCORE_STATIC_BUILD', '_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR;ZYCORE_STATIC_BUILD' | Set-Content build-vr-c2/_deps/zydis-build/zycore/Zycore.vcxproj
+          Set-Content -Path build-vr-c2/_deps/sdl-src/src/joystick/gdk/SDL_gameinputjoystick.c -Value ""
+          (Get-Content build-vr-c2/_deps/sdl-build/include-config-release/build_config/SDL_build_config.h) -replace '#define SDL_JOYSTICK_GAMEINPUT 1', '/* #undef SDL_JOYSTICK_GAMEINPUT */' | Set-Content build-vr-c2/_deps/sdl-build/include-config-release/build_config/SDL_build_config.h
+
+      - name: Build Win32 C2 DLL
+        run: cmake --build build-vr-c2 --config Release
+
+      - name: Verify C2 binary markers
+        shell: pwsh
+        run: |
+          $dllPath = 'build-vr-c2/bin/dinput8.dll'
+          if (-not (Test-Path $dllPath)) { throw 'C2 dinput8.dll was not produced' }
+          $bytes = [System.IO.File]::ReadAllBytes($dllPath)
+          $ascii = [Text.Encoding]::ASCII.GetString($bytes)
+          foreach ($marker in @(
+            'VR C2 COMPARE: C1 R29+R27/R28 classification + R30 HUD correction ACTIVE; R31-R34 excluded',
+            'VR C1/C2 CLASSIFY: R29 renderer delegates candidate WVP uploads to R23/R27/R28 perspective-world classification',
+            'VR R29 PERF: stable main-backbuffer draws now execute LEFT+RIGHT only',
+            'VR C1.1 BASELINE: authoritative color clear replay seeds right/mono surfaces; two full-surface StretchRect baseline copies removed',
+            'VR C1.2 FIXEDFN HEAD: perspective fixed-function XYZ world receives the same latched head inverse',
+            'VR R30 HUD: ScreenSpace2D correction READY with configurable common-center HUD scale current=',
+            'VR R30.6 XYZRHW WORLD:'
+          )) {
+            if (-not $ascii.Contains($marker)) { throw "C2 marker missing: $marker" }
+          }
+          foreach ($forbidden in @(
+            'VR R31 PERF: cached world stereo + draw-route telemetry READY',
+            'VR R34 RESET GUARD: R15 classic-state replay health now gates post-Reset stereo eligibility'
+          )) {
+            if ($ascii.Contains($forbidden)) { throw "C2 excluded marker present: $forbidden" }
+          }
+          $peOffset = [BitConverter]::ToInt32($bytes, 0x3C)
+          if ([BitConverter]::ToUInt16($bytes, $peOffset + 4) -ne 0x014C) { throw 'expected x86 DLL' }
+          Get-FileHash $dllPath -Algorithm SHA256
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: outrun2006-vr-x86-c2-r30-hud
+          path: build-vr-c2/bin/dinput8.dll
+          if-no-files-found: error
+
+  host-x64:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Verify reconstructed VR architecture boundaries
+        run: |
+          python tools/verify_vr_architecture.py
+          python tools/verify_vr_r32_review.py
+
+      - name: Configure x64 OpenXR host
+        run: cmake -S vrhost -B build-vrhost -G "Visual Studio 17 2022" -A x64
+
+      - name: Build x64 OpenXR host and architecture tests
+        run: cmake --build build-vrhost --config Release
+
+      - name: Compile exact stereo HLSL shader
+        shell: pwsh
+        run: |
+          & 'build-vrhost/bin/outrun-vr-shader-smoke.exe'
+          if ($LASTEXITCODE -ne 0) { throw 'stereo HLSL failed D3DCompile smoke test' }
+
+      - name: Run protocol v3 cross-bitness contract smoke
+        shell: pwsh
+        run: |
+          & 'build-vrhost/bin/outrun-vr-protocol-v3-smoke.exe'
+          if ($LASTEXITCODE -ne 0) { throw 'protocol v3 contract smoke failed' }
+
+      - name: Run v3 HostState named mapping round-trip
+        shell: pwsh
+        run: |
+          & 'build-vrhost/bin/outrun-vr-host-state-v3-channel-smoke.exe'
+          if ($LASTEXITCODE -ne 0) { throw "HostState v3 channel smoke failed: $LASTEXITCODE" }
+
+      - name: Run v2 to v3 shadow conversion regression
+        shell: pwsh
+        run: |
+          & 'build-vrhost/bin/outrun-vr-v2-v3-shadow-conversion-smoke.exe'
+          if ($LASTEXITCODE -ne 0) { throw "v2-v3 shadow conversion regression failed: $LASTEXITCODE" }
+
+      - name: Run v3 primary pose validation regression
+        shell: pwsh
+        run: |
+          & 'build-vrhost/bin/outrun-vr-host-pose-v3-validation-smoke.exe'
+          if ($LASTEXITCODE -ne 0) { throw "v3 pose validation regression failed: $LASTEXITCODE" }
+
+      - name: Run renderer-independent core math regression
+        shell: pwsh
+        run: |
+          & 'build-vrhost/bin/outrun-vr-core-math-smoke.exe'
+          if ($LASTEXITCODE -ne 0) { throw "core stereo math regression failed: $LASTEXITCODE" }
+
+      - name: Run R23 runtime eligibility recovery regression
+        shell: pwsh
+        run: |
+          & 'build-vrhost/bin/outrun-vr-runtime-eligibility-smoke.exe'
+          if ($LASTEXITCODE -ne 0) { throw "runtime eligibility regression failed: $LASTEXITCODE" }
+
+      - name: Run R23 verified bundle identity/TTL regression
+        shell: pwsh
+        run: |
+          & 'build-vrhost/bin/outrun-vr-r23-verified-bundle-smoke.exe'
+          if ($LASTEXITCODE -ne 0) { throw "R23 verified bundle regression failed: $LASTEXITCODE" }
+
+      - name: Run R32 reset/fail-closed policy regression
+        shell: pwsh
+        run: |
+          & 'build-vrhost/bin/outrun-vr-r32-policy-smoke.exe'
+          if ($LASTEXITCODE -ne 0) { throw "R32 policy regression failed: $LASTEXITCODE" }
+
+      - name: Verify x64 R32 host binary
+        shell: pwsh
+        run: |
+          $hostPath = 'build-vrhost/bin/outrun-vr-host.exe'
+          if (-not (Test-Path $hostPath)) { throw 'outrun-vr-host.exe was not produced' }
+          $bytes = [System.IO.File]::ReadAllBytes($hostPath)
+          if ($bytes.Length -lt 10000) { throw 'outrun-vr-host.exe is unexpectedly small' }
+          $ascii = [Text.Encoding]::ASCII.GetString($bytes)
+          foreach ($marker in @(
+            '[v3] live shadow HostState/AckState bridge ready.',
+            'outrun-vr-host-v3.log',
+            'outrun-vr-watchdog.log',
+            '[R23] final presentation authority ACTIVE',
+            'direct safe-eye rejected: actual resource format/size',
+            'gameplay layer blocked: no fresh committed host-owned frame/source/pose bundle',
+            'host-owned GPU eye copies + completion ACK active',
+            '[D3D9Ex R32] SafeEye A/B staging + per-slot shared-resource cache ACTIVE',
+            '[R32 direct] verified incoming DirectGPU projection submitted once',
+            'presentation-authoritative while its exact producer slot stays protected',
+            '[R32 direct] D3D11 Flush is deferred until actual direct-ring slot pressure',
+            '[R23 mono] gameplay stereo pending: bounded Desktop Duplication refresh for theater-only fallback',
+            '[R23 final-submit] serial=',
+            'LOCAL-fixed theater until fresh stereo returns'
+          )) {
+            if (-not $ascii.Contains($marker)) { throw "VR host marker missing: $marker" }
+          }
+          $peOffset = [BitConverter]::ToInt32($bytes, 0x3C)
+          if ([BitConverter]::ToUInt16($bytes, $peOffset + 4) -ne 0x8664) { throw 'expected x64 host' }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: outrun-vr-host-x64
+          path: build-vrhost/bin/outrun-vr-host.exe
+          if-no-files-found: error

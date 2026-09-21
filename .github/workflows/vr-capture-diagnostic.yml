@@ -1,0 +1,106 @@
+name: OpenXR capture-chain diagnostic
+
+on:
+  push:
+    branches: [ vr-openxr ]
+    paths:
+      - 'vrhost/src/runtime/capture_chain_diagnostic.hpp'
+      - 'vrhost/src/runtime/r18_host_pipeline_diagnostic.hpp'
+      - 'vrhost/capture-diagnostic/**'
+      - '.github/workflows/vr-capture-diagnostic.yml'
+  workflow_dispatch:
+
+jobs:
+  capture-diagnostic-x64:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Configure x64 capture diagnostic
+        run: cmake -S vrhost/capture-diagnostic -B build-vr-capture-diag -G "Visual Studio 17 2022" -A x64
+
+      - name: Build capture diagnostic
+        run: cmake --build build-vr-capture-diag --config Release --target outrun-vr-capture-diagnostic
+
+      - name: Verify diagnostic binary
+        shell: pwsh
+        run: |
+          $exe = 'build-vr-capture-diag/bin/outrun-vr-capture-diagnostic.exe'
+          if (-not (Test-Path $exe)) { throw 'capture diagnostic executable was not produced' }
+          $bytes = [System.IO.File]::ReadAllBytes($exe)
+          if ($bytes.Length -lt 10000) { throw 'capture diagnostic executable is unexpectedly small' }
+          $ascii = [Text.Encoding]::ASCII.GetString($bytes)
+          foreach ($marker in @(
+            'R18-host-pipeline-ab-20260915',
+            'PREFERRED-CLEAR',
+            'UNORM-CLEAR',
+            'SRGB-CLEAR',
+            'UNORM-PRODUCTION-SHADER',
+            'DUPLICATION-PROBE',
+            'DuplicateOutput1=',
+            'CreateRTV FAIL'
+          )) {
+            if (-not $ascii.Contains($marker)) { throw "R18 marker missing: $marker" }
+          }
+          $peOffset = [BitConverter]::ToInt32($bytes, 0x3C)
+          if ([BitConverter]::ToUInt16($bytes, $peOffset + 4) -ne 0x8664) {
+            throw 'expected x64 diagnostic executable'
+          }
+
+      - name: Prepare test package
+        shell: pwsh
+        run: |
+          $out = 'build-vr-capture-diag/package'
+          New-Item -ItemType Directory -Force -Path $out | Out-Null
+          Copy-Item 'build-vr-capture-diag/bin/outrun-vr-capture-diagnostic.exe' $out
+          @'
+          @echo off
+          set OUTRUN_VR_DIRECT_TRANSPORT=0
+          set OUTRUN_VR_TEST_PATTERN=0
+          echo R18 host-pipeline A/B diagnostic
+          echo 1. Keep Virtual Desktop connected with VDXR active.
+          echo 2. Do not run the normal outrun-vr-host.exe.
+          echo 3. Run this first, then launch OR2006C2C.EXE.
+          echo 4. Enter gameplay and keep the HMD on for at least 35 seconds.
+          echo 5. Press Ctrl+C to exit, then send outrun-vr-r18-host-pipeline.log.
+          echo.
+          outrun-vr-capture-diagnostic.exe
+          pause
+          '@ | Set-Content -Encoding ASCII "$out/RUN_R18_DIAGNOSTIC.bat"
+
+          @'
+          OutRun VR R18 host-pipeline A/B diagnostic
+          ==========================================
+          Build: R18-host-pipeline-ab-20260915
+
+          R17 proved all production-path phases returned failure, including the synthetic phase.
+          R18 keeps the normal host OpenXR session/D3D11 device and isolates the remaining stages.
+
+          Test:
+          1. Connect Quest 3 with Virtual Desktop / VDXR.
+          2. Do NOT run outrun-vr-host.exe at the same time.
+          3. Run RUN_R18_DIAGNOSTIC.bat.
+          4. Launch OutRun 2006 and enter gameplay.
+          5. Watch at least 35-40 seconds so all 5 phases repeat.
+          6. Exit with Ctrl+C.
+          7. Send outrun-vr-r18-host-pipeline.log and tell which phases showed red/green versus black.
+
+          Phases (5 seconds each):
+          1 PREFERRED-CLEAR          : production preferred swapchain format, direct D3D11 clear only.
+          2 UNORM-CLEAR              : explicit UNORM swapchain, direct D3D11 clear only.
+          3 SRGB-CLEAR               : explicit SRGB swapchain, direct D3D11 clear only.
+          4 UNORM-PRODUCTION-SHADER  : UNORM swapchain + synthetic texture through production R10 RenderTo shader.
+          5 DUPLICATION-PROBE        : keeps UNORM red/green visible while logging DuplicateOutput1/DuplicateOutput HRESULTs.
+
+          The log records exact xrCreateSwapchain/enumeration/acquire/wait/release results,
+          actual D3D11 swapchain texture format, CreateRenderTargetView HRESULT, shader readiness,
+          and DuplicateOutput HRESULT. This distinguishes format/RTV, shader, and second-capture failures.
+          '@ | Set-Content -Encoding UTF8 "$out/README_R18.txt"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: outrun-vr-r18-host-pipeline-diagnostic
+          path: build-vr-capture-diag/package/*
+          if-no-files-found: error

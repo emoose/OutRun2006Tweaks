@@ -1,0 +1,54 @@
+name: OpenXR direct diagnostic
+
+on:
+  push:
+    branches: [ vr-openxr ]
+    paths:
+      - 'vrhost/src/diagnostic_pattern.cpp'
+      - 'vrhost/CMakeLists.txt'
+      - '.github/workflows/vr-diagnostic.yml'
+  workflow_dispatch:
+
+jobs:
+  diagnostic-x64:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Configure x64 diagnostic
+        run: cmake -S vrhost -B build-vrdiag -G "Visual Studio 17 2022" -A x64
+
+      - name: Build direct OpenXR diagnostic
+        run: cmake --build build-vrdiag --config Release --target outrun-vr-diagnostic
+
+      - name: Verify diagnostic binary
+        shell: pwsh
+        run: |
+          $diag = 'build-vrdiag/bin/outrun-vr-diagnostic.exe'
+          if (-not (Test-Path $diag)) { throw 'outrun-vr-diagnostic.exe was not produced' }
+          $bytes = [System.IO.File]::ReadAllBytes($diag)
+          if ($bytes.Length -lt 10000) { throw 'diagnostic executable is unexpectedly small' }
+          $ascii = [Text.Encoding]::ASCII.GetString($bytes)
+          foreach ($marker in @(
+            'R16-openxr-direct-diagnostic-20260915',
+            'ARRAY-UNORM projection',
+            'SPLIT-UNORM projection',
+            'VIEW-QUAD-UNORM',
+            'ARRAY-SRGB projection',
+            'outrun-vr-diagnostic.log'
+          )) {
+            if (-not $ascii.Contains($marker)) { throw "diagnostic marker missing: $marker" }
+          }
+          $peOffset = [BitConverter]::ToInt32($bytes, 0x3C)
+          if ([BitConverter]::ToUInt16($bytes, $peOffset + 4) -ne 0x8664) {
+            throw 'expected x64 diagnostic executable'
+          }
+          Get-FileHash $diag -Algorithm SHA256
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: outrun-vr-direct-diagnostic-x64
+          path: build-vrdiag/bin/outrun-vr-diagnostic.exe
+          if-no-files-found: error

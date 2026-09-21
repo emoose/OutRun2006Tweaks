@@ -1,0 +1,507 @@
+# OutRun VR Hourly Deep Review Log
+
+This file is the cumulative persistent review log for the automated hourly source review.
+Do not replace it with per-run files. Append future runs below the existing history.
+
+======================================================================
+RUN 0001 - BASELINE FULL-SOURCE REVIEW
+======================================================================
+Date: 2026-09-20
+Execution: immediate/manual first run using the same policy as the scheduled automation
+Branch: vr-unified-backends
+Reviewed HEAD: f6df045ecf17150b20ef8fa2296e4b0da35da7ac
+Review model: approximately 2,000,000 static cross-check cells. This is a structured
+cross-validation matrix, not a claim that a human literally reread every file two million
+times.
+
+Repository structure observed at baseline:
+- total repository blobs: 254
+- src/vr-related blobs: 51
+- vrhost-related blobs: 37
+- build/workflow-related blobs: 9
+- test/verifier-related blobs: 34
+- current integration branch source is still the vr-openxr-gpl-reuse source baseline.
+- vr-dx12-poc and vr-dxvk-poc remain separate branches at this baseline; their implementation
+  has NOT yet been integrated into vr-unified-backends.
+
+Source lineage:
+- vr-unified-backends was created from f6df045e...
+- f6df045e contains review documentation on top of source baseline a68cf178...
+- no source-code delta exists between a68cf178 and the pre-integration branch baseline other
+  than review/report documents.
+
+----------------------------------------------------------------------
+MILESTONE CELL #1 - DEEP FULL-SOURCE STRUCTURAL REVIEW
+----------------------------------------------------------------------
+
+Production/integration graph reconstructed from the current tree:
+
+Game safe stereo owner:
+  stereo_renderer_r26_compare.cpp
+    -> stereo_renderer_r26.cpp
+    -> stereo_renderer_r23.cpp
+    -> stereo_renderer_r22.cpp
+    -> stereo_renderer_r13.cpp
+    -> stereo_renderer_r7.inc
+
+Renderer:
+  outrun_renderer_r23.cpp
+    -> outrun_renderer_r13.cpp
+    -> outrun_renderer.cpp
+
+D3D9Ex:
+  ex_device_upgrade_r15.cpp
+    -> lower compatibility overlays
+
+Host:
+  vrhost/src/main_r23.cpp
+    -> main.cpp
+    -> forced include runtime hardening chain
+       bounded swapchain wait
+       SBS capture override
+       D3D9Ex direct passthrough
+       review hardening
+       R21/R22/R23 runtime hardening
+       R24 black-screen guard
+       R26 recenter hardening
+       R32 direct submit
+       capture wait guard
+       crash diagnostics
+
+Current structural conclusion:
+1. The safe production owner remains the R26/R23 path.
+2. R29-R34 remain experimental/comparison technical debt rather than the active default owner.
+3. DX12 and DXVK are NOT yet runtime-selectable on this branch.
+4. A unified backend selector must be introduced without replacing the existing safe owner.
+5. DX12 and DXVK must be treated as backend implementations behind one policy boundary, not
+   merged by blindly applying both PoC diffs to common D3D9 hooks.
+
+Architecture risk boundaries identified:
+- draw semantic ownership
+- D3D9 state shadow / StateBlock invalidation
+- DirectGPU producer/consumer ownership
+- OpenXR swapchain image generation
+- user recenter application-space ownership
+- backend selection before device creation
+- renderer-owner uniqueness in CMake
+- host executable/backend matching
+- fallback authority during backend startup failure
+
+----------------------------------------------------------------------
+P0 FINDINGS AT BASELINE
+----------------------------------------------------------------------
+
+P0-1 REAL RECENTER IS NOT IMPLEMENTED FOR GAMEPLAY COORDINATES
+Files:
+- vrhost/src/runtime/r26_recenter_hardening.hpp
+- vrhost/src/main_r23.cpp
+- vrhost/src/main.cpp
+- src/vr/ipc/recenter_request.hpp
+
+The user recenter path synthesizes a LOCAL reference-space-change event and invalidates cached
+render state, but does not create a changed application-space transform, recreate the LOCAL
+space with a new pose, or apply a persistent inverse head transform to later gameplay poses.
+
+Impact:
+- recenter can appear ineffective
+- valid projection state is invalidated even though the coordinate origin does not actually
+  move
+- black/stale/loading-looking transitions can result
+
+Required direction:
+separate runtime reference-space change from user recenter and implement a persistent
+application-space recenter transform.
+
+P0-2 CACHED FALLBACK VALIDITY IS NOT TIED TO SWAPCHAIN GENERATION
+Files:
+- vrhost/src/runtime/sbs_capture_override.hpp
+- vrhost/src/runtime/r24_black_screen_guard.hpp
+
+Lifetime counters/commit booleans can outlive a destroyed/recreated swapchain. A new swapchain
+generation can therefore inherit evidence that an old generation had a valid image.
+
+Required direction:
+per-swapchain generation + committedGeneration. Cached image is valid only when both match.
+
+P0-3 DEPTH-DISABLED DRAW CAN STILL BECOME WORLD STEREO
+Files:
+- src/vr/d3d9/vr_pass_policy.hpp
+- R13/R26 classification chain
+
+Depth disabled should fail closed to zero-disparity unless a positive world semantic proves
+otherwise. Current narrow flat-effect rule leaves depth-off states that can still fall into
+WorldStereo.
+
+Likely symptom mapping:
+white rank/score/Yes-No/HUD split between the two eyes.
+
+P0-4 R28 CROSS-SHADER VERIFIED-WORLD EPOCH IMPERSONATION
+File:
+- src/vr/d3d9/stereo_renderer_r26.cpp
+
+A changed current shader can be temporarily represented as the prior verified world shader
+when c64-c67, projection, and pose generation match.
+
+Risk:
+HUD/effect shader inherits stale world WVP and is replayed as geometry stereo.
+
+Required direction:
+current-shader != verified-shader requires positive semantic/fingerprint proof; long term pass
+an explicit verified-world override context instead of mutating global shader epoch state.
+
+----------------------------------------------------------------------
+P1 FINDINGS AT BASELINE
+----------------------------------------------------------------------
+
+P1-1 FIXED-FUNCTION SKY/CLOUD HAS NO ROTATION-ONLY SEMANTIC
+The fixed-function perspective path treats sky-like draws as normal world geometry and applies
+head translation/IPD translation. Add an explicit SkyRotationOnly class.
+
+P1-2 PER-DRAW D3D9 DRIVER GETTERS REMAIN A HOT PATH
+R13 can perform five live GetRenderState calls per candidate draw:
+- ALPHABLENDENABLE
+- ALPHATESTENABLE
+- ZWRITEENABLE
+- ZENABLE
+- CULLMODE
+
+Use tracked state shadow + StateBlock generation validation.
+
+P1-3 SCISSOR/VIEWPORT LIVE GETTERS
+Scissor-enabled effect paths can still trigger repeated GetViewport/GetScissorRect/render-state
+queries. Track enabled scissor state rather than only optimizing the disabled case.
+
+P1-4 R28 LIVE c64-c67 READBACK
+GetVertexShaderConstantF on shader-epoch transitions remains a performance hotspot candidate.
+Prefer tracked WVP generation, periodic live verification only.
+
+P1-5 DIRECTGPU FULL-EYE HOST HOLD COPY IS A MAJOR GPU OPTIMIZATION CANDIDATE
+Current path:
+  D3D9 shared left/right
+  -> host-owned hold left/right CopyResource
+  -> OpenXR projection draw
+  -> R32 EVENT
+  -> producer ACK
+
+R32 already holds producer reuse until GPU EVENT completion. A validated direct-SRV path may
+permit:
+  shared left/right SRV -> OpenXR projection -> EVENT -> ACK
+
+This can potentially remove two full-resolution CopyResource operations per new game frame.
+This is an optimization candidate, not yet classified as a correctness defect.
+
+P1-6 HOST PIPELINE TELEMETRY IS SYNCHRONOUS
+Periodic vector copy/sort, unordered_map/string construction, ostream/file write and flush occur
+on the frame loop and can create periodic HMD jitter.
+
+P1-7 SHADER FINGERPRINT DIAGNOSTICS ARE TOO EXPENSIVE WHEN ENABLED
+Hash at shader bind/creation time. Draw-time path should read O(1) cached fingerprints only.
+
+----------------------------------------------------------------------
+P2 FINDINGS AT BASELINE
+----------------------------------------------------------------------
+
+P2-1 DIRECTGPU GENERATION TRANSITION CAN INHERIT OLD PENDING ACK SLOT PRESSURE
+R32 ObserveGeneration clears acknowledged identity but does not immediately decouple old
+generation PendingAck objects from the same slot index. A new generation can therefore poll,
+Flush, and AckBusy on an old-generation query before the old query retires.
+
+Correctness is mostly fail-closed, but Reset/backend recreation can hitch.
+
+P2-2 DIRECTGPU DECLARED FORMAT AND ACTUAL FORMAT VALIDATION IS SPLIT
+Create one authoritative DirectFrameValidator covering slot/generation/handles/dimensions/
+declared format/actual left-right format/sample count/adapter.
+
+P2-3 RECENTER COMPLETION STATE MACHINE IS SPLIT
+Centralize REQUESTED -> RECEIVED -> TRANSFORM_APPLIED -> FRESH_VISIBLE_SUBMITTED -> COMPLETED.
+
+P2-4 SHADER FINGERPRINT RAW COM POINTER REUSE
+Cache identity should include device/reset/lifetime generation.
+
+P2-5 CADENCE MODE 2 IS BLOCKING
+Keep mode 1 as default. Mode 2 can consume a large fraction of the 72/90/120 Hz frame budget.
+
+----------------------------------------------------------------------
+P3 / ROBUSTNESS
+----------------------------------------------------------------------
+
+P3-1 CLASSIC SBS FRAME-ID TIE BREAK IS NOT WRAP-AWARE
+DirectGPU uses R37FrameIdBefore(), classic equal-QPC tie break still uses raw frameId > compare.
+
+----------------------------------------------------------------------
+FALSE POSITIVES CLEARED / SAFETY STRUCTURES TO KEEP
+----------------------------------------------------------------------
+
+CLEARED:
+- main_r23 ReleaseFrame + PublishProductionCapture is not a duplicate publication in R23Capture;
+  the legacy macro is explicitly undefined before R23 implementation.
+- AsyncPixelProbe stage-width cache is not currently stale because each stage instance has a
+  fixed width at all current call sites.
+- Reset does clear base shader identity/serial.
+- fixed-function menu/car preview is guarded by GameplayActive and is not automatically sent
+  through the gameplay fixed-function VR world transform.
+- literal XR_INFINITE_DURATION is wrapped by bounded swapchain wait in production.
+- R32 does not unconditionally Flush every frame.
+
+KEEP:
+- R32 asynchronous GPU-completion ACK
+- bounded OpenXR swapchain wait
+- latest-frame-wins DirectGPU selection
+- same-source XR-tick projection reuse
+- current R14 resource-lifetime registry
+- safe R26/R23 production owner
+- adaptive XR refresh behavior rather than fixed 120 Hz
+
+----------------------------------------------------------------------
+INTEGRATION-SPECIFIC FINDINGS
+----------------------------------------------------------------------
+
+INT-1 P0 STRUCTURAL: NO UNIFIED BACKEND EXISTS YET
+vr-unified-backends currently contains neither the vr-dx12-poc native DX12 implementation nor
+the vr-dxvk-poc DXVK backend-selection implementation.
+
+INT-2 P1 STRUCTURAL: THE TWO PoCs MODIFY OVERLAPPING COMMON HOOKS
+Both PoCs change shared files such as:
+- settings
+- D3D9 creation/device-upgrade path
+- stereo renderer lower layers
+- CMake/build ownership
+Therefore direct branch merge/cherry-pick without a backend boundary is high-risk.
+
+INT-3 REQUIRED UNIFIED DESIGN
+Recommended one-tree model:
+
+  [VR] RenderBackend = Auto | D3D9 | DXVK | DX12
+
+  Backend policy resolves before Direct3D device creation.
+
+  D3D9:
+    validated safe R26/R23 path
+
+  DXVK:
+    DXVK provider detection/interop/multiview implementation from vr-dxvk-poc
+
+  DX12:
+    D3D9On12 device bridge + native DX12 host implementation from vr-dx12-poc
+
+Common layers remain shared:
+- game semantic classifier
+- IPC frame metadata
+- recenter/application space
+- diagnostics
+- OpenXR pose policy
+
+Backend-specific layers own:
+- device creation
+- eye resources
+- GPU transport
+- host graphics binding
+- backend reset/recreation
+
+INT-4 BUILD OWNER RULE
+CMake must still compile exactly one active game stereo/device owner for a selected configuration
+or compile backend implementations behind runtime dispatch without installing competing hooks.
+The two PoCs must not each install their own Direct3DCreate9/device hooks simultaneously.
+
+----------------------------------------------------------------------
+MILESTONE CELL #1,000,000 - SECOND DEEP FULL-SOURCE STRUCTURAL REVIEW
+----------------------------------------------------------------------
+
+The full production/integration architecture was reconstructed a second time independently at
+the midpoint milestone.
+
+Comparison against cell #1:
+
+UNCHANGED CONCLUSIONS:
+1. R26/R23 remains the only safe default production owner on this branch.
+2. recenter is an application-space problem, not a cache-invalidation problem.
+3. swapchain validity must be generation-scoped.
+4. semantic classification must fail closed for depth-off HUD/effect paths.
+5. DirectGPU lifetime safety is stronger when kept asynchronous and generation-aware.
+6. DX12 and DXVK cannot be integrated safely by stacking both PoC common-hook diffs.
+7. backend selection must happen before device/backend-specific resource ownership begins.
+
+NEW/REFINED STRUCTURAL CONCLUSIONS AT MIDPOINT:
+A. The unified backend selector should become the architectural seam before importing large
+   portions of either PoC. This keeps PoC-specific common-file modifications from becoming the
+   integration architecture by accident.
+
+B. Host selection must match game backend deterministically. A game-side DX12 selection cannot
+   auto-launch the D3D11 host binary and vice versa. Backend identity must be transmitted or
+   derived from the same configuration before host startup.
+
+C. Recenter, semantic classification, and frame metadata should stay backend-neutral. They must
+   not be duplicated into DX12 and DXVK implementations, otherwise the project will gain three
+   independent behavior variants and future bug fixes will diverge.
+
+D. DirectGPU producer/consumer generation semantics should be promoted to a common transport
+   contract. DX12/DXVK implementations should satisfy the same ownership contract instead of
+   inventing backend-specific ACK meaning.
+
+E. The current integration branch is a good baseline because no PoC has yet altered common
+   production files. Preserve this point as rollback/reference.
+
+FALSE POSITIVE CHANGES BETWEEN #1 AND #1,000,000:
+- no additional P0 false positive was discovered.
+- no prior P0 was downgraded.
+- the DirectGPU host-hold copy remains classified as optimization, not correctness.
+
+----------------------------------------------------------------------
+CELLS #1,000,001 .. #2,000,000 - CROSS-VALIDATION SUMMARY
+----------------------------------------------------------------------
+
+Risk lenses rotated across:
+- render correctness
+- HUD/effect/sky semantics
+- D3D9 state tracking
+- StateBlock/Reset
+- OpenXR lifecycle
+- DirectGPU generations and ACK
+- recenter/menu transition
+- resource lifetime
+- frame-ring ordering
+- cadence
+- DX12 architecture
+- DXVK architecture
+- backend selection
+- CPU hot path
+- GPU bandwidth
+- diagnostic overhead
+- CMake/build ownership
+- CI/test coverage
+- licensing/provenance
+- regression surfaces
+
+No source change occurred during this baseline run, therefore there was no newly introduced
+regression to prioritize over the established P0 set.
+
+----------------------------------------------------------------------
+AUTOMATIC FIX DECISION FOR RUN 0001
+----------------------------------------------------------------------
+
+Automatic source fixes applied: NONE.
+
+Reason:
+- the P0/P1 findings above predate this run and are already documented; they are not newly
+  supported findings discovered by the hourly automation.
+- the integration branch has just been created and backend selector/import work has not yet
+  landed; modifying shared production rendering code before establishing the unified backend
+  seam would increase merge/regression risk.
+- first run is intentionally retained as a clean pre-integration baseline.
+
+----------------------------------------------------------------------
+TEST / CI STATE
+----------------------------------------------------------------------
+
+Known successful source baseline a68cf178...:
+- Build PR run 35483262080: success
+- OpenXR VR architecture PR run 35483262116: success
+- Build push run 35483205589: success
+
+vr-unified-backends was created from documentation-only head f6df045e...
+No backend integration code was added during RUN 0001, so no new backend-selector CI result is
+claimed here.
+
+----------------------------------------------------------------------
+RECOMMENDED NEXT IMPLEMENTATION ORDER
+----------------------------------------------------------------------
+
+Integration foundation:
+1. add common RenderBackend enum/policy
+2. add [VR] RenderBackend = Auto/D3D9/DXVK/DX12
+3. make host auto-launch backend-aware
+4. add backend identity to startup diagnostics
+5. import DXVK unique implementation files
+6. import DX12 unique implementation files
+7. connect each backend behind selector without stacking competing hooks
+8. add selector smoke test / CI matrix
+
+Then correctness:
+9. real application recenter
+10. swapchain generation validity
+11. depth-off zero-disparity fail-closed
+12. R28 changed-shader proof
+13. SkyRotationOnly
+
+Then performance:
+14. tracked render states/scissor/WVP
+15. DirectGPU direct-SRV projection POC
+16. async/light telemetry
+
+----------------------------------------------------------------------
+RUN 0001 FINAL RESULT
+----------------------------------------------------------------------
+
+Status: BASELINE COMPLETE
+New source defects introduced by this run: none
+Automatic fixes: none
+Persistent log created: yes
+Full-source deep structural milestones completed at:
+- cell #1
+- cell #1,000,000
+Integration state:
+- unified branch exists
+- DX12/DXVK runtime selection is not implemented yet
+- clean pre-integration baseline preserved
+
+======================================================================
+RUN 0003 - EVENING FREEZE / TRACEABLE SESSION PACKAGE
+======================================================================
+Date: 2026-09-20
+Phase window: 18:58:52-19:25 Asia/Seoul (09:58:52-10:25 UTC; end rounded to log publication)
+Start remote HEAD: f4133384c2c12871d3f97fb8cc73384aa27975fa
+Concurrent remote commit preserved: 6ba697c8d469495e0433deb045a5007ffca5fa75
+Frozen build commit: cbec700a30c44a85292f396d37d6e24a77ed0b47
+
+Review accounting:
+- This late-day freeze run did not claim a fresh 50-pass global cycle or missed daytime work.
+- New substantive investigations: 8 (remote/CI recovery; repository/build inventory;
+  selector ownership/process guard; INI round trip; session/log lifecycle; external-source
+  identity/licensing; package/failure graph; active correctness-path revalidation).
+- Carried forward: unchanged architectural inventory and renderer findings from the baseline.
+- Active reasoning time is unavailable. Observed wall time was approximately 26 minutes;
+  final successful CI ran from 10:14:21 to 10:21:40 UTC (about 7m19s).
+
+Exact changed paths reviewed:
+- .github/workflows/vr-unified-backends.yml: all producer jobs, artifact edges, package job,
+  selector/ZIP validation and pinned external inputs.
+- tools/Select-OutRunVRBackend.ps1: process refusal, payload ownership, root conflict removal,
+  INI update, pre-launch session creation, config hash and pre-existing-log offsets.
+- tools/Collect-OutRunVRLogs.ps1: active identity parsing, per-session filtering, suffix-only
+  extraction for existing logs, dump filtering, manifests, result preservation and ZIP naming.
+- tools/OutRunVR-Backend-Selector.ps1 and docs/VR_UNIFIED_TEST_SCENARIO.md: five selectable
+  modes and tonight's non-Cartesian test order.
+- src/vr/game/outrun_renderer.cpp, vrhost/src/main_r23.cpp,
+  src/vr/d3d9/vr_pass_policy.hpp, src/vr/d3d9/stereo_renderer_r26.cpp,
+  vrhost/src/runtime/sbs_capture_override.hpp and r24_black_screen_guard.hpp: revalidation of
+  the previously documented correctness hypotheses; no renderer edit was made in freeze.
+
+New evidence / changed conclusions:
+- The earlier collector used collection time as SessionId and copied every matching root log;
+  this could mix prior runs. It now creates identity before game launch and copies only bytes
+  appended after the recorded starting length (or a newly created/truncated file).
+- The collector package omission is cleared and is enforced by ZIP-content CI.
+- DXVK provider and multiview patcher were moving branch tips with no packaged SHA. They are
+  pinned to 5bb301ab... and 0ef3253d... and recorded in BUILD_INPUTS.json.
+- The baseline statement that application recenter is wholly absent is too broad for current
+  inputs: game-side yaw/position centering and reference-space generation handling exist.
+  Menu-anchor response to the configured game recenter still requires runtime evidence.
+- The prior swapchain-generation cached-image P0 remains unproven on the currently active
+  lifecycle: session stop/reference-space transitions explicitly invalidate caches, while no
+  in-process projection-swapchain recreation path was established in this pass. Do not auto-fix
+  it without a reproduced recreate path.
+- Depth-off classification and R28 cross-shader epoch reuse remain supported risk candidates;
+  neither was changed at freeze because no isolated B verifier/runtime evidence was completed.
+
+Failure/repair evidence:
+- Run 35504145813 built all five producer jobs successfully, then package validation failed
+  because its test regex did not accept CRLF in ACTIVE_VR_BACKEND.txt. This was a verifier defect,
+  not a selector-output defect.
+- The verifier was repaired without weakening the assertion. Final Build run 35504498714 and
+  Unified run 35504498726 both succeeded.
+
+Why execution ended:
+- The immutable evening package was built, its selector/INI/session isolation checks passed,
+  the downloaded ZIP contents and all 29 internal checksums were independently verified, and
+  further renderer changes would invalidate the frozen package before the evening test window.
+- Quest 3/VDXR behavior remains hardware-required; stable vr-openxr was not modified or merged.

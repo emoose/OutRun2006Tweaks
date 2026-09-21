@@ -63,6 +63,11 @@ class SettingsWindow : public OverlayWindow
 		if (matches_search(section, search))
 			return true;
 
+		if (section == "Controls" &&
+			(matches_search("Input Bindings", search) ||
+			 matches_search("Configure Input Bindings", search)))
+			return true;
+
 		for (const Settings::SettingBase* setting : Settings::SettingBase::registry())
 			if (!setting->hidden() && setting->section() == section && matches_search(setting->key(), search))
 				return true;
@@ -254,7 +259,10 @@ public:
 			// rather than only the settings whose own names happen to match.
 			const bool wholeSection = matches_search(section, search);
 
-			if (section == "Controls" && search.empty())
+			const bool inputSetupSearch = search.empty() ||
+				matches_search("Input Bindings", search) ||
+				matches_search("Configure Input Bindings", search);
+			if (section == "Controls" && inputSetupSearch)
 				if (ImGui::Button("Configure Input Bindings"))
 					Overlay::IsBindingDialogActive = true;
 

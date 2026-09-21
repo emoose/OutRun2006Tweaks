@@ -1,0 +1,220 @@
+name: OpenXR VR recovery + R24 production build
+
+on:
+  push:
+    branches: [ vr-openxr ]
+    paths:
+      - 'src/vr/**'
+      - 'src/vr_shared.hpp'
+      - 'vrhost/**'
+      - 'tools/verify_vr_architecture.py'
+      - 'cmake.toml'
+      - 'CMakeLists.txt'
+      - '.github/workflows/vr-openxr-r20.yml'
+  workflow_dispatch:
+
+jobs:
+  game-x86:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Verify architecture boundaries
+        run: python tools/verify_vr_architecture.py
+
+      - name: Verify current recovery/baseline guards
+        shell: pwsh
+        run: |
+          $recovery = Get-Content src/vr/d3d9/stereo_renderer_r23.cpp -Raw
+          foreach ($marker in @(
+            'R23CaptureActualGameState',
+            'R23GameDrawSerial',
+            'R23DiagnoseHostFreshness',
+            'passive original Clear only',
+            'authoritative first seed',
+            'mrtActive'
+          )) {
+            if (-not $recovery.Contains($marker)) { throw "recovery guard missing: $marker" }
+          }
+          $renderer = Get-Content src/vr/game/outrun_renderer_r23.cpp -Raw
+          foreach ($marker in @(
+            'R23KeepWarmupPoseStockOnRenderThread',
+            'R23ServiceRenderThreadCleanup',
+            'recovery pose warmup is stock-visible'
+          )) {
+            if (-not $renderer.Contains($marker)) { throw "renderer guard missing: $marker" }
+          }
+
+      - name: Configure Win32
+        shell: cmd
+        run: |
+          set CI=
+          cmake -S . -B build-vr-game -G "Visual Studio 17 2022" -A Win32
+
+      - name: Verify R23 authoritative game source graph
+        shell: pwsh
+        run: |
+          $projects = Get-ChildItem build-vr-game -Filter *.vcxproj -Recurse
+          if (-not $projects) { throw 'no Visual Studio project files generated' }
+          $text = ($projects | ForEach-Object { Get-Content $_.FullName -Raw }) -join "`n"
+          if (-not $text.Contains('stereo_renderer_r23.cpp')) { throw 'R23 stereo wrapper missing from build graph' }
+          if (-not $text.Contains('outrun_renderer_r23.cpp')) { throw 'R23 renderer wrapper missing from build graph' }
+          foreach ($legacy in @('stereo_renderer.cpp','stereo_renderer_r13.cpp','stereo_renderer_r20.cpp','stereo_renderer_r21.cpp','stereo_renderer_r22.cpp','outrun_renderer.cpp','outrun_renderer_r13.cpp')) {
+            $escaped = [regex]::Escape($legacy)
+            $pattern = '<ClCompile Include="[^"]*[\\/]' + $escaped + '"'
+            if ($text -match $pattern) { throw "included/legacy VR TU compiled independently: $legacy" }
+          }
+
+      - name: Apply dependency workarounds
+        shell: pwsh
+        run: |
+          (Get-Content build-vr-game/_deps/safetyhook-build/src/safetyhook.vcxproj) -replace 'ZYCORE_STATIC_BUILD', '_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR;ZYCORE_STATIC_BUILD' | Set-Content build-vr-game/_deps/safetyhook-build/src/safetyhook.vcxproj
+          (Get-Content build-vr-game/_deps/zydis-build/Zydis.vcxproj) -replace 'ZYCORE_STATIC_BUILD', '_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR;ZYCORE_STATIC_BUILD' | Set-Content build-vr-game/_deps/zydis-build/Zydis.vcxproj
+          (Get-Content build-vr-game/_deps/zydis-build/zycore/Zycore.vcxproj) -replace 'ZYCORE_STATIC_BUILD', '_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR;ZYCORE_STATIC_BUILD' | Set-Content build-vr-game/_deps/zydis-build/zycore/Zycore.vcxproj
+          Set-Content -Path build-vr-game/_deps/sdl-src/src/joystick/gdk/SDL_gameinputjoystick.c -Value ""
+          (Get-Content build-vr-game/_deps/sdl-build/include-config-release/build_config/SDL_build_config.h) -replace '#define SDL_JOYSTICK_GAMEINPUT 1', '/* #undef SDL_JOYSTICK_GAMEINPUT */' | Set-Content build-vr-game/_deps/sdl-build/include-config-release/build_config/SDL_build_config.h
+
+      - name: Build Win32 final DLL
+        run: cmake --build build-vr-game --config Release
+
+      - name: Verify Win32 recovery binary
+        shell: pwsh
+        run: |
+          $dll = 'build-vr-game/bin/dinput8.dll'
+          if (-not (Test-Path $dll)) { throw 'dinput8.dll was not produced' }
+          $bytes = [IO.File]::ReadAllBytes($dll)
+          if ($bytes.Length -lt 10000) { throw 'dinput8.dll unexpectedly small' }
+          $ascii = [Text.Encoding]::ASCII.GetString($bytes)
+          foreach ($marker in @(
+            'VR stereo: D3D9 full-eye renderer installed',
+            'VR stereo: TRUE GEOMETRY STEREO active',
+            'VR R13: stereo hardening ACTIVE',
+            'VR R21/R23 GAME: common host freshness gate ACTIVE',
+            'VR R22 GAME: shadow-tracked viewport/scissor replay',
+            'VR R23 GAME: single-owner live-state recovery baseline ACTIVE',
+            'VR R23/R25 BASELINE: authoritative first seed',
+            'VR R23 RENDERER: BeginScene/WVP guards READY; recovery pose warmup is stock-visible',
+            'VR R21 FAIL-CLOSED:',
+            'VR v3 shadow: live dual-protocol diagnostics active'
+          )) {
+            if (-not $ascii.Contains($marker)) { throw "final DLL marker missing: $marker" }
+          }
+          $pe = [BitConverter]::ToInt32($bytes,0x3C)
+          if ([BitConverter]::ToUInt16($bytes,$pe+4) -ne 0x014C) { throw 'expected x86 DLL' }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: outrun-vr-r25-game-x86
+          path: build-vr-game/bin/dinput8.dll
+          if-no-files-found: error
+
+  host-x64:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Verify architecture boundaries
+        run: python tools/verify_vr_architecture.py
+
+      - name: Verify current host fallback invariants
+        shell: pwsh
+        run: |
+          $main23 = Get-Content vrhost/src/main_r23.cpp -Raw
+          foreach ($marker in @(
+            'R23RefreshTheaterFallbackCapture',
+            'R23TheaterRefreshWaitMs = 2',
+            'allowInitialWarmupWait',
+            'theater-only fallback'
+          )) {
+            if (-not $main23.Contains($marker)) { throw "R23 host capture guard missing: $marker" }
+          }
+          $r21 = Get-Content vrhost/src/runtime/r21_runtime_hardening.hpp -Raw
+          foreach ($marker in @('ReadDirectHostStateReadonly','HostShouldRenderReadonly')) {
+            if (-not $r21.Contains($marker)) { throw "R21 source invariant missing: $marker" }
+          }
+          if ($r21 -match 'InterlockedCompareExchange\s*\(') { throw 'write-capable CAS call leaked into R21 readonly path' }
+          $r23 = Get-Content vrhost/src/runtime/r23_runtime_hardening.hpp -Raw
+          if (-not $r23.Contains('R23-owned-verified-bundle-submit-20260916')) { throw 'R23 verified bundle owner missing' }
+          $r24 = Get-Content vrhost/src/runtime/r24_black_screen_guard.hpp -Raw
+          foreach ($marker in @(
+            'R24-visible-fallback-final-20260916',
+            'OutRunVrR23VerifiedBundle::MaxPresentationAgeMs',
+            'TrySubmitDirectSafeProjection',
+            'SubmitVisibleFallback',
+            'RenderTheaterOverride',
+            'BuildCachedVisibleQuad'
+          )) {
+            if (-not $r24.Contains($marker)) { throw "R24 source invariant missing: $marker" }
+          }
+          $wait = Get-Content vrhost/src/runtime/bounded_swapchain_wait.hpp -Raw
+          if (-not $wait.Contains('TotalBudgetMs = 250')) { throw 'bounded swapchain wait budget missing' }
+          if (-not $wait.Contains('XR_ERROR_RUNTIME_FAILURE')) { throw 'bounded swapchain wait fail-out missing' }
+          $cmake = Get-Content vrhost/CMakeLists.txt -Raw
+          if (-not $cmake.Contains('r24_black_screen_guard.hpp')) { throw 'R24 final owner not forced into host' }
+          if (-not $cmake.Contains('bounded_swapchain_wait.hpp')) { throw 'bounded wait guard not forced into host' }
+
+      - name: Configure x64 host
+        run: cmake -S vrhost -B build-vr-host -G "Visual Studio 17 2022" -A x64
+
+      - name: Build x64 host and tests
+        run: cmake --build build-vr-host --config RelWithDebInfo
+
+      - name: Run host smoke tests
+        shell: pwsh
+        run: |
+          foreach ($test in @(
+            'outrun-vr-shader-smoke.exe',
+            'outrun-vr-protocol-v3-smoke.exe',
+            'outrun-vr-host-state-v3-channel-smoke.exe',
+            'outrun-vr-v2-v3-shadow-conversion-smoke.exe',
+            'outrun-vr-host-pose-v3-validation-smoke.exe',
+            'outrun-vr-core-math-smoke.exe',
+            'outrun-vr-runtime-eligibility-smoke.exe',
+            'outrun-vr-r23-verified-bundle-smoke.exe'
+          )) {
+            $path = Join-Path 'build-vr-host/bin' $test
+            if (-not (Test-Path $path)) { throw "missing smoke executable: $test" }
+            & $path
+            if ($LASTEXITCODE -ne 0) { throw "smoke failed: $test code=$LASTEXITCODE" }
+          }
+
+      - name: Verify x64 R24 host binary and PDB
+        shell: pwsh
+        run: |
+          $hostPath = 'build-vr-host/bin/outrun-vr-host.exe'
+          $pdbPath = 'build-vr-host/bin/outrun-vr-host.pdb'
+          if (-not (Test-Path $hostPath)) { throw 'outrun-vr-host.exe was not produced' }
+          if (-not (Test-Path $pdbPath)) { throw 'outrun-vr-host.pdb was not produced' }
+          $bytes = [IO.File]::ReadAllBytes($hostPath)
+          if ($bytes.Length -lt 10000) { throw 'outrun-vr-host.exe unexpectedly small' }
+          $ascii = [Text.Encoding]::ASCII.GetString($bytes)
+          foreach ($marker in @(
+            'R24-visible-fallback-final-20260916',
+            '[R24] exact committed classic projection submitted directly',
+            '[R24] DirectGPU final submit uses host-owned SafeEye',
+            '[R24] live theater fallback replaced an unsafe/absent gameplay projection instead of submitting black',
+            '[R23 mono] gameplay stereo pending: bounded Desktop Duplication refresh for theater-only fallback',
+            'xrWaitSwapchainImage exceeded 250ms',
+            '[R23 pixel]',
+            'R23-crash-text-first-20260916',
+            'R20-production-host-20260916',
+            'R19-production-capture-reuse-20260916',
+            '[v3] live shadow HostState/AckState bridge ready.'
+          )) {
+            if (-not $ascii.Contains($marker)) { throw "R24 host marker missing: $marker" }
+          }
+          if ($ascii.Contains('no-layer OpenXR test pattern ready')) { throw 'obsolete no-layer OpenXR test pattern leaked into final host' }
+          $pe = [BitConverter]::ToInt32($bytes,0x3C)
+          if ([BitConverter]::ToUInt16($bytes,$pe+4) -ne 0x8664) { throw 'expected x64 host' }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: outrun-vr-r24-host-x64-production
+          path: |
+            build-vr-host/bin/outrun-vr-host.exe
+            build-vr-host/bin/outrun-vr-host.pdb
+          if-no-files-found: error
