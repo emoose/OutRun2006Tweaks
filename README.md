@@ -1,8 +1,8 @@
 # OutRun2006Tweaks
-[![GitHub Downloads](https://img.shields.io/github/downloads/emoose/OutRun2006Tweaks/total)](https://github.com/emoose/OutRun2006Tweaks/releases)
+[![GitHub Downloads](https://img.shields.io/github/downloads/emoose/OutRun2006Tweaks/total)](https://github.com/emoose/OutRun2006Tweaks/releases) [![Discord](https://img.shields.io/discord/1259784325394858058?label=discord)](https://discord.gg/GFjKAMg83t)
 
 > [!NOTE]  
-> **Releases are currently very outdated**, and missing a lot of new features (new input system, config overlay, framerate interpolation...) - if you have a GitHub account you can download the latest builds from the Actions tab at top of the page, otherwise you can find the latest build at the Discord below!
+> **Releases are currently very outdated**, and missing a lot of new features (new input system, config overlay, framerate interpolation...) - if you have a GitHub account you can download the latest builds from the Actions tab at top of the page, otherwise you can find the latest build at the Discord above!
 
 A wrapper DLL that adds fixes & tweaks into OutRun 2006: Coast 2 Coast.
 
