@@ -6,8 +6,6 @@
 
 A wrapper DLL that adds fixes & tweaks into OutRun 2006: Coast 2 Coast.
 
-Latest releases can be found under the releases section: https://github.com/emoose/OutRun2006Tweaks/releases
-
 **Tweaks will also point the game to new multiplayer servers**, just head to the multiplayer section in-game and pick a username & password there!
 
 Online games are regularly setup on the **OutRun2006Tweaks Discord**: https://discord.gg/GFjKAMg83t
